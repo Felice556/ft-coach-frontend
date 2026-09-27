@@ -6,6 +6,7 @@ export interface Esercizio {
   id: number;
   nome: string;
   videoUrl?: string | null;
+  descrizione?: string | null;
   serieTarget: number;
   repsTarget: number;
   recuperoSecondi: number;
@@ -23,6 +24,7 @@ export interface RegistroAllenamento {
   id: number;
   pesoUsato: number;
   repsFatte: number;
+  nota?: string | null;
   data: string;
   esercizioId: number;
   clienteId: number;
@@ -84,10 +86,15 @@ export function cancellaScheda(id: number) {
   return apiFetch<void>(`/schede/${id}`, { method: 'DELETE' });
 }
 
-export function registraAllenamento(esercizioId: number, pesoUsato: number, repsFatte: number) {
+export function registraAllenamento(
+  esercizioId: number,
+  pesoUsato: number,
+  repsFatte: number,
+  nota?: string
+) {
   return apiFetch<RegistroAllenamento>('/registro', {
     method: 'POST',
-    body: JSON.stringify({ esercizioId, pesoUsato, repsFatte }),
+    body: JSON.stringify({ esercizioId, pesoUsato, repsFatte, nota: nota || undefined }),
   });
 }
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getSchede, registraAllenamento, getStorico, Scheda, RegistroAllenamento } from './api';
+import ProgressoChart from './ProgressoChart';
 
 export default function ClienteDashboard() {
   const [schede, setSchede] = useState<Scheda[]>([]);
@@ -10,6 +11,7 @@ export default function ClienteDashboard() {
   // esercizio in un oggetto indicizzato per id, invece di uno stato per riga.
   const [pesoInput, setPesoInput] = useState<Record<number, string>>({});
   const [repsInput, setRepsInput] = useState<Record<number, string>>({});
+  const [notaInput, setNotaInput] = useState<Record<number, string>>({});
 
   // Storico aperto: quale esercizio sta mostrando lo storico, e i dati caricati.
   const [storicoAperto, setStoricoAperto] = useState<number | null>(null);
@@ -40,8 +42,9 @@ export default function ClienteDashboard() {
     }
 
     try {
-      await registraAllenamento(esercizioId, peso, reps);
+      await registraAllenamento(esercizioId, peso, reps, notaInput[esercizioId]);
       setMessaggio('Allenamento registrato!');
+      setNotaInput({ ...notaInput, [esercizioId]: '' });
       // Se lo storico di questo esercizio è aperto, lo ricarichiamo per mostrare
       // subito il nuovo dato senza dover chiudere e riaprire.
       if (storicoAperto === esercizioId) {
@@ -125,49 +128,77 @@ export default function ClienteDashboard() {
                   </span>
                 </div>
 
-                <div className="mt-5 grid grid-cols-2 gap-3 sm:flex sm:items-end">
-                  <div className="sm:w-32">
-                    <label className="label">Peso (kg)</label>
+                {es.descrizione && (
+                  <p className="mt-3 rounded-lg border-l-2 border-accent bg-accent-soft px-3 py-2 text-sm text-neutral-700">
+                    {es.descrizione}
+                  </p>
+                )}
+
+                <div className="mt-5 space-y-3">
+                  <div className="grid grid-cols-2 gap-3 sm:flex sm:items-end">
+                    <div className="sm:w-32">
+                      <label className="label">Peso (kg)</label>
+                      <input
+                        className="input"
+                        type="number"
+                        placeholder="Peso (kg)"
+                        value={pesoInput[es.id] || ''}
+                        onChange={(e) => setPesoInput({ ...pesoInput, [es.id]: e.target.value })}
+                      />
+                    </div>
+                    <div className="sm:w-32">
+                      <label className="label">Reps</label>
+                      <input
+                        className="input"
+                        type="number"
+                        placeholder="Reps fatte"
+                        value={repsInput[es.id] || ''}
+                        onChange={(e) => setRepsInput({ ...repsInput, [es.id]: e.target.value })}
+                      />
+                    </div>
+                    <button className="btn-primary col-span-2 sm:col-span-1" onClick={() => handleRegistra(es.id)}>
+                      Registra allenamento
+                    </button>
+                    <button className="btn-secondary col-span-2 sm:col-span-1" onClick={() => toggleStorico(es.id)}>
+                      {storicoAperto === es.id ? 'Nascondi storico' : 'Vedi storico'}
+                    </button>
+                  </div>
+                  <div>
+                    <label className="label">Nota per il trainer (opzionale)</label>
                     <input
                       className="input"
-                      type="number"
-                      placeholder="Peso (kg)"
-                      value={pesoInput[es.id] || ''}
-                      onChange={(e) => setPesoInput({ ...pesoInput, [es.id]: e.target.value })}
+                      placeholder='Es. "sentivo dolore alla spalla" o "peso troppo leggero"'
+                      value={notaInput[es.id] || ''}
+                      onChange={(e) => setNotaInput({ ...notaInput, [es.id]: e.target.value })}
                     />
                   </div>
-                  <div className="sm:w-32">
-                    <label className="label">Reps</label>
-                    <input
-                      className="input"
-                      type="number"
-                      placeholder="Reps fatte"
-                      value={repsInput[es.id] || ''}
-                      onChange={(e) => setRepsInput({ ...repsInput, [es.id]: e.target.value })}
-                    />
-                  </div>
-                  <button className="btn-primary col-span-2 sm:col-span-1" onClick={() => handleRegistra(es.id)}>
-                    Registra allenamento
-                  </button>
-                  <button className="btn-secondary col-span-2 sm:col-span-1" onClick={() => toggleStorico(es.id)}>
-                    {storicoAperto === es.id ? 'Nascondi storico' : 'Vedi storico'}
-                  </button>
                 </div>
 
                 {storicoAperto === es.id && (
-                  <ul className="mt-5 divide-y divide-neutral-100 rounded-xl border border-neutral-200 bg-neutral-50 text-sm">
-                    {storico.length === 0 && (
-                      <li className="px-4 py-3 text-neutral-500">Nessun allenamento registrato ancora.</li>
+                  <div className="mt-5">
+                    {storico.length === 0 ? (
+                      <p className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-500">
+                        Nessun allenamento registrato ancora.
+                      </p>
+                    ) : (
+                      <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                        <ProgressoChart storico={storico} />
+                      </div>
                     )}
-                    {storico.map((r) => (
-                      <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
-                        <span className="text-neutral-500">{new Date(r.data).toLocaleDateString('it-IT')}</span>
-                        <span>
-                          <span className="font-bold">{r.pesoUsato}kg</span> x {r.repsFatte} reps
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                    <ul className="mt-3 divide-y divide-neutral-100 rounded-xl border border-neutral-200 bg-neutral-50 text-sm">
+                      {storico.map((r) => (
+                        <li key={r.id} className="px-4 py-2.5">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-neutral-500">{new Date(r.data).toLocaleDateString('it-IT')}</span>
+                            <span>
+                              <span className="font-bold">{r.pesoUsato}kg</span> x {r.repsFatte} reps
+                            </span>
+                          </div>
+                          {r.nota && <p className="mt-1 text-xs italic text-neutral-500">"{r.nota}"</p>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
               </div>
             ))}

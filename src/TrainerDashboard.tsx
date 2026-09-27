@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { creaScheda, cancellaScheda, getSchede, Scheda } from './api';
+import { creaScheda, cancellaScheda, getSchede, getStorico, Scheda, RegistroAllenamento } from './api';
 
 type EsercizioBozza = {
   nome: string;
   videoUrl: string;
+  descrizione: string;
   serieTarget: string;
   repsTarget: string;
   recuperoSecondi: string;
@@ -12,6 +13,7 @@ type EsercizioBozza = {
 const esercizioVuoto = (): EsercizioBozza => ({
   nome: '',
   videoUrl: '',
+  descrizione: '',
   serieTarget: '3',
   repsTarget: '10',
   recuperoSecondi: '60',
@@ -24,6 +26,25 @@ export default function TrainerDashboard() {
   const [nomeScheda, setNomeScheda] = useState('');
   const [clienteId, setClienteId] = useState('');
   const [esercizi, setEsercizi] = useState<EsercizioBozza[]>([esercizioVuoto()]);
+
+  // Storico letto in sola lettura dal trainer, per vedere cosa scrivono i clienti
+  // dopo ogni allenamento (dolori, difficoltà, sensazioni).
+  const [storicoAperto, setStoricoAperto] = useState<number | null>(null);
+  const [storico, setStorico] = useState<RegistroAllenamento[]>([]);
+
+  async function toggleStorico(esercizioId: number) {
+    if (storicoAperto === esercizioId) {
+      setStoricoAperto(null);
+      return;
+    }
+    try {
+      const dati = await getStorico(esercizioId);
+      setStorico(dati);
+      setStoricoAperto(esercizioId);
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : 'Errore nel caricamento storico');
+    }
+  }
 
   async function caricaSchede() {
     try {
@@ -59,6 +80,7 @@ export default function TrainerDashboard() {
       const eserciziValidati = esercizi.map((es) => ({
         nome: es.nome,
         videoUrl: es.videoUrl || undefined,
+        descrizione: es.descrizione || undefined,
         serieTarget: Number(es.serieTarget),
         repsTarget: Number(es.repsTarget),
         recuperoSecondi: Number(es.recuperoSecondi),
@@ -191,6 +213,15 @@ export default function TrainerDashboard() {
                       />
                     </div>
                   </div>
+                  <div className="mt-3">
+                    <label className="label">Note per il cliente (opzionale)</label>
+                    <textarea
+                      className="input min-h-[60px] resize-y"
+                      placeholder='Es. "3x10 ma con 3 secondi di isometria in basso"'
+                      value={es.descrizione}
+                      onChange={(e) => aggiornaEsercizio(i, 'descrizione', e.target.value)}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -235,14 +266,47 @@ export default function TrainerDashboard() {
               </div>
               <ul className="divide-y divide-neutral-100 border-t border-neutral-100">
                 {scheda.esercizi.map((es) => (
-                  <li key={es.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                    <span className="font-medium">{es.nome}</span>
-                    <span className="shrink-0 text-neutral-500">
-                      <span className="font-semibold text-ink">
-                        {es.serieTarget}x{es.repsTarget}
-                      </span>{' '}
-                      · {es.recuperoSecondi}s
-                    </span>
+                  <li key={es.id} className="py-2 text-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium">{es.nome}</span>
+                      <span className="shrink-0 text-neutral-500">
+                        <span className="font-semibold text-ink">
+                          {es.serieTarget}x{es.repsTarget}
+                        </span>{' '}
+                        · {es.recuperoSecondi}s
+                      </span>
+                    </div>
+                    {es.descrizione && <p className="mt-1 text-xs text-neutral-500">{es.descrizione}</p>}
+
+                    <button
+                      type="button"
+                      className="btn-link mt-1 text-xs"
+                      onClick={() => toggleStorico(es.id)}
+                    >
+                      {storicoAperto === es.id ? 'Nascondi note cliente' : 'Vedi note cliente'}
+                    </button>
+
+                    {storicoAperto === es.id && (
+                      <div className="mt-2 rounded-lg border border-neutral-200 bg-neutral-50 p-2">
+                        {storico.length === 0 ? (
+                          <p className="px-2 py-1 text-xs text-neutral-500">Nessun allenamento registrato ancora.</p>
+                        ) : (
+                          <ul className="divide-y divide-neutral-100">
+                            {storico.map((r) => (
+                              <li key={r.id} className="px-2 py-1.5 text-xs">
+                                <div className="flex items-center justify-between gap-2 text-neutral-600">
+                                  <span>{new Date(r.data).toLocaleDateString('it-IT')}</span>
+                                  <span className="font-semibold text-ink">
+                                    {r.pesoUsato}kg x {r.repsFatte}
+                                  </span>
+                                </div>
+                                {r.nota && <p className="mt-0.5 italic text-neutral-500">"{r.nota}"</p>}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
                   </li>
                 ))}
               </ul>
