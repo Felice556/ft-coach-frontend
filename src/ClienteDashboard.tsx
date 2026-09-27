@@ -68,65 +68,110 @@ export default function ClienteDashboard() {
   }
 
   if (schede.length === 0) {
-    return <p>Il tuo trainer non ti ha ancora assegnato una scheda.</p>;
+    return (
+      <p className="rounded-2xl border border-dashed border-neutral-300 bg-white p-8 text-center text-neutral-500">
+        Il tuo trainer non ti ha ancora assegnato una scheda.
+      </p>
+    );
   }
 
   return (
-    <div>
-      {errore && <p style={{ color: 'crimson' }}>{errore}</p>}
-      {messaggio && <p style={{ color: 'seagreen' }}>{messaggio}</p>}
+    <div className="space-y-10">
+      {(errore || messaggio) && (
+        <div className="space-y-2">
+          {errore && <p className="alert-error">{errore}</p>}
+          {messaggio && <p className="alert-success">{messaggio}</p>}
+        </div>
+      )}
 
       {schede.map((scheda) => (
-        <section key={scheda.id} style={{ marginTop: 24 }}>
-          <h2>{scheda.nome}</h2>
+        <section key={scheda.id}>
+          <h2 className="mb-4 flex items-center gap-2 text-xl font-bold">
+            <span className="h-5 w-1.5 rounded-full bg-accent" />
+            {scheda.nome}
+          </h2>
 
-          {scheda.esercizi.map((es) => (
-            <div key={es.id} style={{ border: '1px solid #ccc', padding: 12, marginBottom: 12 }}>
-              <h3>{es.nome}</h3>
-              <p>
-                Target: {es.serieTarget} serie x {es.repsTarget} reps — recupero {es.recuperoSecondi}s
-              </p>
-              {es.videoUrl && (
-                <p>
-                  <a href={es.videoUrl} target="_blank" rel="noreferrer">
-                    Guarda il video
-                  </a>
-                </p>
-              )}
+          <div className="space-y-4">
+            {scheda.esercizi.map((es) => (
+              <div
+                key={es.id}
+                className={`card border-l-4 transition ${
+                  storicoAperto === es.id ? 'border-l-accent shadow-md' : 'border-l-transparent hover:border-l-accent'
+                }`}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <h3 className="text-lg font-bold">{es.nome}</h3>
+                  {es.videoUrl && (
+                    <a
+                      href={es.videoUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn-link text-sm"
+                    >
+                      ▶ Guarda il video
+                    </a>
+                  )}
+                </div>
 
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input
-                  type="number"
-                  placeholder="Peso (kg)"
-                  value={pesoInput[es.id] || ''}
-                  onChange={(e) => setPesoInput({ ...pesoInput, [es.id]: e.target.value })}
-                  style={{ width: 100 }}
-                />
-                <input
-                  type="number"
-                  placeholder="Reps fatte"
-                  value={repsInput[es.id] || ''}
-                  onChange={(e) => setRepsInput({ ...repsInput, [es.id]: e.target.value })}
-                  style={{ width: 100 }}
-                />
-                <button onClick={() => handleRegistra(es.id)}>Registra allenamento</button>
-                <button onClick={() => toggleStorico(es.id)}>
-                  {storicoAperto === es.id ? 'Nascondi storico' : 'Vedi storico'}
-                </button>
+                <div className="mt-3 flex flex-wrap gap-2 text-sm">
+                  <span className="rounded-lg bg-neutral-100 px-3 py-1">
+                    <span className="font-bold">{es.serieTarget}</span> serie
+                  </span>
+                  <span className="rounded-lg bg-neutral-100 px-3 py-1">
+                    <span className="font-bold">{es.repsTarget}</span> reps
+                  </span>
+                  <span className="rounded-lg bg-neutral-100 px-3 py-1">
+                    recupero <span className="font-bold">{es.recuperoSecondi}s</span>
+                  </span>
+                </div>
+
+                <div className="mt-5 grid grid-cols-2 gap-3 sm:flex sm:items-end">
+                  <div className="sm:w-32">
+                    <label className="label">Peso (kg)</label>
+                    <input
+                      className="input"
+                      type="number"
+                      placeholder="Peso (kg)"
+                      value={pesoInput[es.id] || ''}
+                      onChange={(e) => setPesoInput({ ...pesoInput, [es.id]: e.target.value })}
+                    />
+                  </div>
+                  <div className="sm:w-32">
+                    <label className="label">Reps</label>
+                    <input
+                      className="input"
+                      type="number"
+                      placeholder="Reps fatte"
+                      value={repsInput[es.id] || ''}
+                      onChange={(e) => setRepsInput({ ...repsInput, [es.id]: e.target.value })}
+                    />
+                  </div>
+                  <button className="btn-primary col-span-2 sm:col-span-1" onClick={() => handleRegistra(es.id)}>
+                    Registra allenamento
+                  </button>
+                  <button className="btn-secondary col-span-2 sm:col-span-1" onClick={() => toggleStorico(es.id)}>
+                    {storicoAperto === es.id ? 'Nascondi storico' : 'Vedi storico'}
+                  </button>
+                </div>
+
+                {storicoAperto === es.id && (
+                  <ul className="mt-5 divide-y divide-neutral-100 rounded-xl border border-neutral-200 bg-neutral-50 text-sm">
+                    {storico.length === 0 && (
+                      <li className="px-4 py-3 text-neutral-500">Nessun allenamento registrato ancora.</li>
+                    )}
+                    {storico.map((r) => (
+                      <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                        <span className="text-neutral-500">{new Date(r.data).toLocaleDateString('it-IT')}</span>
+                        <span>
+                          <span className="font-bold">{r.pesoUsato}kg</span> x {r.repsFatte} reps
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-
-              {storicoAperto === es.id && (
-                <ul style={{ marginTop: 8 }}>
-                  {storico.length === 0 && <li>Nessun allenamento registrato ancora.</li>}
-                  {storico.map((r) => (
-                    <li key={r.id}>
-                      {new Date(r.data).toLocaleDateString('it-IT')}: {r.pesoUsato}kg x {r.repsFatte} reps
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
         </section>
       ))}
     </div>

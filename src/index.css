@@ -1,0 +1,67 @@
+@import 'tailwindcss';
+
+/* Palette del progetto: giallo come accento, neutri per testo e sfondi. */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --color-accent: #facc15;
+  --color-accent-hover: #eab308;
+  --color-accent-soft: #fef9c3;
+  --color-ink: #0a0a0a;
+}
+
+@layer base {
+  body {
+    @apply bg-neutral-50 text-ink antialiased;
+  }
+}
+
+/* Classi riutilizzabili per non ripetere lunghe stringhe di utility nei componenti. */
+@layer components {
+  .input {
+    @apply w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-ink
+      placeholder:text-neutral-400 transition
+      focus:border-accent focus:ring-2 focus:ring-accent/40 focus:outline-none;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-1 rounded-lg px-4 py-2 text-sm font-semibold
+      transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60
+      disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply bg-accent text-ink shadow-sm hover:bg-accent-hover active:scale-[0.98];
+  }
+
+  .btn-secondary {
+    @apply border border-neutral-300 bg-white text-ink hover:border-ink hover:bg-neutral-100;
+  }
+
+  .btn-danger {
+    @apply border border-red-200 bg-white text-red-600 hover:border-red-600 hover:bg-red-50;
+  }
+
+  .btn-link {
+    @apply cursor-pointer font-semibold text-ink underline decoration-accent decoration-2 underline-offset-4
+      hover:decoration-accent-hover;
+  }
+
+  .card {
+    @apply rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm;
+  }
+
+  .label {
+    @apply mb-1 block text-xs font-semibold tracking-wide text-neutral-600 uppercase;
+  }
+
+  .alert-error {
+    @apply rounded-lg border-l-4 border-red-500 bg-red-50 px-4 py-3 text-sm text-red-700;
+  }
+
+  .alert-success {
+    @apply rounded-lg border-l-4 border-green-500 bg-green-50 px-4 py-3 text-sm text-green-800;
+  }
+}

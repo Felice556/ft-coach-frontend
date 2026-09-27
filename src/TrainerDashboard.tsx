@@ -88,94 +88,167 @@ export default function TrainerDashboard() {
   }
 
   return (
-    <div>
-      <section style={{ marginTop: 24 }}>
-        <h2>Nuova scheda</h2>
-        <form onSubmit={handleCreaScheda}>
-          <input
-            placeholder="Nome scheda (es. Full Body A)"
-            value={nomeScheda}
-            onChange={(e) => setNomeScheda(e.target.value)}
-            required
-          />
-          <input
-            placeholder="ID cliente"
-            value={clienteId}
-            onChange={(e) => setClienteId(e.target.value)}
-            required
-          />
-
-          <h3>Esercizi</h3>
-          {esercizi.map((es, i) => (
-            <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+    <div className="space-y-10">
+      <section className="card sm:p-6">
+        <h2 className="mb-5 flex items-center gap-2 text-xl font-bold">
+          <span className="h-5 w-1.5 rounded-full bg-accent" />
+          Nuova scheda
+        </h2>
+        <form onSubmit={handleCreaScheda} className="space-y-6">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="sm:col-span-2">
+              <label className="label">Nome scheda</label>
               <input
-                placeholder="Nome esercizio"
-                value={es.nome}
-                onChange={(e) => aggiornaEsercizio(i, 'nome', e.target.value)}
+                className="input"
+                placeholder="Nome scheda (es. Full Body A)"
+                value={nomeScheda}
+                onChange={(e) => setNomeScheda(e.target.value)}
                 required
               />
-              <input
-                placeholder="Link video (opzionale)"
-                value={es.videoUrl}
-                onChange={(e) => aggiornaEsercizio(i, 'videoUrl', e.target.value)}
-              />
-              <input
-                type="number"
-                placeholder="Serie"
-                value={es.serieTarget}
-                onChange={(e) => aggiornaEsercizio(i, 'serieTarget', e.target.value)}
-              />
-              <input
-                type="number"
-                placeholder="Reps"
-                value={es.repsTarget}
-                onChange={(e) => aggiornaEsercizio(i, 'repsTarget', e.target.value)}
-              />
-              <input
-                type="number"
-                placeholder="Recupero (sec)"
-                value={es.recuperoSecondi}
-                onChange={(e) => aggiornaEsercizio(i, 'recuperoSecondi', e.target.value)}
-              />
-              {esercizi.length > 1 && (
-                <button type="button" onClick={() => rimuoviRigaEsercizio(i)}>
-                  Rimuovi
-                </button>
-              )}
             </div>
-          ))}
-          <button type="button" onClick={aggiungiRigaEsercizio}>
-            + Aggiungi esercizio
-          </button>
+            <div>
+              <label className="label">ID cliente</label>
+              <input
+                className="input"
+                placeholder="ID cliente"
+                value={clienteId}
+                onChange={(e) => setClienteId(e.target.value)}
+                required
+              />
+            </div>
+          </div>
 
-          <div style={{ marginTop: 12 }}>
-            <button type="submit">Crea scheda</button>
+          <div>
+            <h3 className="mb-3 text-sm font-bold tracking-wide text-neutral-700 uppercase">Esercizi</h3>
+            <div className="space-y-3">
+              {esercizi.map((es, i) => (
+                <div
+                  key={i}
+                  className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 transition focus-within:border-accent"
+                >
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-ink text-xs font-bold text-accent">
+                      {i + 1}
+                    </span>
+                    {esercizi.length > 1 && (
+                      <button
+                        type="button"
+                        className="btn-danger px-3 py-1 text-xs"
+                        onClick={() => rimuoviRigaEsercizio(i)}
+                      >
+                        Rimuovi
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+                    <div className="col-span-3 sm:col-span-3">
+                      <label className="label">Esercizio</label>
+                      <input
+                        className="input"
+                        placeholder="Nome esercizio"
+                        value={es.nome}
+                        onChange={(e) => aggiornaEsercizio(i, 'nome', e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="col-span-3 sm:col-span-3">
+                      <label className="label">Video</label>
+                      <input
+                        className="input"
+                        placeholder="Link video (opzionale)"
+                        value={es.videoUrl}
+                        onChange={(e) => aggiornaEsercizio(i, 'videoUrl', e.target.value)}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="label">Serie</label>
+                      <input
+                        className="input"
+                        type="number"
+                        placeholder="Serie"
+                        value={es.serieTarget}
+                        onChange={(e) => aggiornaEsercizio(i, 'serieTarget', e.target.value)}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="label">Reps</label>
+                      <input
+                        className="input"
+                        type="number"
+                        placeholder="Reps"
+                        value={es.repsTarget}
+                        onChange={(e) => aggiornaEsercizio(i, 'repsTarget', e.target.value)}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="label">Rec. (sec)</label>
+                      <input
+                        className="input"
+                        type="number"
+                        placeholder="Recupero (sec)"
+                        value={es.recuperoSecondi}
+                        onChange={(e) => aggiornaEsercizio(i, 'recuperoSecondi', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button type="button" className="btn-secondary mt-3 w-full border-dashed sm:w-auto" onClick={aggiungiRigaEsercizio}>
+              + Aggiungi esercizio
+            </button>
+          </div>
+
+          <div className="flex justify-end border-t border-neutral-200 pt-5">
+            <button type="submit" className="btn-primary w-full px-6 py-2.5 sm:w-auto">
+              Crea scheda
+            </button>
           </div>
         </form>
       </section>
 
-      {errore && <p style={{ color: 'crimson' }}>{errore}</p>}
+      {errore && <p className="alert-error">{errore}</p>}
 
-      <section style={{ marginTop: 32 }}>
-        <h2>Schede esistenti</h2>
-        {schede.length === 0 && <p>Nessuna scheda ancora creata.</p>}
-        {schede.map((scheda) => (
-          <div key={scheda.id} style={{ border: '1px solid #ccc', padding: 12, marginBottom: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <strong>
-                {scheda.nome} (cliente #{scheda.clienteId})
-              </strong>
-              <button onClick={() => handleCancella(scheda.id)}>Cancella scheda</button>
+      <section>
+        <h2 className="mb-4 flex items-center gap-2 text-xl font-bold">
+          <span className="h-5 w-1.5 rounded-full bg-accent" />
+          Schede esistenti
+        </h2>
+        {schede.length === 0 && (
+          <p className="rounded-2xl border border-dashed border-neutral-300 bg-white p-8 text-center text-neutral-500">
+            Nessuna scheda ancora creata.
+          </p>
+        )}
+        <div className="grid gap-4 md:grid-cols-2">
+          {schede.map((scheda) => (
+            <div key={scheda.id} className="card flex flex-col transition hover:shadow-md">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <strong className="block truncate text-lg font-bold">{scheda.nome}</strong>
+                  <span className="mt-1 inline-block rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600">
+                    cliente #{scheda.clienteId}
+                  </span>
+                </div>
+                <button className="btn-danger shrink-0 px-3 py-1.5 text-xs" onClick={() => handleCancella(scheda.id)}>
+                  Cancella scheda
+                </button>
+              </div>
+              <ul className="divide-y divide-neutral-100 border-t border-neutral-100">
+                {scheda.esercizi.map((es) => (
+                  <li key={es.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                    <span className="font-medium">{es.nome}</span>
+                    <span className="shrink-0 text-neutral-500">
+                      <span className="font-semibold text-ink">
+                        {es.serieTarget}x{es.repsTarget}
+                      </span>{' '}
+                      · {es.recuperoSecondi}s
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <ul>
-              {scheda.esercizi.map((es) => (
-                <li key={es.id}>
-                  {es.nome} — {es.serieTarget}x{es.repsTarget}, recupero {es.recuperoSecondi}s
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+          ))}
+        </div>
       </section>
     </div>
   );
