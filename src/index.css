@@ -1,67 +1,107 @@
 @import 'tailwindcss';
 
-/* Palette del progetto: giallo come accento, neutri per testo e sfondi. */
+/*
+  Tema "palestra": scuro, con il giallo come unico colore d'accento.
+  Perché scuro: in palestra la luce è spesso bassa, lo schermo va letto al volo
+  tra una serie e l'altra, e il giallo su nero ha un contrasto altissimo
+  (su bianco invece il giallo non si può usare per il testo).
+
+  I colori hanno nomi "semantici" (a cosa servono) invece che descrittivi
+  (che colore sono): i componenti scrivono bg-surface / text-muted, e per
+  cambiare tema in futuro basta toccare questo blocco, non ogni componente.
+*/
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 
+  --color-bg: #0b0b0c; /* sfondo pagina */
+  --color-surface: #17171a; /* card */
+  --color-surface-2: #222226; /* elementi dentro le card: chip, righe, riquadri */
+  --color-field: #0f0f11; /* campi di input: "incassati" nella card */
+  --color-line: #2e2e33; /* bordi e divisori */
+
+  --color-ink: #f5f5f4; /* testo principale */
+  --color-soft: #d4d4d8; /* testo secondario leggibile */
+  --color-muted: #a1a1aa; /* etichette, date, testo di servizio */
+
   --color-accent: #facc15;
-  --color-accent-hover: #eab308;
-  --color-accent-soft: #fef9c3;
-  --color-ink: #0a0a0a;
+  --color-accent-hover: #fde047;
+  --color-accent-ink: #0b0b0c; /* testo SOPRA il giallo */
+  --color-accent-soft: #29230c; /* velatura gialla per note in evidenza */
+
+  --color-danger: #f87171;
+  --color-danger-soft: #2a1515;
+  --color-success: #4ade80;
+  --color-success-soft: #132519;
 }
 
 @layer base {
+  html {
+    /* Fa disegnare al browser anche select, tastiere e scrollbar in versione scura. */
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
-    @apply bg-neutral-50 text-ink antialiased;
+    @apply bg-bg text-ink antialiased;
   }
 }
 
-/* Classi riutilizzabili per non ripetere lunghe stringhe di utility nei componenti. */
 @layer components {
+  /* text-base = 16px: sotto questa misura iPhone fa lo zoom sul campo quando lo tocchi. */
   .input {
-    @apply w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-ink
-      placeholder:text-neutral-400 transition
-      focus:border-accent focus:ring-2 focus:ring-accent/40 focus:outline-none;
+    @apply min-h-12 w-full rounded-xl border border-line bg-field px-3.5 py-2.5 text-base text-ink
+      placeholder:text-muted/70 transition
+      focus:border-accent focus:ring-2 focus:ring-accent/30 focus:outline-none;
   }
 
+  /* Bottoni alti almeno 44px: la misura minima consigliata per il pollice. */
   .btn-primary,
   .btn-secondary,
-  .btn-danger {
-    @apply inline-flex items-center justify-center gap-1 rounded-lg px-4 py-2 text-sm font-semibold
-      transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60
-      disabled:opacity-50 disabled:cursor-not-allowed;
+  .btn-danger,
+  .btn-ghost {
+    @apply inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold
+      transition cursor-pointer select-none active:scale-[0.97]
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60
+      disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100;
   }
 
   .btn-primary {
-    @apply bg-accent text-ink shadow-sm hover:bg-accent-hover active:scale-[0.98];
+    @apply bg-accent text-accent-ink hover:bg-accent-hover;
   }
 
   .btn-secondary {
-    @apply border border-neutral-300 bg-white text-ink hover:border-ink hover:bg-neutral-100;
+    @apply border border-line bg-surface-2 text-ink hover:border-muted;
   }
 
   .btn-danger {
-    @apply border border-red-200 bg-white text-red-600 hover:border-red-600 hover:bg-red-50;
+    @apply border border-danger/40 bg-transparent text-danger hover:bg-danger-soft;
+  }
+
+  .btn-ghost {
+    @apply bg-surface-2 text-ink hover:bg-line;
   }
 
   .btn-link {
-    @apply cursor-pointer font-semibold text-ink underline decoration-accent decoration-2 underline-offset-4
-      hover:decoration-accent-hover;
+    @apply cursor-pointer font-semibold text-accent underline-offset-4 hover:underline;
   }
 
   .card {
-    @apply rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm;
+    @apply rounded-2xl border border-line bg-surface p-4 sm:p-5;
   }
 
   .label {
-    @apply mb-1 block text-xs font-semibold tracking-wide text-neutral-600 uppercase;
+    @apply mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-lg bg-surface-2 px-2.5 py-1 text-sm text-soft;
   }
 
   .alert-error {
-    @apply rounded-lg border-l-4 border-red-500 bg-red-50 px-4 py-3 text-sm text-red-700;
+    @apply rounded-xl border-l-4 border-danger bg-danger-soft px-4 py-3 text-sm text-danger;
   }
 
   .alert-success {
-    @apply rounded-lg border-l-4 border-green-500 bg-green-50 px-4 py-3 text-sm text-green-800;
+    @apply rounded-xl border-l-4 border-success bg-success-soft px-4 py-3 text-sm text-success;
   }
 }

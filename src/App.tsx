@@ -72,7 +72,7 @@ export default function App() {
                 <h2 className="text-xl font-bold">Accedi</h2>
                 <div>
                   <label className="label">Email</label>
-                  <input className="input" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <input className="input" type="email" autoComplete="email" autoCapitalize="none" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
                 </div>
                 <div>
                   <label className="label">Password</label>
@@ -87,7 +87,7 @@ export default function App() {
                 <button type="submit" className="btn-primary w-full py-2.5">
                   Accedi
                 </button>
-                <p className="text-center text-sm text-neutral-600">
+                <p className="text-center text-sm text-muted">
                   Non hai un account?{' '}
                   <button type="button" className="btn-link" onClick={() => setModalitaRegistrazione(true)}>
                     Registrati
@@ -103,7 +103,7 @@ export default function App() {
                 </div>
                 <div>
                   <label className="label">Email</label>
-                  <input className="input" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <input className="input" type="email" autoComplete="email" autoCapitalize="none" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
                 </div>
                 <div>
                   <label className="label">Password</label>
@@ -156,7 +156,8 @@ export default function App() {
   // non lo decidiamo noi lato frontend — il backend è la fonte di verità.
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-10 border-b border-neutral-200 bg-white/90 backdrop-blur">
+      {/* pt con safe-area: se l'app è aggiunta alla schermata Home, non finisce sotto l'orologio */}
+      <header className="sticky top-0 z-10 border-b border-line bg-bg/90 pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <span className="text-lg font-extrabold tracking-tight">
@@ -172,8 +173,8 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-        <h1 className="mb-6 text-2xl font-extrabold tracking-tight sm:text-3xl">
+      <main className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
+        <h1 className="mb-6 text-xl font-extrabold tracking-tight text-soft sm:text-3xl sm:text-ink">
           Ciao, <span className="underline decoration-accent decoration-4 underline-offset-4">{nome}</span>
         </h1>
 

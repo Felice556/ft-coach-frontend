@@ -1,4 +1,16 @@
-const API_URL = import.meta.env.VITE_API_URL;
+// Se apri l'app dal telefono (es. http://192.168.1.20:5173), "localhost" nel .env
+// indicherebbe il telefono stesso, non il PC dove gira il backend. In quel caso
+// sostituiamo localhost con l'indirizzo da cui è stata aperta la pagina.
+// In produzione VITE_API_URL sarà l'URL vero del backend e questo non scatta.
+function risolviApiUrl(): string {
+  const daEnv: string = import.meta.env.VITE_API_URL;
+  if (daEnv.includes('localhost') && window.location.hostname !== 'localhost') {
+    return daEnv.replace('localhost', window.location.hostname);
+  }
+  return daEnv;
+}
+
+const API_URL = risolviApiUrl();
 
 export type Ruolo = 'TRAINER' | 'CLIENTE';
 
@@ -132,6 +144,48 @@ export function creaPreset(nome: string, videoUrl?: string, descrizione?: string
 
 export function cancellaPreset(id: number) {
   return apiFetch<void>(`/preset-esercizi/${id}`, { method: 'DELETE' });
+}
+
+export function modificaSerie(id: number, pesoUsato: number, repsFatte: number, nota?: string) {
+  return apiFetch<RegistroAllenamento>(`/registro/serie/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ pesoUsato, repsFatte, nota: nota || undefined }),
+  });
+}
+
+export function eliminaSerie(id: number) {
+  return apiFetch<void>(`/registro/serie/${id}`, { method: 'DELETE' });
+}
+
+export interface SessioneAllenamento {
+  id: number;
+  completataIl: string;
+  serieFatte: number;
+  serieTotali: number;
+  volume: number;
+  schedaId: number;
+  clienteId: number;
+  scheda: { nome: string };
+  cliente: { nome: string };
+}
+
+export function getSessioni(clienteId?: number) {
+  const query = clienteId ? `?clienteId=${clienteId}` : '';
+  return apiFetch<SessioneAllenamento[]>(`/sessioni${query}`);
+}
+
+export function completaAllenamento(schedaId: number) {
+  // Mezzanotte di oggi secondo il telefono: il server conta le serie da qui in poi.
+  const inizio = new Date();
+  inizio.setHours(0, 0, 0, 0);
+  return apiFetch<SessioneAllenamento>('/sessioni', {
+    method: 'POST',
+    body: JSON.stringify({ schedaId, inizioGiornata: inizio.toISOString() }),
+  });
+}
+
+export function annullaCompletamento(id: number) {
+  return apiFetch<void>(`/sessioni/${id}`, { method: 'DELETE' });
 }
 
 export function getStorico(esercizioId: number) {

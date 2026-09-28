@@ -11,7 +11,22 @@ import {
   Scheda,
   RegistroAllenamento,
   EsercizioPreset,
+  getSessioni,
+  SessioneAllenamento,
 } from './api';
+
+// "oggi alle 18:32", "ieri alle 9:05", oppure "lun 21/09 alle 18:32".
+function quando(iso: string): string {
+  const d = new Date(iso);
+  const ora = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  const oggi = new Date();
+  const ieri = new Date();
+  ieri.setDate(oggi.getDate() - 1);
+  if (d.toDateString() === oggi.toDateString()) return `oggi alle ${ora}`;
+  if (d.toDateString() === ieri.toDateString()) return `ieri alle ${ora}`;
+  const giorno = d.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' });
+  return `${giorno} alle ${ora}`;
+}
 
 type EsercizioBozza = {
   // Presente solo per esercizi già salvati: serve al backend per aggiornarli
@@ -106,6 +121,18 @@ export default function TrainerDashboard() {
   // Libreria esercizi salvati: si clicca per aggiungere, invece di riscrivere.
   const [preset, setPreset] = useState<EsercizioPreset[]>([]);
 
+  // Allenamenti conclusi dai clienti (il più recente in cima).
+  const [sessioni, setSessioni] = useState<SessioneAllenamento[]>([]);
+  const [mostraTutte, setMostraTutte] = useState(false);
+
+  async function caricaSessioni() {
+    try {
+      setSessioni(await getSessioni());
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : 'Errore nel caricamento degli allenamenti');
+    }
+  }
+
   async function caricaPreset() {
     try {
       setPreset(await getPreset());
@@ -118,6 +145,7 @@ export default function TrainerDashboard() {
   useEffect(() => {
     caricaSchede();
     caricaPreset();
+    caricaSessioni();
   }, []);
 
   // Click su un preset: se l'ultima riga è ancora vuota la riempie,
@@ -221,8 +249,69 @@ export default function TrainerDashboard() {
     }
   }
 
+  const sessioniVisibili = mostraTutte ? sessioni : sessioni.slice(0, 5);
+
   return (
     <div className="space-y-10">
+      {/* Prima cosa che vede il trainer: chi si è allenato e come è andata */}
+      <section>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-xl font-bold">
+            <span className="h-5 w-1.5 rounded-full bg-accent" />
+            Allenamenti completati
+          </h2>
+          <button
+            aria-label="Aggiorna allenamenti completati"
+            className="btn-ghost min-h-9 w-9 shrink-0 px-0 text-base"
+            onClick={caricaSessioni}
+          >
+            ↻
+          </button>
+        </div>
+        {sessioni.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">
+            Nessun cliente ha ancora concluso un allenamento.
+          </p>
+        ) : (
+          <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
+            {sessioniVisibili.map((s) => {
+              const completa = s.serieFatte >= s.serieTotali;
+              return (
+                <li key={s.id} className="flex items-center gap-3 px-4 py-3">
+                  <span
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-extrabold text-accent-ink ${
+                      completa ? 'bg-success' : 'bg-accent'
+                    }`}
+                    aria-hidden
+                  >
+                    {completa ? '✓' : '½'}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold">
+                      {s.cliente.nome} <span className="font-normal text-muted">· {s.scheda.nome}</span>
+                    </p>
+                    <p className="text-xs text-muted">{quando(s.completataIl)}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className={`text-sm font-bold tabular-nums ${completa ? 'text-success' : 'text-accent'}`}>
+                      {s.serieFatte}/{s.serieTotali} serie
+                    </p>
+                    <p className="text-xs text-muted tabular-nums">
+                      {Math.round(s.volume).toLocaleString('it-IT')} kg
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {sessioni.length > 5 && (
+          <button className="btn-link mt-3 text-sm" onClick={() => setMostraTutte(!mostraTutte)}>
+            {mostraTutte ? 'Mostra meno' : `Mostra tutti (${sessioni.length})`}
+          </button>
+        )}
+      </section>
+
       <section
         ref={formRef}
         className={`card scroll-mt-20 sm:p-6 ${schedaInModifica !== null ? 'ring-2 ring-accent' : ''}`}
@@ -232,7 +321,7 @@ export default function TrainerDashboard() {
           {schedaInModifica !== null ? 'Modifica scheda' : 'Nuova scheda'}
         </h2>
         {schedaInModifica !== null && (
-          <p className="mb-5 rounded-lg bg-accent-soft px-3 py-2 text-sm text-neutral-700">
+          <p className="mb-5 rounded-lg bg-accent-soft px-3 py-2 text-sm text-soft">
             Stai modificando una scheda esistente. Lo storico degli esercizi che mantieni resta intatto;
             se rimuovi un esercizio, si perde anche il suo storico.
           </p>
@@ -262,14 +351,14 @@ export default function TrainerDashboard() {
           </div>
 
           <div>
-            <h3 className="mb-3 text-sm font-bold tracking-wide text-neutral-700 uppercase">Esercizi</h3>
+            <h3 className="mb-3 text-sm font-bold tracking-wide text-soft uppercase">Esercizi</h3>
 
-            <div className="mb-4 rounded-xl border border-neutral-200 bg-white p-3">
-              <p className="mb-2 text-xs font-semibold text-neutral-500">
+            <div className="mb-4 rounded-xl border border-line bg-surface p-3">
+              <p className="mb-2 text-xs font-semibold text-muted">
                 La tua libreria — tocca per aggiungere
               </p>
               {preset.length === 0 ? (
-                <p className="text-xs text-neutral-400">
+                <p className="text-xs text-muted">
                   Vuota. Scrivi un esercizio qui sotto e premi “Salva in libreria” per riusarlo le prossime volte.
                 </p>
               ) : (
@@ -277,11 +366,11 @@ export default function TrainerDashboard() {
                   {preset.map((p) => (
                     <span
                       key={p.id}
-                      className="inline-flex items-center overflow-hidden rounded-full border border-neutral-300 bg-neutral-50 text-sm"
+                      className="inline-flex items-center overflow-hidden rounded-full border border-line bg-surface-2 text-sm"
                     >
                       <button
                         type="button"
-                        className="px-3 py-1.5 font-medium transition hover:bg-accent"
+                        className="px-3 py-1.5 font-medium transition hover:bg-accent hover:text-accent-ink"
                         onClick={() => aggiungiDaPreset(p)}
                       >
                         + {p.nome}
@@ -289,7 +378,7 @@ export default function TrainerDashboard() {
                       <button
                         type="button"
                         aria-label={`Rimuovi ${p.nome} dalla libreria`}
-                        className="border-l border-neutral-300 px-2 py-1.5 text-neutral-400 transition hover:bg-red-50 hover:text-red-600"
+                        className="border-l border-line px-2 py-1.5 text-muted transition hover:bg-danger-soft hover:text-danger"
                         onClick={() => handleCancellaPreset(p.id)}
                       >
                         ×
@@ -304,10 +393,10 @@ export default function TrainerDashboard() {
               {esercizi.map((es, i) => (
                 <div
                   key={i}
-                  className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 transition focus-within:border-accent"
+                  className="rounded-xl border border-line bg-surface-2 p-4 transition focus-within:border-accent"
                 >
                   <div className="mb-3 flex items-center justify-between">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-ink text-xs font-bold text-accent">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent text-xs font-bold text-accent-ink">
                       {i + 1}
                     </span>
                     <div className="flex gap-2">
@@ -397,7 +486,7 @@ export default function TrainerDashboard() {
             </button>
           </div>
 
-          <div className="flex flex-col-reverse gap-3 border-t border-neutral-200 pt-5 sm:flex-row sm:justify-end">
+          <div className="flex flex-col-reverse gap-3 border-t border-line pt-5 sm:flex-row sm:justify-end">
             {schedaInModifica !== null && (
               <button type="button" className="btn-secondary w-full px-6 py-2.5 sm:w-auto" onClick={resetForm}>
                 Annulla modifica
@@ -418,7 +507,7 @@ export default function TrainerDashboard() {
           Schede esistenti
         </h2>
         {schede.length === 0 && (
-          <p className="rounded-2xl border border-dashed border-neutral-300 bg-white p-8 text-center text-neutral-500">
+          <p className="rounded-2xl border border-dashed border-line bg-surface p-8 text-center text-muted">
             Nessuna scheda ancora creata.
           </p>
         )}
@@ -428,7 +517,7 @@ export default function TrainerDashboard() {
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <strong className="block truncate text-lg font-bold">{scheda.nome}</strong>
-                  <span className="mt-1 inline-block rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600">
+                  <span className="mt-1 inline-block rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">
                     cliente #{scheda.clienteId}
                   </span>
                 </div>
@@ -445,19 +534,19 @@ export default function TrainerDashboard() {
                   </button>
                 </div>
               </div>
-              <ul className="divide-y divide-neutral-100 border-t border-neutral-100">
+              <ul className="divide-y divide-line border-t border-line">
                 {scheda.esercizi.map((es) => (
                   <li key={es.id} className="py-2 text-sm">
                     <div className="flex items-center justify-between gap-3">
                       <span className="font-medium">{es.nome}</span>
-                      <span className="shrink-0 text-neutral-500">
+                      <span className="shrink-0 text-muted">
                         <span className="font-semibold text-ink">
                           {es.serieTarget}x{es.repsTarget}
                         </span>{' '}
                         · {es.recuperoSecondi}s
                       </span>
                     </div>
-                    {es.descrizione && <p className="mt-1 text-xs text-neutral-500">{es.descrizione}</p>}
+                    {es.descrizione && <p className="mt-1 text-xs text-muted">{es.descrizione}</p>}
 
                     <button
                       type="button"
@@ -468,20 +557,20 @@ export default function TrainerDashboard() {
                     </button>
 
                     {storicoAperto === es.id && (
-                      <div className="mt-2 rounded-lg border border-neutral-200 bg-neutral-50 p-2">
+                      <div className="mt-2 rounded-lg border border-line bg-surface-2 p-2">
                         {storico.length === 0 ? (
-                          <p className="px-2 py-1 text-xs text-neutral-500">Nessun allenamento registrato ancora.</p>
+                          <p className="px-2 py-1 text-xs text-muted">Nessun allenamento registrato ancora.</p>
                         ) : (
-                          <ul className="divide-y divide-neutral-100">
+                          <ul className="divide-y divide-line">
                             {storico.map((r) => (
                               <li key={r.id} className="px-2 py-1.5 text-xs">
-                                <div className="flex items-center justify-between gap-2 text-neutral-600">
+                                <div className="flex items-center justify-between gap-2 text-muted">
                                   <span>{new Date(r.data).toLocaleDateString('it-IT')}</span>
                                   <span className="font-semibold text-ink">
                                     {r.pesoUsato}kg x {r.repsFatte}
                                   </span>
                                 </div>
-                                {r.nota && <p className="mt-0.5 italic text-neutral-500">"{r.nota}"</p>}
+                                {r.nota && <p className="mt-0.5 italic text-muted">"{r.nota}"</p>}
                               </li>
                             ))}
                           </ul>
