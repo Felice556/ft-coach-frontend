@@ -1,7 +1,22 @@
-import { useEffect, useState } from 'react';
-import { creaScheda, cancellaScheda, getSchede, getStorico, Scheda, RegistroAllenamento } from './api';
+import { useEffect, useRef, useState } from 'react';
+import {
+  creaScheda,
+  aggiornaScheda,
+  cancellaScheda,
+  getSchede,
+  getStorico,
+  getPreset,
+  creaPreset,
+  cancellaPreset,
+  Scheda,
+  RegistroAllenamento,
+  EsercizioPreset,
+} from './api';
 
 type EsercizioBozza = {
+  // Presente solo per esercizi già salvati: serve al backend per aggiornarli
+  // invece di ricrearli (così lo storico del cliente non si perde).
+  id?: number;
   nome: string;
   videoUrl: string;
   descrizione: string;
@@ -26,6 +41,39 @@ export default function TrainerDashboard() {
   const [nomeScheda, setNomeScheda] = useState('');
   const [clienteId, setClienteId] = useState('');
   const [esercizi, setEsercizi] = useState<EsercizioBozza[]>([esercizioVuoto()]);
+
+  // null = sto creando una scheda nuova; un numero = sto modificando quella scheda.
+  // Lo stesso form serve per entrambe le cose.
+  const [schedaInModifica, setSchedaInModifica] = useState<number | null>(null);
+  const formRef = useRef<HTMLElement>(null);
+
+  function resetForm() {
+    setSchedaInModifica(null);
+    setNomeScheda('');
+    setClienteId('');
+    setEsercizi([esercizioVuoto()]);
+  }
+
+  // Carica una scheda esistente nel form (gli input usano stringhe, i dati numeri).
+  function avviaModifica(scheda: Scheda) {
+    setErrore('');
+    setSchedaInModifica(scheda.id);
+    setNomeScheda(scheda.nome);
+    setClienteId(String(scheda.clienteId));
+    setEsercizi(
+      scheda.esercizi.map((es) => ({
+        id: es.id,
+        nome: es.nome,
+        videoUrl: es.videoUrl || '',
+        descrizione: es.descrizione || '',
+        serieTarget: String(es.serieTarget),
+        repsTarget: String(es.repsTarget),
+        recuperoSecondi: String(es.recuperoSecondi),
+      }))
+    );
+    // Su telefono il form è in cima alla pagina: ci riportiamo lì.
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   // Storico letto in sola lettura dal trainer, per vedere cosa scrivono i clienti
   // dopo ogni allenamento (dolori, difficoltà, sensazioni).
@@ -55,11 +103,69 @@ export default function TrainerDashboard() {
     }
   }
 
-  // Al primo render, carica tutte le schede esistenti (utile per vedere subito
-  // cosa hai già assegnato ai clienti).
+  // Libreria esercizi salvati: si clicca per aggiungere, invece di riscrivere.
+  const [preset, setPreset] = useState<EsercizioPreset[]>([]);
+
+  async function caricaPreset() {
+    try {
+      setPreset(await getPreset());
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : 'Errore nel caricamento della libreria');
+    }
+  }
+
+  // Al primo render, carica schede e libreria esercizi.
   useEffect(() => {
     caricaSchede();
+    caricaPreset();
   }, []);
+
+  // Click su un preset: se l'ultima riga è ancora vuota la riempie,
+  // altrimenti aggiunge una riga nuova. Serie/reps/recupero restano i default,
+  // da adattare a mano per ogni cliente.
+  function aggiungiDaPreset(p: EsercizioPreset) {
+    const riga: EsercizioBozza = {
+      ...esercizioVuoto(),
+      nome: p.nome,
+      videoUrl: p.videoUrl || '',
+      descrizione: p.descrizione || '',
+    };
+    const ultima = esercizi[esercizi.length - 1];
+    if (ultima && !ultima.nome.trim()) {
+      setEsercizi([...esercizi.slice(0, -1), riga]);
+    } else {
+      setEsercizi([...esercizi, riga]);
+    }
+  }
+
+  async function salvaComePreset(indice: number) {
+    const es = esercizi[indice];
+    if (!es.nome.trim()) {
+      setErrore('Scrivi almeno il nome dell’esercizio prima di salvarlo');
+      return;
+    }
+    // Evita doppioni con lo stesso nome nella libreria.
+    if (preset.some((p) => p.nome.toLowerCase() === es.nome.trim().toLowerCase())) {
+      setErrore(`"${es.nome}" è già nella tua libreria`);
+      return;
+    }
+    try {
+      setErrore('');
+      await creaPreset(es.nome.trim(), es.videoUrl, es.descrizione);
+      await caricaPreset();
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : 'Errore nel salvataggio');
+    }
+  }
+
+  async function handleCancellaPreset(id: number) {
+    try {
+      await cancellaPreset(id);
+      setPreset(preset.filter((p) => p.id !== id));
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : 'Errore nella cancellazione');
+    }
+  }
 
   function aggiornaEsercizio(indice: number, campo: keyof EsercizioBozza, valore: string) {
     setEsercizi(esercizi.map((es, i) => (i === indice ? { ...es, [campo]: valore } : es)));
@@ -73,7 +179,7 @@ export default function TrainerDashboard() {
     setEsercizi(esercizi.filter((_, i) => i !== indice));
   }
 
-  async function handleCreaScheda(e: React.FormEvent) {
+  async function handleSalvaScheda(e: React.FormEvent) {
     e.preventDefault();
     setErrore('');
     try {
@@ -86,21 +192,27 @@ export default function TrainerDashboard() {
         recuperoSecondi: Number(es.recuperoSecondi),
       }));
 
-      await creaScheda(nomeScheda, Number(clienteId), eserciziValidati);
+      if (schedaInModifica !== null) {
+        // Rimettiamo gli id sugli esercizi già esistenti, così il backend li aggiorna.
+        const conId = eserciziValidati.map((dati, i) => ({ ...dati, id: esercizi[i].id }));
+        await aggiornaScheda(schedaInModifica, nomeScheda, Number(clienteId), conId);
+      } else {
+        await creaScheda(nomeScheda, Number(clienteId), eserciziValidati);
+      }
 
-      // Reset form e ricarica la lista, così la nuova scheda appare subito.
-      setNomeScheda('');
-      setClienteId('');
-      setEsercizi([esercizioVuoto()]);
+      // Reset form e ricarica la lista, così le modifiche appaiono subito.
+      resetForm();
       await caricaSchede();
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nella creazione della scheda');
+      setErrore(err instanceof Error ? err.message : 'Errore nel salvataggio della scheda');
     }
   }
 
   async function handleCancella(id: number) {
     try {
       await cancellaScheda(id);
+      // Se stavo modificando proprio questa scheda, esco dalla modifica.
+      if (schedaInModifica === id) resetForm();
       // Aggiorniamo lo stato locale filtrando, invece di rifare una fetch completa:
       // stesso pattern di delete visto nel task manager.
       setSchede(schede.filter((s) => s.id !== id));
@@ -111,12 +223,21 @@ export default function TrainerDashboard() {
 
   return (
     <div className="space-y-10">
-      <section className="card sm:p-6">
+      <section
+        ref={formRef}
+        className={`card scroll-mt-20 sm:p-6 ${schedaInModifica !== null ? 'ring-2 ring-accent' : ''}`}
+      >
         <h2 className="mb-5 flex items-center gap-2 text-xl font-bold">
           <span className="h-5 w-1.5 rounded-full bg-accent" />
-          Nuova scheda
+          {schedaInModifica !== null ? 'Modifica scheda' : 'Nuova scheda'}
         </h2>
-        <form onSubmit={handleCreaScheda} className="space-y-6">
+        {schedaInModifica !== null && (
+          <p className="mb-5 rounded-lg bg-accent-soft px-3 py-2 text-sm text-neutral-700">
+            Stai modificando una scheda esistente. Lo storico degli esercizi che mantieni resta intatto;
+            se rimuovi un esercizio, si perde anche il suo storico.
+          </p>
+        )}
+        <form onSubmit={handleSalvaScheda} className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="sm:col-span-2">
               <label className="label">Nome scheda</label>
@@ -142,6 +263,43 @@ export default function TrainerDashboard() {
 
           <div>
             <h3 className="mb-3 text-sm font-bold tracking-wide text-neutral-700 uppercase">Esercizi</h3>
+
+            <div className="mb-4 rounded-xl border border-neutral-200 bg-white p-3">
+              <p className="mb-2 text-xs font-semibold text-neutral-500">
+                La tua libreria — tocca per aggiungere
+              </p>
+              {preset.length === 0 ? (
+                <p className="text-xs text-neutral-400">
+                  Vuota. Scrivi un esercizio qui sotto e premi “Salva in libreria” per riusarlo le prossime volte.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {preset.map((p) => (
+                    <span
+                      key={p.id}
+                      className="inline-flex items-center overflow-hidden rounded-full border border-neutral-300 bg-neutral-50 text-sm"
+                    >
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 font-medium transition hover:bg-accent"
+                        onClick={() => aggiungiDaPreset(p)}
+                      >
+                        + {p.nome}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Rimuovi ${p.nome} dalla libreria`}
+                        className="border-l border-neutral-300 px-2 py-1.5 text-neutral-400 transition hover:bg-red-50 hover:text-red-600"
+                        onClick={() => handleCancellaPreset(p.id)}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="space-y-3">
               {esercizi.map((es, i) => (
                 <div
@@ -152,15 +310,24 @@ export default function TrainerDashboard() {
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-ink text-xs font-bold text-accent">
                       {i + 1}
                     </span>
-                    {esercizi.length > 1 && (
+                    <div className="flex gap-2">
                       <button
                         type="button"
-                        className="btn-danger px-3 py-1 text-xs"
-                        onClick={() => rimuoviRigaEsercizio(i)}
+                        className="btn-secondary px-3 py-1 text-xs"
+                        onClick={() => salvaComePreset(i)}
                       >
-                        Rimuovi
+                        ☆ Salva in libreria
                       </button>
-                    )}
+                      {esercizi.length > 1 && (
+                        <button
+                          type="button"
+                          className="btn-danger px-3 py-1 text-xs"
+                          onClick={() => rimuoviRigaEsercizio(i)}
+                        >
+                          Rimuovi
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
                     <div className="col-span-3 sm:col-span-3">
@@ -230,9 +397,14 @@ export default function TrainerDashboard() {
             </button>
           </div>
 
-          <div className="flex justify-end border-t border-neutral-200 pt-5">
+          <div className="flex flex-col-reverse gap-3 border-t border-neutral-200 pt-5 sm:flex-row sm:justify-end">
+            {schedaInModifica !== null && (
+              <button type="button" className="btn-secondary w-full px-6 py-2.5 sm:w-auto" onClick={resetForm}>
+                Annulla modifica
+              </button>
+            )}
             <button type="submit" className="btn-primary w-full px-6 py-2.5 sm:w-auto">
-              Crea scheda
+              {schedaInModifica !== null ? 'Salva modifiche' : 'Crea scheda'}
             </button>
           </div>
         </form>
@@ -260,9 +432,18 @@ export default function TrainerDashboard() {
                     cliente #{scheda.clienteId}
                   </span>
                 </div>
-                <button className="btn-danger shrink-0 px-3 py-1.5 text-xs" onClick={() => handleCancella(scheda.id)}>
-                  Cancella scheda
-                </button>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    className="btn-secondary px-3 py-1.5 text-xs"
+                    onClick={() => avviaModifica(scheda)}
+                    disabled={schedaInModifica === scheda.id}
+                  >
+                    {schedaInModifica === scheda.id ? 'In modifica…' : 'Modifica'}
+                  </button>
+                  <button className="btn-danger px-3 py-1.5 text-xs" onClick={() => handleCancella(scheda.id)}>
+                    Cancella
+                  </button>
+                </div>
               </div>
               <ul className="divide-y divide-neutral-100 border-t border-neutral-100">
                 {scheda.esercizi.map((es) => (

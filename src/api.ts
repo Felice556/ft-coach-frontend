@@ -82,6 +82,20 @@ export function creaScheda(nome: string, clienteId: number, esercizi: Omit<Eserc
   });
 }
 
+// In modifica: gli esercizi con `id` vengono aggiornati (storico conservato),
+// quelli senza `id` creati, quelli mancanti rispetto a prima cancellati.
+export function aggiornaScheda(
+  id: number,
+  nome: string,
+  clienteId: number,
+  esercizi: (Omit<Esercizio, 'id' | 'schedaId'> & { id?: number })[]
+) {
+  return apiFetch<Scheda>(`/schede/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ nome, clienteId, esercizi }),
+  });
+}
+
 export function cancellaScheda(id: number) {
   return apiFetch<void>(`/schede/${id}`, { method: 'DELETE' });
 }
@@ -96,6 +110,28 @@ export function registraAllenamento(
     method: 'POST',
     body: JSON.stringify({ esercizioId, pesoUsato, repsFatte, nota: nota || undefined }),
   });
+}
+
+export interface EsercizioPreset {
+  id: number;
+  nome: string;
+  videoUrl?: string | null;
+  descrizione?: string | null;
+}
+
+export function getPreset() {
+  return apiFetch<EsercizioPreset[]>('/preset-esercizi');
+}
+
+export function creaPreset(nome: string, videoUrl?: string, descrizione?: string) {
+  return apiFetch<EsercizioPreset>('/preset-esercizi', {
+    method: 'POST',
+    body: JSON.stringify({ nome, videoUrl: videoUrl || undefined, descrizione: descrizione || undefined }),
+  });
+}
+
+export function cancellaPreset(id: number) {
+  return apiFetch<void>(`/preset-esercizi/${id}`, { method: 'DELETE' });
 }
 
 export function getStorico(esercizioId: number) {
