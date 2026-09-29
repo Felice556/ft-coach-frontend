@@ -1,5 +1,7 @@
 # FT Coach — Frontend
 
+[![Tests](https://github.com/Felice556/ft-coach-frontend/actions/workflows/test.yml/badge.svg)](https://github.com/Felice556/ft-coach-frontend/actions/workflows/test.yml)
+
 **A mobile-first web app for personal trainers and their clients.**
 The trainer builds training plans, clients log every set from their phone at the gym, and both follow the progress with charts.
 
@@ -68,6 +70,17 @@ I'm a personal trainer and a junior developer: I built FT Coach for my own coach
 - **Numbers the Italian way**: `72,5` and `72.5` are both accepted, because phone keyboards in Italy type a comma.
 - **Accessible components**: labelled inputs, `aria-pressed` / `aria-expanded` states, focus trap in modals, `Esc` to close.
 
+## ✅ Tests
+
+Unit tests with **Vitest** (in a simulated browser with jsdom), run on every push with **GitHub Actions** together with the TypeScript check and the production build:
+
+- **Set logic** — rep ranges typed by the trainer (`6-9`, `6/9`, `Max`), the order of normal and extra sets
+- **Numbers and dates** — `72,5` and `72.5` both accepted, dates that don't shift with the time zone
+- **Timer sound settings** — mute and volume saved on the phone, volume always between 0 and 100
+- **API client** — token sent on every call, renewed token saved *only* if the user hasn't logged out in the meantime, expired session handled without reloading the page, readable error messages
+
+The backend has its own API tests against a real database: see the [backend repo](https://github.com/Felice556/ft-coach-backend#-tests).
+
 ## 📂 Project structure
 
 ```
@@ -81,9 +94,11 @@ src/
 ├── Inviti.tsx            # trainer: invite codes
 ├── ProgressoChart.tsx    # exercise progress chart
 ├── Privacy.tsx           # privacy notice
+├── misure-formati.ts     # numbers and dates for body measurements
 ├── serie.ts              # set / rep-range logic
 ├── suono.ts              # timer sounds, volume, wake lock
 └── tema.ts               # light / dark theme
+tests/                    # Vitest tests
 ```
 
 ## 🚀 Run it locally
@@ -97,6 +112,7 @@ npm install
 echo "VITE_API_URL=http://localhost:3001" > .env
 npm run dev            # http://localhost:5173
 npm run dev:telefono   # same, reachable from a phone on the same Wi-Fi
+npm test               # run the tests
 ```
 
 ---

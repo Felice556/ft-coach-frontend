@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { eliminaMisura, getMisure, MisuraCorporea, salvaMisura, TipoMisura } from './api';
 import { useColoriTema } from './tema';
+import { dataCorta, dataLunga, giornoDi, leggiNumero, numero, oggi } from './misure-formati';
 
 // Sezione "Il tuo corpo": peso corporeo e % di massa grassa, con grafico.
 // - Il CLIENTE scrive il proprio peso e vede la massa grassa (la misura il trainer).
@@ -22,26 +23,6 @@ const TIPI: Record<TipoMisura, InfoTipo> = {
   PESO: { titolo: 'Peso corporeo', unita: 'kg', chiScrive: 'CLIENTE', min: 20, max: 350, esempio: 'es. 72,5' },
   MASSA_GRASSA: { titolo: 'Massa grassa', unita: '%', chiScrive: 'TRAINER', min: 2, max: 70, esempio: 'es. 18,5' },
 };
-
-// Le date arrivano come "2026-09-29T00:00:00.000Z": usiamo solo "2026-09-29",
-// così il giorno non si sposta con il fuso orario.
-const giornoDi = (iso: string) => iso.slice(0, 10);
-const dataCorta = (giorno: string) => `${giorno.slice(8, 10)}/${giorno.slice(5, 7)}`;
-const dataLunga = (giorno: string) => `${giorno.slice(8, 10)}/${giorno.slice(5, 7)}/${giorno.slice(0, 4)}`;
-const numero = (n: number) => n.toLocaleString('it-IT', { maximumFractionDigits: 1 });
-
-function oggi() {
-  const d = new Date();
-  const due = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${due(d.getMonth() + 1)}-${due(d.getDate())}`;
-}
-
-// "72,5" o "72.5" → 72.5 (sul telefono italiano la tastiera mette la virgola)
-function leggiNumero(testo: string): number | null {
-  const pulito = testo.trim().replace(',', '.');
-  if (!/^\d{1,3}(\.\d{1,2})?$/.test(pulito)) return null;
-  return Number(pulito);
-}
 
 function Grafico({ misure, info }: { misure: MisuraCorporea[]; info: InfoTipo }) {
   const COLORI = useColoriTema();
