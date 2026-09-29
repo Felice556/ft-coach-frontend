@@ -109,8 +109,8 @@ function Modal({ children, titleId, onClose }: { children: ReactNode; titleId: s
 }
 
 export default function App() {
-  // Stato di sessione: se c'è un token, siamo "loggati". Persistito in localStorage
-  // così il refresh della pagina non ci disconnette (stesso pattern del task manager).
+  // Stato di sessione: se c'è un token, l'utente è dentro. Salvato in localStorage
+  // così ricaricando la pagina non si viene disconnessi.
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [ruolo, setRuolo] = useState<Ruolo | ''>((localStorage.getItem('ruolo') as Ruolo) || '');
   const [nome, setNome] = useState(localStorage.getItem('nome') || '');

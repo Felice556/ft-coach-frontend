@@ -1,9 +1,9 @@
-// Indirizzo del backend, dalla variabile VITE_API_URL (file .env o impostazioni di Vercel).
+// Indirizzo del backend, dalla variabile VITE_API_URL (file .env o impostazioni di Cloudflare Pages).
 function risolviApiUrl(): string {
   const daEnv = import.meta.env.VITE_API_URL as string | undefined;
   if (!daEnv) {
     // Meglio un errore chiaro in console che un'app che non funziona senza motivo apparente.
-    throw new Error('VITE_API_URL non impostata: aggiungila nel file .env (o su Vercel) e riavvia');
+    throw new Error('VITE_API_URL non impostata: aggiungila nel file .env (o su Cloudflare Pages) e riavvia');
   }
   // SOLO in sviluppo: se apri l'app dal telefono (es. http://192.168.1.20:5173),
   // "localhost" indicherebbe il telefono stesso, non il PC con il backend,
