@@ -372,6 +372,26 @@ export interface SessioneAllenamento {
   cliente: { nome: string };
 }
 
+// Storico completo di una scheda (solo trainer): esercizi, anche quelli tolti, con tutte le serie del cliente.
+export interface EsercizioConStorico extends Esercizio {
+  archiviatoIl: string | null;
+  registri: RegistroAllenamento[];
+}
+
+export interface StoricoScheda {
+  id: number;
+  nome: string;
+  clienteId: number;
+  archiviataIl: string | null;
+  creataIl: string;
+  cliente: { nome: string };
+  esercizi: EsercizioConStorico[];
+}
+
+export function getStoricoScheda(schedaId: number) {
+  return apiFetch<StoricoScheda>(`/schede/${schedaId}/storico`);
+}
+
 export function getSessioni(clienteId?: number) {
   const query = clienteId ? `?clienteId=${clienteId}` : '';
   return apiFetch<SessioneAllenamento[]>(`/sessioni${query}`);

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import SezioneInviti from './Inviti';
+import StoricoCliente from './StoricoCliente';
 import {
   creaScheda,
   aggiornaScheda,
@@ -495,6 +496,8 @@ export default function TrainerDashboard() {
 
   // Clienti per il menu a tendina: si sceglie il nome, non si scrive l'ID a mano.
   const [clienti, setClienti] = useState<Cliente[]>([]);
+  // Pannello "Progressi" di una scheda: aperto dalla scheda o da un allenamento completato.
+  const [progressiScheda, setProgressiScheda] = useState<{ schedaId: number; giorno?: string } | null>(null);
   // Sezione "I tuoi clienti": cliente di cui è aperta la gestione dell'accesso.
   const [accessoAperto, setAccessoAperto] = useState<number | null>(null);
   const [clientiAperti, setClientiAperti] = useState(false);
@@ -895,7 +898,14 @@ export default function TrainerDashboard() {
             {sessioniVisibili.map((s) => {
               const completa = s.serieFatte >= s.serieTotali;
               return (
-                <li key={s.id} className="flex items-center gap-3 py-4 sm:gap-4">
+                <li key={s.id}>
+                  {/* Tocca un allenamento per vedere cosa ha fatto il cliente quel giorno, serie per serie */}
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3 py-4 text-left transition-colors hover:bg-surface-2/50 sm:gap-4"
+                    onClick={() => setProgressiScheda({ schedaId: s.schedaId, giorno: s.completataIl })}
+                    aria-label={`Dettaglio allenamento di ${s.cliente.nome}, ${s.scheda.nome}`}
+                  >
                   <span
                     className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${
                       completa ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'
@@ -919,6 +929,8 @@ export default function TrainerDashboard() {
                       {Math.round(s.volume).toLocaleString('it-IT')} kg
                     </p>
                   </div>
+                  <span aria-hidden className="shrink-0 text-lg text-muted">›</span>
+                  </button>
                 </li>
               );
             })}
@@ -1314,7 +1326,10 @@ export default function TrainerDashboard() {
                     {eVecchia(scheda.creataIl) && ' · da aggiornare?'}
                   </p>
                 </div>
-                <div className="flex shrink-0 gap-2">
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <button className="btn-primary px-3 py-1.5 text-xs" onClick={() => setProgressiScheda({ schedaId: scheda.id })}>
+                    Progressi
+                  </button>
                   <button
                     className="btn-secondary px-3 py-1.5 text-xs"
                     onClick={() => avviaModifica(scheda)}
@@ -1464,6 +1479,9 @@ export default function TrainerDashboard() {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    <button className="btn-secondary flex-1 text-xs" onClick={() => setProgressiScheda({ schedaId: scheda.id })}>
+                      Progressi
+                    </button>
                     <button className="btn-secondary flex-1 text-xs" onClick={() => handleRipristina(scheda.id)}>
                       ↺ Ripristina
                     </button>
@@ -1494,6 +1512,15 @@ export default function TrainerDashboard() {
           </div>
         )}
       </section>
+      {progressiScheda && (
+        <StoricoCliente
+          key={`${progressiScheda.schedaId}-${progressiScheda.giorno ?? ''}`}
+          schedaId={progressiScheda.schedaId}
+          vistaIniziale={progressiScheda.giorno ? 'allenamenti' : 'esercizi'}
+          giornoIniziale={progressiScheda.giorno}
+          onChiudi={() => setProgressiScheda(null)}
+        />
+      )}
     </div>
   );
 }

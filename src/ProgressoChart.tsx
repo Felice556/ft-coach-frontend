@@ -6,9 +6,10 @@ import { useColoriTema } from './tema';
 
 interface Props {
   storico: RegistroAllenamento[];
+  titolo?: string; // es. "Progressi di Marco" nella vista del trainer
 }
 
-export default function ProgressoChart({ storico }: Props) {
+export default function ProgressoChart({ storico, titolo = 'I tuoi progressi' }: Props) {
   // Colori letti dal tema attuale: il grafico cambia insieme a chiaro/scuro.
   const COLORI = useColoriTema();
   // Ora il cliente registra ogni serie: in un giorno ci sono più righe.
@@ -50,7 +51,7 @@ export default function ProgressoChart({ storico }: Props) {
   return (
     <div className="rounded-xl border border-line bg-surface px-2 py-4 sm:px-4">
       <div className="mb-5 px-2">
-        <p className="text-sm font-extrabold uppercase tracking-wide text-ink">I tuoi progressi</p>
+        <p className="text-sm font-extrabold uppercase tracking-wide text-ink">{titolo}</p>
         <p className="mt-1 text-xs text-muted">Miglior serie del giorno, in kg</p>
       </div>
       {/* ResponsiveContainer: il grafico prende sempre tutta la larghezza del telefono */}
