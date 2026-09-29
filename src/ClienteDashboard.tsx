@@ -7,13 +7,20 @@ import {
   eliminaSerie,
   getSessioni,
   completaAllenamento,
-  annullaCompletamento,
   SessioneAllenamento,
   Scheda,
   Esercizio,
   RegistroAllenamento,
 } from './api';
 import ProgressoChart from './ProgressoChart';
+import { pianoSerie, riassuntoSerie, testoReps, testoRecupero, SerieDaFare } from './serie';
+
+// Valore di partenza del campo reps per una serie: il numero se è fisso,
+// vuoto se è "Max" o un intervallo (6-9): lì il cliente scrive quante ne ha fatte davvero.
+function repsDiPartenza(serie: SerieDaFare | undefined): string {
+  if (!serie || serie.reps == null || serie.repsMax != null) return '';
+  return String(serie.reps);
+}
 
 // ---------- Piccole utility ----------
 
@@ -25,6 +32,16 @@ function leggiNumero(testo: string): number {
 
 function scriviNumero(n: number): string {
   return n.toLocaleString('it-IT', { maximumFractionDigits: 2, useGrouping: false });
+}
+
+// Controllo comune per peso e ripetizioni: il peso può essere 0 (corpo libero)
+// ma il campo non può restare vuoto; le ripetizioni devono essere almeno 1.
+function valoriValidi(testoKg: string, testoReps: string): boolean {
+  if (!testoKg.trim() || !testoReps.trim()) return false;
+  const kg = leggiNumero(testoKg);
+  const reps = leggiNumero(testoReps);
+  // Tetto a 1000 come sul server: un "25000" digitato per sbaglio non finisce nei grafici.
+  return !Number.isNaN(kg) && kg >= 0 && kg <= 1000 && Number.isInteger(reps) && reps >= 1 && reps <= 1000;
 }
 
 function eOggi(dataIso: string): boolean {
@@ -45,11 +62,21 @@ interface StepperProps {
   passo: number;
   minimo: number;
   decimali: boolean;
+  segnaposto?: string; // testo grigio quando il campo è vuoto (es. "Max")
   compatto?: boolean; // versione più stretta, per la correzione dentro una riga
   onChange: (valore: string) => void;
 }
 
-function Stepper({ etichetta, valore, passo, minimo, decimali, compatto = false, onChange }: StepperProps) {
+function Stepper({
+  etichetta,
+  valore,
+  passo,
+  minimo,
+  decimali,
+  compatto = false,
+  segnaposto = '0',
+  onChange,
+}: StepperProps) {
   const larghezzaBottone = compatto ? 'w-10' : 'w-12';
   function cambia(delta: number) {
     const attuale = leggiNumero(valore) || 0;
@@ -74,7 +101,7 @@ function Stepper({ etichetta, valore, passo, minimo, decimali, compatto = false,
           inputMode={decimali ? 'decimal' : 'numeric'}
           className={`w-full min-w-0 bg-transparent text-center font-bold text-ink outline-none ${compatto ? 'min-h-12 text-lg' : 'min-h-14 text-2xl'}`}
           value={valore}
-          placeholder="0"
+          placeholder={segnaposto}
           onChange={(e) => onChange(e.target.value)}
         />
         <button
@@ -124,12 +151,12 @@ function SerieRiga({ serie, etichetta, onModificata, onEliminata }: SerieRigaPro
   }
 
   async function salva() {
-    const nuovoKg = leggiNumero(kg);
-    const nuoveReps = leggiNumero(reps);
-    if (!nuovoKg || nuovoKg <= 0 || !nuoveReps || nuoveReps <= 0) {
-      setErrore('Inserisci peso e ripetizioni');
+    if (!valoriValidi(kg, reps)) {
+      setErrore('Inserisci peso (anche 0) e ripetizioni');
       return;
     }
+    const nuovoKg = leggiNumero(kg);
+    const nuoveReps = leggiNumero(reps);
     setInInvio(true);
     try {
       const aggiornata = await modificaSerie(serie.id, nuovoKg, nuoveReps, serie.nota ?? undefined);
@@ -247,7 +274,13 @@ export default function ClienteDashboard() {
   // Sessione appena chiusa: la mostriamo in home come riepilogo.
   const [riepilogo, setRiepilogo] = useState<SessioneAllenamento | null>(null);
   const [inChiusura, setInChiusura] = useState(false);
-  const [inInvio, setInInvio] = useState<number | null>(null);
+  // Esercizi con una serie in fase di salvataggio. Un insieme e non un solo id: in una
+  // superserie si può registrare su due esercizi quasi insieme, e ognuno deve restare
+  // bloccato finché la SUA richiesta non finisce (niente serie doppie per un doppio tocco).
+  const [inInvio, setInInvio] = useState<Set<number>>(new Set());
+  // Esercizi di cui non è stato possibile caricare lo storico: finché non si ricarica,
+  // non facciamo registrare serie (il conteggio "serie 2 di 3" sarebbe sbagliato).
+  const [storiciFalliti, setStoriciFalliti] = useState<Set<number>>(new Set());
 
   // Timer di recupero. Salviamo l'ORARIO di fine, non i secondi rimasti:
   // se il telefono blocca lo schermo e il browser rallenta, il conto resta giusto.
@@ -262,20 +295,32 @@ export default function ClienteDashboard() {
         setSessioni(sessioniSalvate);
 
         const tutti = dati.flatMap((s) => s.esercizi);
-        // Tutte le richieste partono insieme (Promise.all) invece che una alla volta.
-        const risultati = await Promise.all(tutti.map((es) => getStorico(es.id)));
+        // Tutte le richieste partono insieme. allSettled (e non all): se lo storico di UN
+        // esercizio non arriva (rete ballerina in palestra), gli altri si caricano lo stesso.
+        const esiti = await Promise.allSettled(tutti.map((es) => getStorico(es.id)));
 
         const nuoviStorici: Record<number, RegistroAllenamento[]> = {};
         const pesiIniziali: Record<number, string> = {};
         const repsIniziali: Record<number, string> = {};
+        const falliti = new Set<number>();
         tutti.forEach((es, i) => {
-          nuoviStorici[es.id] = risultati[i];
-          const ultimo = risultati[i][risultati[i].length - 1];
+          const esito = esiti[i];
+          if (esito.status === 'rejected') {
+            falliti.add(es.id);
+            return;
+          }
+          const storico = esito.value;
+          nuoviStorici[es.id] = storico;
+          const ultimo = storico[storico.length - 1];
           // Peso: quello dell'ultima volta. Reps: l'obiettivo della scheda.
           pesiIniziali[es.id] = ultimo ? scriviNumero(ultimo.pesoUsato) : '';
-          repsIniziali[es.id] = String(es.repsTarget);
+          const fatteOggi = storico.filter((x) => eOggi(x.data)).length;
+          const prossima = pianoSerie(es)[fatteOggi];
+          // Reps fisse → precompilate; "Max" o intervallo (6-9) → campo vuoto.
+          repsIniziali[es.id] = repsDiPartenza(prossima);
         });
         setStorici(nuoviStorici);
+        setStoriciFalliti(falliti);
         setPeso(pesiIniziali);
         setReps(repsIniziali);
       } catch (err) {
@@ -306,14 +351,50 @@ export default function ClienteDashboard() {
     return () => clearTimeout(id);
   }, [recuperoFinito]);
 
-  function avviaRecupero(es: Esercizio) {
+  // Il recupero dipende dalla serie appena fatta: una serie aggiunta può averne uno diverso.
+  function avviaRecupero(nome: string, secondi: number) {
+    if (secondi <= 0) return;
     const adesso = Date.now();
     setOra(adesso);
-    setTimer({ nome: es.nome, fine: adesso + es.recuperoSecondi * 1000, totale: es.recuperoSecondi * 1000 });
+    setTimer({ nome, fine: adesso + secondi * 1000, totale: secondi * 1000 });
   }
 
   function aggiungiTempo() {
     setTimer((t) => t && { ...t, fine: Math.max(t.fine, Date.now()) + 15000, totale: t.totale + 15000 });
+  }
+
+  // Riprova a caricare lo storico di un esercizio che all'inizio non era arrivato.
+  async function ricaricaStorico(es: Esercizio) {
+    setErroreEsercizio(null);
+    try {
+      const storico = await getStorico(es.id);
+      setStorici((prev) => ({ ...prev, [es.id]: storico }));
+      setStoriciFalliti((prev) => {
+        const nuovo = new Set(prev);
+        nuovo.delete(es.id);
+        return nuovo;
+      });
+      const ultimo = storico[storico.length - 1];
+      setPeso((prev) => ({ ...prev, [es.id]: prev[es.id] || (ultimo ? scriviNumero(ultimo.pesoUsato) : '') }));
+      const prossima = pianoSerie(es)[storico.filter((x) => eOggi(x.data)).length];
+      setReps((prev) => ({ ...prev, [es.id]: prev[es.id] || repsDiPartenza(prossima) }));
+    } catch (err) {
+      setErroreEsercizio({ id: es.id, testo: err instanceof Error ? err.message : 'Ancora nessuna connessione, riprova' });
+    }
+  }
+
+  // Se oggi l'allenamento di questa scheda è già stato chiuso e il cliente corregge o
+  // elimina una serie, ricalcoliamo la sessione sul server: così il trainer vede i numeri
+  // giusti. Il server AGGIORNA la sessione di oggi, non ne crea un'altra.
+  async function aggiornaSessioneDiOggi(esercizioId: number) {
+    const scheda = schede.find((sc) => sc.esercizi.some((e) => e.id === esercizioId));
+    if (!scheda || !sessioneDiOggi(scheda.id)) return;
+    try {
+      const sessione = await completaAllenamento(scheda.id);
+      setSessioni((prev) => [sessione, ...prev.filter((s) => s.id !== sessione.id)]);
+    } catch {
+      // Non è grave: i numeri si sistemano la prossima volta che tocca "Allenamento completato".
+    }
   }
 
   // Dopo una correzione/eliminazione aggiorniamo lo storico locale: pallini,
@@ -323,40 +404,60 @@ export default function ClienteDashboard() {
       ...prev,
       [esercizioId]: (prev[esercizioId] || []).map((s) => (s.id === nuova.id ? nuova : s)),
     }));
+    if (eOggi(nuova.data)) aggiornaSessioneDiOggi(esercizioId);
   }
 
   function rimuoviSerie(esercizioId: number, id: number) {
+    const eraDiOggi = (storici[esercizioId] || []).some((s) => s.id === id && eOggi(s.data));
     setStorici((prev) => ({
       ...prev,
       [esercizioId]: (prev[esercizioId] || []).filter((s) => s.id !== id),
     }));
+    if (eraDiOggi) aggiornaSessioneDiOggi(esercizioId);
   }
 
   async function handleRegistra(es: Esercizio) {
+    if (inInvio.has(es.id)) return; // doppio tocco: la prima richiesta è ancora in corso
     setErroreEsercizio(null);
-    const kg = leggiNumero(peso[es.id] || '');
-    const r = leggiNumero(reps[es.id] || '');
-    if (!kg || kg <= 0 || !r || r <= 0) {
-      setErroreEsercizio({ id: es.id, testo: 'Inserisci peso e ripetizioni' });
+    if (storiciFalliti.has(es.id)) {
+      setErroreEsercizio({ id: es.id, testo: 'Prima tocca "Riprova a caricare": serve lo storico per contare le serie' });
       return;
     }
+    if (!valoriValidi(peso[es.id] || '', reps[es.id] || '')) {
+      setErroreEsercizio({ id: es.id, testo: 'Inserisci peso (anche 0 per il corpo libero) e ripetizioni' });
+      return;
+    }
+    const kg = leggiNumero(peso[es.id] || '');
+    const r = leggiNumero(reps[es.id] || '');
 
-    setInInvio(es.id);
+    setInInvio((prev) => new Set(prev).add(es.id));
     try {
       const nuovo = await registraAllenamento(es.id, kg, r, nota[es.id]);
       // Aggiungiamo il nuovo record allo storico locale invece di ricaricare tutto.
-      const aggiornato = [...(storici[es.id] || []), nuovo];
-      setStorici({ ...storici, [es.id]: aggiornato });
-      setNota({ ...nota, [es.id]: '' });
-      setNotaAperta(null);
+      // setStorici(prev => …) e non setStorici({...storici}): se nel frattempo è arrivata
+      // la risposta di un ALTRO esercizio (superserie), non la sovrascriviamo con dati vecchi.
+      setStorici((prev) => ({ ...prev, [es.id]: [...(prev[es.id] || []), nuovo] }));
+      setNota((prev) => ({ ...prev, [es.id]: '' }));
+      setNotaAperta((prev) => (prev === es.id ? null : prev));
+      const aggiornato = [...(storici[es.id] || []).filter((x) => x.id !== nuovo.id), nuovo];
 
-      // Parte il recupero, tranne dopo l'ultima serie prevista.
+      const piano = pianoSerie(es);
       const fatteOggi = aggiornato.filter((x) => eOggi(x.data)).length;
-      if (fatteOggi < es.serieTarget) avviaRecupero(es);
+      const prossima = piano[fatteOggi];
+      if (prossima) {
+        // Parte il recupero della serie appena fatta, e le reps passano a quelle della
+        // prossima serie (utile quando la prossima ha reps diverse, o è "Max" → campo vuoto).
+        avviaRecupero(es.nome, piano[fatteOggi - 1]?.recuperoSecondi ?? es.recuperoSecondi);
+        setReps((prev) => ({ ...prev, [es.id]: repsDiPartenza(prossima) }));
+      }
     } catch (err) {
       setErroreEsercizio({ id: es.id, testo: err instanceof Error ? err.message : 'Errore nella registrazione' });
     } finally {
-      setInInvio(null);
+      setInInvio((prev) => {
+        const nuovo = new Set(prev);
+        nuovo.delete(es.id);
+        return nuovo;
+      });
     }
   }
 
@@ -370,8 +471,9 @@ export default function ClienteDashboard() {
     for (const es of scheda.esercizi) {
       const storico = storici[es.id] || [];
       const diOggi = storico.filter((x) => eOggi(x.data));
-      serieTotali += es.serieTarget;
-      serieFatte += Math.min(es.serieTarget, diOggi.length);
+      const previste = pianoSerie(es).length;
+      serieTotali += previste;
+      serieFatte += Math.min(previste, diOggi.length);
       volume += diOggi.reduce((acc, x) => acc + x.pesoUsato * x.repsFatte, 0);
       for (const x of storico) {
         const d = new Date(x.data);
@@ -410,7 +512,8 @@ export default function ClienteDashboard() {
     setInChiusura(true);
     try {
       const sessione = await completaAllenamento(scheda.id);
-      setSessioni([sessione, ...sessioni]);
+      // Se il server ha aggiornato la sessione di oggi (stesso id), la sostituiamo invece di duplicarla.
+      setSessioni((prev) => [sessione, ...prev.filter((s) => s.id !== sessione.id)]);
       setRiepilogo(sessione);
       tornaAllaHome();
     } catch (err) {
@@ -420,16 +523,12 @@ export default function ClienteDashboard() {
     }
   }
 
-  // "Riprendi allenamento": annulla la chiusura (le serie restano) e riapre la scheda.
-  async function handleRiprendi(sessione: SessioneAllenamento) {
+  // "Riprendi allenamento": per chi ha toccato "Allenamento completato" per sbaglio o vuole
+  // fare ancora qualcosa. NON cancella niente: riapre solo la scheda. Quando il cliente
+  // ripreme "Allenamento completato", il server aggiorna la sessione di oggi con i numeri nuovi.
+  function riprendiAllenamento(schedaId: number) {
     setErrore('');
-    try {
-      await annullaCompletamento(sessione.id);
-      setSessioni(sessioni.filter((s) => s.id !== sessione.id));
-      apriScheda(sessione.schedaId);
-    } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore, riprova');
-    }
+    apriScheda(schedaId);
   }
 
   if (caricamento) {
@@ -475,8 +574,8 @@ export default function ClienteDashboard() {
             </div>
             <p className="mt-3 text-sm text-soft">Il tuo trainer vedrà che hai concluso l’allenamento.</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <button className="btn-ghost" onClick={() => handleRiprendi(riepilogo)}>
-                ↺ Riapri
+              <button className="btn-ghost" onClick={() => riprendiAllenamento(riepilogo.schedaId)}>
+                ↺ Riprendi
               </button>
               <button className="btn-secondary" onClick={() => setRiepilogo(null)}>
                 Ok
@@ -518,10 +617,13 @@ export default function ClienteDashboard() {
                     : 'Non ancora iniziata'}
                 </p>
 
-                {/* Già chiusa oggi → "Riprendi" annulla la chiusura e riapre la scheda;
+                {/* Già chiusa oggi → "Riprendi" riapre la scheda (senza cancellare nulla);
                     iniziata ma non chiusa → "Continua"; altrimenti → "Inizia". */}
                 {sessioneOggi ? (
-                  <button className="btn-secondary min-h-14 w-full text-base" onClick={() => handleRiprendi(sessioneOggi)}>
+                  <button
+                    className="btn-secondary min-h-14 w-full text-base"
+                    onClick={() => riprendiAllenamento(scheda.id)}
+                  >
                     ↺ Riprendi allenamento
                   </button>
                 ) : (
@@ -548,11 +650,7 @@ export default function ClienteDashboard() {
       </button>
 
       {schede.filter((s) => s.id === schedaAperta).map((scheda) => {
-        const serieTotali = scheda.esercizi.reduce((acc, es) => acc + es.serieTarget, 0);
-        const serieFatte = scheda.esercizi.reduce(
-          (acc, es) => acc + Math.min(es.serieTarget, (storici[es.id] || []).filter((x) => eOggi(x.data)).length),
-          0
-        );
+        const { serieFatte, serieTotali } = statoScheda(scheda);
 
         return (
           <section key={scheda.id} className="space-y-4">
@@ -575,7 +673,9 @@ export default function ClienteDashboard() {
             {scheda.esercizi.map((es, indice) => {
               const storico = storici[es.id] || [];
               const oggi = storico.filter((x) => eOggi(x.data)).length;
-              const completato = oggi >= es.serieTarget;
+              const piano = pianoSerie(es);
+              const completato = oggi >= piano.length;
+              const prossima = piano[oggi]; // undefined se l'esercizio è finito
               const ultimaVolta = [...storico].reverse().find((x) => !eOggi(x.data));
 
               return (
@@ -595,20 +695,27 @@ export default function ClienteDashboard() {
                     <div className="min-w-0 flex-1">
                       <h3 className="text-lg leading-tight font-bold">{es.nome}</h3>
                       <p className="mt-1 text-sm text-soft">
-                        <span className="font-semibold text-ink">
-                          {es.serieTarget} × {es.repsTarget}
-                        </span>
-                        <span className="text-muted"> · recupero {es.recuperoSecondi}s</span>
+                        <span className="font-semibold text-ink">{riassuntoSerie(es)}</span>
+                        <span className="text-muted"> · {testoRecupero(es.recuperoSecondi)}</span>
                       </p>
                     </div>
                   </header>
 
                   {/* Serie di oggi come pallini: si capisce a colpo d'occhio a che punto sei */}
-                  <div className="flex items-center gap-1.5" aria-label={`${oggi} serie su ${es.serieTarget} fatte oggi`}>
-                    {Array.from({ length: es.serieTarget }, (_, i) => (
+                  {/* Le serie aggiunte ancora da fare hanno il bordo tratteggiato: si vede che sono diverse */}
+                  <div className="flex items-center gap-1.5" aria-label={`${oggi} serie su ${piano.length} fatte oggi`}>
+                    {piano.map((serie, i) => (
                       <span
                         key={i}
-                        className={`h-2 flex-1 rounded-full ${i < oggi ? (completato ? 'bg-success' : 'bg-accent') : 'bg-surface-2'}`}
+                        className={`h-2 flex-1 rounded-full ${
+                          i < oggi
+                            ? completato
+                              ? 'bg-success'
+                              : 'bg-accent'
+                            : serie.aggiunta
+                              ? 'border border-dashed border-accent/70'
+                              : 'bg-surface-2'
+                        }`}
                       />
                     ))}
                   </div>
@@ -640,10 +747,35 @@ export default function ClienteDashboard() {
                     </div>
                   )}
 
-                  {completato ? (
+                  {storiciFalliti.has(es.id) ? (
+                    <div className="space-y-2">
+                      <p className="alert-error">Non sono riuscito a caricare le tue serie di questo esercizio.</p>
+                      {erroreEsercizio?.id === es.id && <p className="alert-error">{erroreEsercizio.testo}</p>}
+                      <button className="btn-secondary min-h-12 w-full" onClick={() => ricaricaStorico(es)}>
+                        ↻ Riprova a caricare
+                      </button>
+                    </div>
+                  ) : completato ? (
                     <p className="alert-success">Esercizio completato per oggi. Ottimo lavoro!</p>
                   ) : (
                     <>
+                      {/* Se la prossima serie ha valori propri (aggiunta dal trainer) o è "Max",
+                          lo diciamo chiaramente prima dei campi */}
+                      {prossima && (prossima.aggiunta || prossima.reps == null) && (
+                        <div className="rounded-xl border border-dashed border-accent/70 bg-accent-soft px-3 py-2.5">
+                          <p className="text-xs font-semibold tracking-wide text-accent uppercase">
+                            Serie {prossima.numero}
+                          </p>
+                          <p className="mt-0.5 text-sm text-ink">
+                            <span className="font-bold">
+                              {prossima.reps == null ? 'Max ripetizioni' : `${testoReps(prossima.reps, prossima.repsMax)} reps`}
+                            </span>
+                            <span className="text-soft"> · {testoRecupero(prossima.recuperoSecondi)}</span>
+                            {prossima.nota && <span className="text-soft"> · {prossima.nota}</span>}
+                          </p>
+                        </div>
+                      )}
+
                       {ultimaVolta && (
                         <p className="text-sm text-muted">
                           Ultima volta:{' '}
@@ -661,7 +793,7 @@ export default function ClienteDashboard() {
                           passo={2.5}
                           minimo={0}
                           decimali
-                          onChange={(v) => setPeso({ ...peso, [es.id]: v })}
+                          onChange={(v) => setPeso((prev) => ({ ...prev, [es.id]: v }))}
                         />
                         <Stepper
                           etichetta="Reps"
@@ -669,7 +801,8 @@ export default function ClienteDashboard() {
                           passo={1}
                           minimo={1}
                           decimali={false}
-                          onChange={(v) => setReps({ ...reps, [es.id]: v })}
+                          segnaposto={prossima ? testoReps(prossima.reps, prossima.repsMax) : '0'}
+                          onChange={(v) => setReps((prev) => ({ ...prev, [es.id]: v }))}
                         />
                       </div>
 
@@ -679,6 +812,7 @@ export default function ClienteDashboard() {
                           autoFocus
                           placeholder='Per il trainer, es. "fastidio alla spalla"'
                           value={nota[es.id] || ''}
+                          maxLength={500}
                           onChange={(e) => setNota({ ...nota, [es.id]: e.target.value })}
                         />
                       )}
@@ -687,10 +821,10 @@ export default function ClienteDashboard() {
 
                       <button
                         className="btn-primary min-h-14 w-full text-base"
-                        disabled={inInvio === es.id}
+                        disabled={inInvio.has(es.id)}
                         onClick={() => handleRegistra(es)}
                       >
-                        {inInvio === es.id ? 'Salvo…' : `✓ Registra serie ${oggi + 1} di ${es.serieTarget}`}
+                        {inInvio.has(es.id) ? 'Salvo…' : `✓ Registra serie ${oggi + 1} di ${piano.length}`}
                       </button>
                     </>
                   )}

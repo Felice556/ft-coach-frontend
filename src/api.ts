@@ -1,10 +1,15 @@
-// Se apri l'app dal telefono (es. http://192.168.1.20:5173), "localhost" nel .env
-// indicherebbe il telefono stesso, non il PC dove gira il backend. In quel caso
-// sostituiamo localhost con l'indirizzo da cui è stata aperta la pagina.
-// In produzione VITE_API_URL sarà l'URL vero del backend e questo non scatta.
+// Indirizzo del backend, dalla variabile VITE_API_URL (file .env o impostazioni di Vercel).
 function risolviApiUrl(): string {
-  const daEnv: string = import.meta.env.VITE_API_URL;
-  if (daEnv.includes('localhost') && window.location.hostname !== 'localhost') {
+  const daEnv = import.meta.env.VITE_API_URL as string | undefined;
+  if (!daEnv) {
+    // Meglio un errore chiaro in console che un'app che non funziona senza motivo apparente.
+    throw new Error('VITE_API_URL non impostata: aggiungila nel file .env (o su Vercel) e riavvia');
+  }
+  // SOLO in sviluppo: se apri l'app dal telefono (es. http://192.168.1.20:5173),
+  // "localhost" indicherebbe il telefono stesso, non il PC con il backend,
+  // quindi usiamo l'indirizzo da cui è stata aperta la pagina.
+  // In produzione (import.meta.env.DEV = false) l'indirizzo si usa così com'è.
+  if (import.meta.env.DEV && daEnv.includes('localhost') && window.location.hostname !== 'localhost') {
     return daEnv.replace('localhost', window.location.hostname);
   }
   return daEnv;
@@ -14,22 +19,37 @@ const API_URL = risolviApiUrl();
 
 export type Ruolo = 'TRAINER' | 'CLIENTE';
 
+// Serie aggiunta dal trainer dopo le serie normali di un esercizio, con numeri propri.
+// reps = null significa "Max" (a cedimento).
+export interface SerieExtra {
+  id?: number;
+  reps: number | null;
+  repsMax?: number | null; // per gli intervalli: "6-9" → reps 6, repsMax 9
+  recuperoSecondi: number;
+  nota?: string | null;
+}
+
 export interface Esercizio {
   id: number;
   nome: string;
   videoUrl?: string | null;
   descrizione?: string | null;
   serieTarget: number;
-  repsTarget: number;
+  repsTarget: number | null; // null = "Max"; negli intervalli è il minimo
+  repsMax?: number | null; // per gli intervalli: "6-9" → repsTarget 6, repsMax 9
   recuperoSecondi: number;
   schedaId: number;
+  serieExtra: SerieExtra[];
 }
 
 export interface Scheda {
   id: number;
   nome: string;
   clienteId: number;
+  archiviataIl?: string | null;
+  creataIl: string; // data di creazione della scheda
   esercizi: Esercizio[];
+  haStorico?: boolean; // solo nell'elenco archiviate: true = non eliminabile definitivamente
 }
 
 export interface RegistroAllenamento {
@@ -40,6 +60,43 @@ export interface RegistroAllenamento {
   data: string;
   esercizioId: number;
   clienteId: number;
+}
+
+// Evento lanciato quando il server risponde 401 (sessione scaduta): lo ascolta App.
+export const EVENTO_SESSIONE_SCADUTA = 'palestra:sessione-scaduta';
+
+// Nomi leggibili dei campi, per i messaggi di errore.
+const NOMI_CAMPI: Record<string, string> = {
+  nome: 'nome',
+  clienteId: 'cliente',
+  videoUrl: 'video',
+  descrizione: 'note',
+  serieTarget: 'serie',
+  repsTarget: 'reps',
+  repsMax: 'reps',
+  reps: 'reps',
+  recuperoSecondi: 'recupero',
+  nota: 'nota',
+};
+
+// Da { path: ['esercizi', 1, 'videoUrl'], message: '...' } a "Esercizio 2 → video: ..."
+function descriviErrore(e: { path?: (string | number)[]; message?: string }): string {
+  const path = e.path || [];
+  const parti: string[] = [];
+  for (let i = 0; i < path.length; i++) {
+    const p = path[i];
+    if (p === 'esercizi' && typeof path[i + 1] === 'number') {
+      parti.push(`Esercizio ${(path[i + 1] as number) + 1}`);
+      i++;
+    } else if (p === 'serieExtra' && typeof path[i + 1] === 'number') {
+      parti.push(`serie aggiunta ${(path[i + 1] as number) + 1}`);
+      i++;
+    } else if (typeof p === 'string') {
+      parti.push(NOMI_CAMPI[p] || p);
+    }
+  }
+  const dove = parti.length ? `${parti.join(' → ')}: ` : '';
+  return `${dove}${e.message || 'valore non valido'}`;
 }
 
 // Wrapper unico per fetch: aggiunge automaticamente il token (se presente)
@@ -57,9 +114,26 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     },
   });
 
+  // Token scaduto (dura 7 giorni) o non più valido: invece di mostrare pagine vuote
+  // o errori strani, chiudiamo la sessione e torniamo al login.
+  // Token scaduto o non più valido. NON ricarichiamo la pagina: si perderebbe quello che
+  // l'utente sta scrivendo (kg/reps a metà serie, o un'intera scheda nel form del trainer).
+  // Avvisiamo App, che mostra un piccolo login SOPRA la pagina: dopo l'accesso si riprova
+  // la stessa azione e tutto quello che era scritto è ancora lì.
+  if (risposta.status === 401 && token) {
+    window.dispatchEvent(new Event(EVENTO_SESSIONE_SCADUTA));
+    throw new Error('Sessione scaduta: accedi di nuovo qui sopra, poi riprova');
+  }
+
   if (!risposta.ok) {
     const corpo = await risposta.json().catch(() => ({}));
-    throw new Error(corpo.errore || `Errore ${risposta.status}`);
+    if (corpo.errore) throw new Error(corpo.errore);
+    // Errori di validazione (zod): il backend manda un elenco "errori" con il percorso del campo.
+    // Li traduciamo in qualcosa di leggibile, es. "Esercizio 2 → video: link non valido".
+    if (Array.isArray(corpo.errori) && corpo.errori.length > 0) {
+      throw new Error(corpo.errori.map(descriviErrore).join(' · '));
+    }
+    throw new Error(`Errore ${risposta.status}`);
   }
 
   if (risposta.status === 204) {
@@ -75,11 +149,23 @@ export function login(email: string, password: string) {
   });
 }
 
-export function register(nome: string, email: string, password: string, ruolo: Ruolo) {
+// codiceTrainer serve solo per creare un account TRAINER (deve coincidere con CODICE_TRAINER del backend).
+export function register(nome: string, email: string, password: string, ruolo: Ruolo, codiceTrainer?: string) {
   return apiFetch<{ id: number; nome: string; ruolo: Ruolo }>('/register', {
     method: 'POST',
-    body: JSON.stringify({ nome, email, password, ruolo }),
+    body: JSON.stringify({ nome, email, password, ruolo, codiceTrainer: codiceTrainer || undefined }),
   });
+}
+
+export interface Cliente {
+  id: number;
+  nome: string;
+  email: string;
+}
+
+// Elenco clienti per il menu a tendina del trainer.
+export function getClienti() {
+  return apiFetch<Cliente[]>('/clienti');
 }
 
 export function getSchede(clienteId?: number) {
@@ -108,7 +194,21 @@ export function aggiornaScheda(
   });
 }
 
-export function cancellaScheda(id: number) {
+// Le schede non si cancellano: si archiviano (spariscono dalle viste, lo storico resta).
+export function archiviaScheda(id: number) {
+  return apiFetch<void>(`/schede/${id}/archivia`, { method: 'POST' });
+}
+
+export function ripristinaScheda(id: number) {
+  return apiFetch<void>(`/schede/${id}/ripristina`, { method: 'POST' });
+}
+
+export function getSchedeArchiviate() {
+  return apiFetch<Scheda[]>('/schede?archiviate=1');
+}
+
+// Solo per schede archiviate SENZA storico: il server rifiuta negli altri casi.
+export function eliminaSchedaDefinitivamente(id: number) {
   return apiFetch<void>(`/schede/${id}`, { method: 'DELETE' });
 }
 
@@ -144,6 +244,24 @@ export function creaPreset(nome: string, videoUrl?: string, descrizione?: string
 
 export function cancellaPreset(id: number) {
   return apiFetch<void>(`/preset-esercizi/${id}`, { method: 'DELETE' });
+}
+
+// Nota/tecnica salvata dal trainer, riutilizzabile su qualsiasi esercizio.
+export interface NotaPreset {
+  id: number;
+  testo: string;
+}
+
+export function getNotePreset() {
+  return apiFetch<NotaPreset[]>('/preset-note');
+}
+
+export function creaNotaPreset(testo: string) {
+  return apiFetch<NotaPreset>('/preset-note', { method: 'POST', body: JSON.stringify({ testo }) });
+}
+
+export function cancellaNotaPreset(id: number) {
+  return apiFetch<void>(`/preset-note/${id}`, { method: 'DELETE' });
 }
 
 export function modificaSerie(id: number, pesoUsato: number, repsFatte: number, nota?: string) {
@@ -184,8 +302,18 @@ export function completaAllenamento(schedaId: number) {
   });
 }
 
-export function annullaCompletamento(id: number) {
-  return apiFetch<void>(`/sessioni/${id}`, { method: 'DELETE' });
+// Esercizi tolti da una scheda: restano salvati (con lo storico) e si possono rimettere.
+export interface EsercizioArchiviato extends Esercizio {
+  archiviatoIl: string;
+  _count: { registri: number }; // quante serie ha registrato il cliente su questo esercizio
+}
+
+export function getEserciziArchiviati(schedaId: number) {
+  return apiFetch<EsercizioArchiviato[]>(`/schede/${schedaId}/esercizi-archiviati`);
+}
+
+export function ripristinaEsercizio(id: number) {
+  return apiFetch<void>(`/esercizi/${id}/ripristina`, { method: 'POST' });
 }
 
 export function getStorico(esercizioId: number) {
