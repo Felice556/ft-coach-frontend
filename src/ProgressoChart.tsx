@@ -1,22 +1,16 @@
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { RegistroAllenamento } from './api';
 
-// Recharts disegna in SVG e non legge le classi Tailwind: ripetiamo qui
-// gli stessi valori dei token definiti in index.css.
-const COLORI = {
-  linea: '#facc15', // accent
-  sfondo: '#17171a', // surface (anello attorno ai punti)
-  griglia: '#2e2e33', // line
-  testo: '#a1a1aa', // muted
-  tooltip: '#222226', // surface-2
-  inchiostro: '#f5f5f4', // ink
-};
+// I colori del grafico mantengono il contrasto sulle superfici scure dell'interfaccia.
+import { useColoriTema } from './tema';
 
 interface Props {
   storico: RegistroAllenamento[];
 }
 
 export default function ProgressoChart({ storico }: Props) {
+  // Colori letti dal tema attuale: il grafico cambia insieme a chiaro/scuro.
+  const COLORI = useColoriTema();
   // Ora il cliente registra ogni serie: in un giorno ci sono più righe.
   // Per il grafico teniamo la serie più pesante di ogni giorno ("miglior serie"),
   // altrimenti la linea farebbe su e giù dentro la stessa giornata.
@@ -47,26 +41,29 @@ export default function ProgressoChart({ storico }: Props) {
   if (dati.length < 2) {
     // Con un solo giorno non c'è una "progressione" da disegnare.
     return (
-      <p className="rounded-xl bg-surface-2 px-3 py-3 text-sm text-muted">
+      <p className="rounded-xl border border-line bg-surface-2 px-4 py-4 text-sm leading-relaxed text-muted">
         Il grafico compare dopo almeno due giorni di allenamento su questo esercizio.
       </p>
     );
   }
 
   return (
-    <div>
-      <p className="mb-2 text-xs font-semibold tracking-wide text-muted uppercase">Miglior serie del giorno (kg)</p>
+    <div className="rounded-xl border border-line bg-surface px-2 py-4 sm:px-4">
+      <div className="mb-5 px-2">
+        <p className="text-sm font-extrabold uppercase tracking-wide text-ink">I tuoi progressi</p>
+        <p className="mt-1 text-xs text-muted">Miglior serie del giorno, in kg</p>
+      </div>
       {/* ResponsiveContainer: il grafico prende sempre tutta la larghezza del telefono */}
-      <ResponsiveContainer width="100%" height={180}>
+      <ResponsiveContainer width="100%" height={220}>
         <LineChart data={dati} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-          <CartesianGrid stroke={COLORI.griglia} strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="data" tick={{ fontSize: 12, fill: COLORI.testo }} stroke={COLORI.griglia} tickLine={false} />
+          <CartesianGrid stroke={COLORI.griglia} strokeDasharray="4 4" vertical={false} />
+          <XAxis dataKey="data" tick={{ fontSize: 12, fill: COLORI.testo }} stroke={COLORI.griglia} tickLine={false} axisLine={false} tickMargin={10} minTickGap={24} />
           <YAxis
             tick={{ fontSize: 12, fill: COLORI.testo }}
             stroke={COLORI.griglia}
             tickLine={false}
             axisLine={false}
-            width={36}
+            width={40}
             domain={[minimoY, massimoY]}
             ticks={tacche}
           />
@@ -80,7 +77,9 @@ export default function ProgressoChart({ storico }: Props) {
             contentStyle={{
               background: COLORI.tooltip,
               border: `1px solid ${COLORI.griglia}`,
-              borderRadius: 10,
+              borderRadius: 12,
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+              padding: '10px 14px',
               fontSize: 13,
               color: COLORI.inchiostro,
             }}
@@ -90,8 +89,9 @@ export default function ProgressoChart({ storico }: Props) {
           <Line
             type="monotone"
             dataKey="peso"
+            isAnimationActive={false}
             stroke={COLORI.linea}
-            strokeWidth={2}
+            strokeWidth={3}
             dot={{ r: 4, fill: COLORI.linea, stroke: COLORI.sfondo, strokeWidth: 2 }}
             activeDot={{ r: 6, fill: COLORI.linea, stroke: COLORI.sfondo, strokeWidth: 2 }}
           />

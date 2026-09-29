@@ -169,7 +169,7 @@ function AccessoCliente({ cliente, onEmailCambiata }: { cliente: Cliente; onEmai
             </button>
           </div>
         ) : temporanea ? (
-          <div className="rounded-xl border border-accent/50 bg-accent-soft p-3 text-sm">
+          <div className="rounded-xl border border-accent-strong/50 bg-accent-soft p-3 text-sm">
             <p>Nuova password temporanea:</p>
             <p className="my-2 text-center font-mono text-2xl font-extrabold tracking-wider">{temporanea}</p>
             <p className="text-soft">La password attuale di {cliente.nome} smetterà di funzionare.</p>
@@ -243,6 +243,7 @@ function SceltaCliente({
         className="input pr-10"
         type="text"
         role="combobox"
+        aria-label="Cliente della scheda"
         aria-expanded={aperto}
         aria-autocomplete="list"
         autoComplete="off"
@@ -365,6 +366,11 @@ export default function TrainerDashboard() {
   // Lo stesso form serve per entrambe le cose.
   const [schedaInModifica, setSchedaInModifica] = useState<number | null>(null);
   const formRef = useRef<HTMLElement>(null);
+  const [editorAperto, setEditorAperto] = useState(false);
+
+  useEffect(() => {
+    if (editorAperto) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [editorAperto, schedaInModifica]);
 
   // Cliente di cui si stanno guardando le schede esistenti (null = nessuno scelto).
   const [clienteVisto, setClienteVisto] = useState<number | null>(null);
@@ -373,6 +379,7 @@ export default function TrainerDashboard() {
   const [versioneForm, setVersioneForm] = useState(0);
 
   function resetForm() {
+    setEditorAperto(false);
     setVersioneForm((v) => v + 1);
     setSchedaInModifica(null);
     setNomeScheda('');
@@ -385,6 +392,7 @@ export default function TrainerDashboard() {
 
   // Carica una scheda esistente nel form (gli input usano stringhe, i dati numeri).
   function avviaModifica(scheda: Scheda) {
+    setEditorAperto(true);
     setVersioneForm((v) => v + 1);
     setErrore('');
     setSchedaInModifica(scheda.id);
@@ -394,8 +402,6 @@ export default function TrainerDashboard() {
     setConfermaRimuovi(null);
     setNoteAperte(null);
     caricaEserciziRimossi(scheda.id);
-    // Su telefono il form è in cima alla pagina: ci riportiamo lì.
-    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   // Da esercizio salvato a riga del form (gli input usano stringhe, i dati numeri).
@@ -823,51 +829,91 @@ export default function TrainerDashboard() {
   const sessioniVisibili = mostraTutte ? sessioni : sessioni.slice(0, 5);
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
+      <div className="grid gap-3 sm:grid-cols-3 sm:gap-4" aria-label="Riepilogo attività">
+        <div className="metric-card">
+          <span className="metric-icon bg-surface-2 text-accent-strong" aria-hidden="true">
+            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 5"/></svg>
+          </span>
+          <div><p className="text-3xl font-bold tabular-nums tracking-tight">{clienti.length}</p><p className="text-sm text-muted">Clienti registrati</p></div>
+        </div>
+        <div className="metric-card">
+          <span className="metric-icon bg-surface-2 text-accent-strong" aria-hidden="true">
+            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><rect x="5" y="4" width="14" height="17" rx="3"/><rect x="9" y="2" width="6" height="4" rx="1.5" fill="currentColor" stroke="none"/><path d="M9 11h6m-6 5h6"/></svg>
+          </span>
+          <div><p className="text-3xl font-bold tabular-nums tracking-tight">{schede.length}</p><p className="text-sm text-muted">Schede attive</p></div>
+        </div>
+        <div className="metric-card">
+          <span className="metric-icon bg-surface-2 text-accent-strong" aria-hidden="true">
+            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m4 14 5-5 4 4 7-9m-5 0h5v5M4 4v16h16"/></svg>
+          </span>
+          <div><p className="text-3xl font-bold tabular-nums tracking-tight">{sessioni.length}</p><p className="text-sm text-muted">Allenamenti conclusi</p></div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <nav className="flex flex-wrap gap-2 text-sm font-semibold" aria-label="Sezioni trainer">
+          <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#attivita">Panoramica</a>
+          <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#schede-clienti">Schede</a>
+          <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#gestione-clienti">Clienti</a>
+        </nav>
+        <button type="button" className="btn-primary" aria-expanded={editorAperto} aria-controls="scheda-editor" onClick={() => {
+          setEditorAperto(true);
+          if (editorAperto) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }}>
+          <span aria-hidden="true" className="text-xl leading-none">+</span>
+          {editorAperto ? 'Continua la scheda' : 'Nuova scheda'}
+        </button>
+      </div>
+
+      {errore && <p className="alert-error" role="alert">{errore}</p>}
+
       {/* Prima cosa che vede il trainer: chi si è allenato e come è andata */}
-      <section>
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="flex items-center gap-2 text-xl font-bold">
-            <span className="h-5 w-1.5 rounded-full bg-accent" />
-            Allenamenti completati
-          </h2>
+      <section id="attivita" className="card scroll-mt-24">
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <p className="eyebrow mb-1">Attività recente</p>
+            <h2 className="section-title">Allenamenti completati</h2>
+            <p className="mt-1 text-sm text-muted">I progressi dei tuoi clienti, a colpo d’occhio.</p>
+          </div>
           <button
             aria-label="Aggiorna allenamenti completati"
-            className="btn-ghost min-h-9 w-9 shrink-0 px-0 text-base"
+            className="btn-secondary h-11 w-11 shrink-0 px-0"
             onClick={caricaSessioni}
           >
-            ↻
+            <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5M4 17v-5h5M6.1 6a8 8 0 0 1 13 3M4.9 15a8 8 0 0 0 13 3"/></svg>
           </button>
         </div>
         {sessioni.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">
+          <p className="empty-state">
             Nessun cliente ha ancora concluso un allenamento.
           </p>
         ) : (
-          <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
+          <ul className="divide-y divide-line overflow-hidden">
             {sessioniVisibili.map((s) => {
               const completa = s.serieFatte >= s.serieTotali;
               return (
-                <li key={s.id} className="flex items-center gap-3 px-4 py-3">
+                <li key={s.id} className="flex items-center gap-3 py-4 sm:gap-4">
                   <span
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-extrabold text-accent-ink ${
-                      completa ? 'bg-success' : 'bg-accent'
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${
+                      completa ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'
                     }`}
                     aria-hidden
                   >
-                    {completa ? '✓' : '½'}
+                    {s.cliente.nome.split(' ').filter(Boolean).slice(0, 2).map((parte) => parte[0]).join('')}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">
-                      {s.cliente.nome} <span className="font-normal text-muted">· {s.scheda.nome}</span>
+                    <p className="font-semibold leading-snug break-words">
+                      {s.cliente.nome}
                     </p>
-                    <p className="text-xs text-muted">{quando(s.completataIl)}</p>
+                    <p className="mt-0.5 text-sm text-soft break-words">{s.scheda.nome}</p>
+                    <p className="mt-0.5 text-xs text-muted">{quando(s.completataIl)}</p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className={`text-sm font-bold tabular-nums ${completa ? 'text-success' : 'text-accent'}`}>
+                    <p className={`rounded-md px-2 py-1 text-xs font-semibold tabular-nums sm:text-sm ${completa ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}>
                       {s.serieFatte}/{s.serieTotali} serie
                     </p>
-                    <p className="text-xs text-muted tabular-nums">
+                    <p className="mt-1 text-xs text-muted tabular-nums">
                       {Math.round(s.volume).toLocaleString('it-IT')} kg
                     </p>
                   </div>
@@ -884,13 +930,19 @@ export default function TrainerDashboard() {
       </section>
 
       <section
+        id="scheda-editor"
+        hidden={!editorAperto}
         ref={formRef}
-        className={`card scroll-mt-20 sm:p-6 ${schedaInModifica !== null ? 'ring-2 ring-accent' : ''}`}
+        className={`card scroll-mt-24 sm:p-7 ${schedaInModifica !== null ? 'ring-2 ring-accent-strong/30' : ''}`}
       >
-        <h2 className="mb-5 flex items-center gap-2 text-xl font-bold">
-          <span className="h-5 w-1.5 rounded-full bg-accent" />
-          {schedaInModifica !== null ? 'Modifica scheda' : 'Nuova scheda'}
-        </h2>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <p className="eyebrow mb-1">Programmazione</p>
+            <h2 className="section-title">{schedaInModifica !== null ? 'Modifica scheda' : 'Nuova scheda'}</h2>
+            <p className="mt-1 text-sm text-muted">Scegli il cliente e costruisci il suo prossimo allenamento.</p>
+          </div>
+          <button type="button" className="btn-secondary shrink-0" onClick={() => setEditorAperto(false)}>Riduci</button>
+        </div>
         {schedaInModifica !== null && (
           <p className="mb-5 rounded-lg bg-accent-soft px-3 py-2 text-sm text-soft">
             Stai modificando una scheda esistente. Se rimuovi un esercizio esce dalla scheda,
@@ -899,10 +951,11 @@ export default function TrainerDashboard() {
           </p>
         )}
         <form onSubmit={handleSalvaScheda} className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="sm:col-span-2">
-              <label className="label">Nome scheda</label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label" htmlFor="nome-scheda">Nome scheda</label>
               <input
+                id="nome-scheda"
                 className="input"
                 placeholder="Nome scheda (es. Full Body A)"
                 value={nomeScheda}
@@ -919,11 +972,11 @@ export default function TrainerDashboard() {
           </div>
 
           <div>
-            <h3 className="mb-3 text-sm font-bold tracking-wide text-soft uppercase">Esercizi</h3>
+            <h3 className="mb-3 text-lg font-bold text-ink">Esercizi della scheda</h3>
 
             <div className="mb-4 rounded-xl border border-line bg-surface p-3">
-              <p className="mb-2 text-xs font-semibold text-muted">
-                I tuoi esercizi salvati — tocca per aggiungere
+              <p className="mb-2 text-sm font-semibold text-soft">
+                Libreria esercizi <span className="font-normal text-muted">· tocca per aggiungere</span>
               </p>
               {preset.length === 0 ? (
                 <p className="text-xs text-muted">
@@ -961,7 +1014,7 @@ export default function TrainerDashboard() {
               {esercizi.map((es, i) => (
                 <div
                   key={es.chiave}
-                  className="rounded-xl border border-line bg-surface-2 p-4 transition focus-within:border-accent"
+                  className="rounded-2xl border border-line bg-field p-4 transition-colors focus-within:border-accent-strong/50 sm:p-5"
                 >
                   <div className="mb-3 flex items-center justify-between">
                     <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent text-xs font-bold text-accent-ink">
@@ -1037,9 +1090,9 @@ export default function TrainerDashboard() {
                   {es.serieExtra.length > 0 && (
                     <div className="mt-3 space-y-2">
                       {es.serieExtra.map((x, j) => (
-                        <div key={j} className="rounded-xl border border-accent/40 bg-accent-soft p-3">
+                        <div key={j} className="rounded-xl border border-accent-strong/40 bg-accent-soft p-3">
                           <div className="mb-2 flex items-center justify-between">
-                            <span className="text-xs font-semibold tracking-wide text-accent uppercase">
+                            <span className="text-xs font-semibold tracking-wide text-accent-strong uppercase">
                               Serie {Number(es.serieTarget || 0) + j + 1}
                             </span>
                             <button
@@ -1081,7 +1134,7 @@ export default function TrainerDashboard() {
                   {es.serieExtra.length < 10 && (
                     <button
                       type="button"
-                      className="btn-ghost mt-3 w-full border border-dashed border-accent/50 text-accent"
+                      className="btn-ghost mt-3 w-full border border-dashed border-accent-strong/50 text-accent-strong"
                       onClick={() => aggiungiSerieExtra(i)}
                     >
                       + Aggiungi serie
@@ -1109,7 +1162,7 @@ export default function TrainerDashboard() {
                       </button>
                       <button
                         type="button"
-                        className={`btn-secondary min-h-9 px-3 text-xs ${noteAperte === es.chiave ? 'border-accent' : ''}`}
+                        className={`btn-secondary min-h-9 px-3 text-xs ${noteAperte === es.chiave ? 'border-accent-strong' : ''}`}
                         onClick={() => setNoteAperte(noteAperte === es.chiave ? null : es.chiave)}
                       >
                         Note salvate ({notePreset.length}) {noteAperte === es.chiave ? '▴' : '▾'}
@@ -1180,6 +1233,7 @@ export default function TrainerDashboard() {
             )}
           </div>
 
+          {errore && <p className="alert-error">{errore}</p>}
           <div className="flex flex-col-reverse gap-3 border-t border-line pt-5 sm:flex-row sm:justify-end">
             {schedaInModifica !== null && (
               <button type="button" className="btn-secondary w-full px-6 py-2.5 sm:w-auto" onClick={resetForm}>
@@ -1193,13 +1247,12 @@ export default function TrainerDashboard() {
         </form>
       </section>
 
-      {errore && <p className="alert-error">{errore}</p>}
-
-      <section>
-        <h2 className="mb-4 flex items-center gap-2 text-xl font-bold">
-          <span className="h-5 w-1.5 rounded-full bg-accent" />
-          Schede esistenti
-        </h2>
+      <section id="schede-clienti" className="scroll-mt-24">
+        <div className="mb-5">
+          <p className="eyebrow mb-1">Programmi di allenamento</p>
+          <h2 className="section-title">Le schede dei tuoi clienti</h2>
+          <p className="mt-1 text-sm text-muted">Seleziona un cliente per consultare e aggiornare il suo programma.</p>
+        </div>
         {schede.length === 0 && (
           <p className="rounded-2xl border border-dashed border-line bg-surface p-8 text-center text-muted">
             Nessuna scheda ancora creata.
@@ -1208,7 +1261,7 @@ export default function TrainerDashboard() {
 
         {/* Elenco clienti: si tocca un nome e sotto compaiono solo le sue schede */}
         {clienti.length > 0 && (
-          <div className="mb-4">
+          <div className="mb-5 rounded-2xl border border-line bg-surface p-4 sm:p-5">
             <p className="label">Scegli il cliente</p>
             <div className="flex flex-wrap gap-2">
               {clienti.map((c) => {
@@ -1220,14 +1273,14 @@ export default function TrainerDashboard() {
                     type="button"
                     aria-pressed={attivo}
                     onClick={() => setClienteVisto(attivo ? null : c.id)}
-                    className={`inline-flex min-h-11 items-center gap-2 rounded-md border px-4 text-sm font-semibold transition ${
+                    className={`inline-flex min-h-12 items-center gap-3 rounded-xl border px-4 text-sm font-semibold transition-colors ${
                       attivo
-                        ? 'border-accent bg-accent text-accent-ink'
-                        : 'border-line bg-surface-2 text-ink hover:border-accent'
+                        ? 'border-accent-strong bg-accent text-accent-ink'
+                        : 'border-line bg-field text-ink hover:border-accent-strong'
                     }`}
                   >
                     {c.nome}
-                    <span className={`text-xs font-bold ${attivo ? 'opacity-70' : 'text-muted'}`}>{numero}</span>
+                    <span className={`flex h-6 min-w-6 items-center justify-center rounded-md px-1 text-xs font-bold ${attivo ? 'bg-black/10' : 'bg-surface-2 text-muted'}`}>{numero}</span>
                   </button>
                 );
               })}
@@ -1247,14 +1300,14 @@ export default function TrainerDashboard() {
         <div className="grid gap-4 md:grid-cols-2">
           {schede.filter((sc) => sc.clienteId === clienteVisto).map((scheda) => (
             <div key={scheda.id} className="card flex flex-col transition hover:shadow-md">
-              <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <strong className="block text-lg leading-tight font-bold break-words">{scheda.nome}</strong>
                   <span className="mt-1 inline-block rounded-md bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">
                     {nomeCliente(scheda.clienteId)}
                   </span>
                   {/* Data di creazione + quanto tempo fa: le schede sono già in ordine dalla più recente */}
-                  <p className={`mt-1.5 text-xs ${eVecchia(scheda.creataIl) ? 'font-semibold text-accent' : 'text-muted'}`}>
+                  <p className={`mt-1.5 text-xs ${eVecchia(scheda.creataIl) ? 'font-semibold text-accent-strong' : 'text-muted'}`}>
                     Creata il {dataBreve(scheda.creataIl)} · {etaScheda(scheda.creataIl)}
                     {eVecchia(scheda.creataIl) && ' · da aggiornare?'}
                   </p>
@@ -1275,7 +1328,7 @@ export default function TrainerDashboard() {
               </div>
               <ul className="divide-y divide-line border-t border-line">
                 {scheda.esercizi.map((es) => (
-                  <li key={es.id} className="py-2 text-sm">
+                  <li key={es.id} className="py-3 text-sm">
                     {/* flex-wrap: se nome e serie non stanno sulla stessa riga, il testo va a capo invece di uscire dallo schermo */}
                     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
                       <span className="min-w-0 font-medium break-words">{es.nome}</span>
@@ -1284,7 +1337,7 @@ export default function TrainerDashboard() {
                       </span>
                     </div>
                     {(es.serieExtra || []).map((x, j) => (
-                      <p key={j} className="mt-1 text-xs text-accent">
+                      <p key={j} className="mt-1 text-xs text-accent-strong">
                         + Serie {es.serieTarget + j + 1}: {testoReps(x.reps, x.repsMax)} reps · {testoRecupero(x.recuperoSecondi)}
                         {x.nota ? ` · ${x.nota}` : ''}
                       </p>
@@ -1329,13 +1382,14 @@ export default function TrainerDashboard() {
       </section>
 
       {/* Accesso dei clienti: correggere l'email o dare una password temporanea a chi l'ha dimenticata */}
-      <section>
+      <section id="gestione-clienti" className="card scroll-mt-24">
         <button
           type="button"
-          className="btn-ghost w-full justify-between px-4"
+          className="flex min-h-11 w-full items-center justify-between gap-3 text-left font-semibold"
+          aria-expanded={clientiAperti}
           onClick={() => setClientiAperti(!clientiAperti)}
         >
-          <span>I tuoi clienti ({clienti.length}) · email e password</span>
+          <span>Gestione clienti <span className="ml-1 text-muted">({clienti.length})</span><span className="mt-0.5 block text-sm font-normal text-muted">Email e credenziali di accesso</span></span>
           <span aria-hidden>{clientiAperti ? '▴' : '▾'}</span>
         </button>
         {clientiAperti && (
@@ -1374,10 +1428,11 @@ export default function TrainerDashboard() {
       </section>
 
       {/* Archivio: schede tolte dalla vista. Nessun dato perso: si ripristinano con un tocco. */}
-      <section>
+      <section className="card">
         <button
           type="button"
-          className="btn-ghost w-full justify-between px-4"
+          className="flex min-h-11 w-full items-center justify-between gap-3 text-left font-semibold"
+          aria-expanded={archivioAperto}
           onClick={() => {
             if (!archivioAperto) caricaArchiviate();
             setArchivioAperto(!archivioAperto);

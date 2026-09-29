@@ -1,120 +1,195 @@
 @import 'tailwindcss';
 
 /*
-  Tema "palestra": scuro, con il giallo come unico colore d'accento.
-  Perché scuro: in palestra la luce è spesso bassa, lo schermo va letto al volo
-  tra una serie e l'altra, e il giallo su nero ha un contrasto altissimo
-  (su bianco invece il giallo non si può usare per il testo).
+  Due temi, chiaro e scuro, con gli stessi nomi di colore.
+  I componenti usano classi come bg-surface o text-muted; qui sotto ogni nome punta a una
+  variabile (--t-...) che cambia a seconda del tema scelto (attributo data-tema su <html>).
+  "inline" serve a Tailwind per usare direttamente la variabile, così il cambio tema è istantaneo.
 
-  I colori hanno nomi "semantici" (a cosa servono) invece che descrittivi
-  (che colore sono): i componenti scrivono bg-surface / text-muted, e per
-  cambiare tema in futuro basta toccare questo blocco, non ogni componente.
+  Giallo FT: "accent" è il giallo pieno dei bottoni (con testo scuro sopra).
+  "accent-strong" è la versione per scritte, bordi e icone: nel tema chiaro diventa
+  ocra scuro, perché il giallo su bianco non si legge; nel tema scuro resta giallo.
 */
-@theme {
+@theme inline {
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --color-bg: var(--t-bg);
+  --color-surface: var(--t-surface);
+  --color-surface-2: var(--t-surface-2);
+  --color-field: var(--t-field);
+  --color-line: var(--t-line);
+  --color-ink: var(--t-ink);
+  --color-soft: var(--t-soft);
+  --color-muted: var(--t-muted);
+  --color-accent: var(--t-accent);
+  --color-accent-hover: var(--t-accent-hover);
+  --color-accent-ink: var(--t-accent-ink);
+  --color-accent-strong: var(--t-accent-strong);
+  --color-accent-soft: var(--t-accent-soft);
+  --color-danger: var(--t-danger);
+  --color-danger-soft: var(--t-danger-soft);
+  --color-success: var(--t-success);
+  --color-success-soft: var(--t-success-soft);
+  --color-warning: var(--t-warning);
+  --color-warning-soft: var(--t-warning-soft);
+  --color-info: var(--t-info);
+  --color-info-soft: var(--t-info-soft);
 
-  --color-bg: #0b0b0c; /* sfondo pagina */
-  --color-surface: #17171a; /* card */
-  --color-surface-2: #222226; /* elementi dentro le card: chip, righe, riquadri */
-  --color-field: #0f0f11; /* campi di input: "incassati" nella card */
-  --color-line: #2e2e33; /* bordi e divisori */
+  /* Angoli arrotondati (stile della versione dark). Per angoli vivi: 2/3/3/4/4/6px */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 20px;
+  --radius-3xl: 28px;
+}
 
-  --color-ink: #f5f5f4; /* testo principale */
-  --color-soft: #d4d4d8; /* testo secondario leggibile */
-  --color-muted: #a1a1aa; /* etichette, date, testo di servizio */
+/* Tema chiaro (anche quello di partenza, prima che il JavaScript scelga il tema) */
+:root {
+  color-scheme: light;
+  --t-bg: #f5f5f3;
+  --t-surface: #ffffff;
+  --t-surface-2: #efeee9;
+  --t-field: #fafaf8;
+  --t-line: #e2e0da;
+  --t-ink: #1c1b18;
+  --t-soft: #45433d;
+  --t-muted: #66635b;
+  --t-accent: #facc15;
+  --t-accent-hover: #eab308;
+  --t-accent-ink: #1c1b18;
+  --t-accent-strong: #8a5a00;
+  --t-accent-soft: #fdf3c4;
+  --t-danger: #b42318;
+  --t-danger-soft: #fdecea;
+  --t-success: #1f7a45;
+  --t-success-soft: #e7f5ec;
+  --t-warning: #9a4d00;
+  --t-warning-soft: #fdf0dc;
+  --t-info: #5b4a9e;
+  --t-info-soft: #eeebf8;
+  --t-ombra: rgba(28, 27, 24, 0.06);
+}
 
-  --color-accent: #facc15;
-  --color-accent-hover: #fde047;
-  --color-accent-ink: #0b0b0c; /* testo SOPRA il giallo */
-  --color-accent-soft: #29230c; /* velatura gialla per note in evidenza */
-
-  --color-danger: #f87171;
-  --color-danger-soft: #2a1515;
-  --color-success: #4ade80;
-  --color-success-soft: #132519;
-
-  /*
-    Angoli quasi vivi: look più "tecnico" e meno da app tutta arrotondata.
-    Tutti i rounded-xl, rounded-2xl ecc. dell'app leggono questi valori:
-    per tornare agli angoli tondi basta cancellare queste righe.
-    (rounded-full resta tondo: serve per i cerchi, come i numeri degli esercizi.)
-  */
-  --radius-sm: 2px;
-  --radius-md: 3px;
-  --radius-lg: 3px;
-  --radius-xl: 4px;
-  --radius-2xl: 4px;
-  --radius-3xl: 6px;
+/* Tema scuro: grafite scura, stesso giallo */
+:root[data-tema='scuro'] {
+  color-scheme: dark;
+  --t-bg: #1f2023;
+  --t-surface: #27292d;
+  --t-surface-2: #303237;
+  --t-field: #18191c;
+  --t-line: #3a3c42;
+  --t-ink: #f2f3f5;
+  --t-soft: #dbdee1;
+  --t-muted: #a3a9b1;
+  --t-accent: #facc15;
+  --t-accent-hover: #fde047;
+  --t-accent-ink: #1c1b18;
+  --t-accent-strong: #facc15;
+  --t-accent-soft: #332d1a;
+  --t-danger: #f87171;
+  --t-danger-soft: #36252a;
+  --t-success: #4ade80;
+  --t-success-soft: #1f3226;
+  --t-warning: #fbbf24;
+  --t-warning-soft: #3a2f14;
+  --t-info: #b4a6f0;
+  --t-info-soft: #2c2840;
+  --t-ombra: rgba(0, 0, 0, 0.25);
 }
 
 @layer base {
   html {
-    /* Fa disegnare al browser anche select, tastiere e scrollbar in versione scura. */
-    color-scheme: dark;
     -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+    scroll-padding-top: 6rem;
   }
-
   body {
-    @apply bg-bg text-ink antialiased;
+    @apply m-0 bg-bg text-ink antialiased;
+    min-width: 320px;
+    line-height: 1.55;
   }
+  button, input, select, textarea { font: inherit; }
+  button, a, input, select, textarea { touch-action: manipulation; }
+  button:enabled, summary { cursor: pointer; }
+  :focus-visible { outline: 3px solid var(--t-accent-strong); outline-offset: 3px; }
+  ::selection { background: var(--t-accent); color: var(--t-accent-ink); }
+  h1, h2, h3 { text-wrap: balance; }
+  h1, h2 { letter-spacing: -0.035em; }
+  input[type='number'] { font-variant-numeric: tabular-nums; }
+  textarea { line-height: 1.6; }
+  [hidden] { display: none !important; }
 }
 
 @layer components {
-  /* text-base = 16px: sotto questa misura iPhone fa lo zoom sul campo quando lo tocchi. */
   .input {
     @apply min-h-12 w-full rounded-xl border border-line bg-field px-3.5 py-2.5 text-base text-ink
-      placeholder:text-muted/70 transition
-      focus:border-accent focus:ring-2 focus:ring-accent/30 focus:outline-none;
+      placeholder:text-muted transition-colors
+      hover:border-muted/50 focus:border-accent-strong focus:bg-surface focus:ring-3 focus:ring-accent-strong/15 focus:outline-none;
   }
-
-  /* Bottoni alti almeno 44px: la misura minima consigliata per il pollice. */
   .btn-primary,
   .btn-secondary,
   .btn-danger,
   .btn-ghost {
-    @apply inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold
-      transition cursor-pointer select-none active:scale-[0.97]
-      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60
-      disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold leading-snug
+      transition-colors cursor-pointer select-none
+      focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-accent-strong/30 focus-visible:ring-offset-2 focus-visible:ring-offset-bg
+      disabled:opacity-40 disabled:cursor-not-allowed;
   }
-
   .btn-primary {
-    @apply bg-accent text-accent-ink hover:bg-accent-hover;
+    @apply border border-transparent bg-accent text-accent-ink hover:bg-accent-hover;
+    box-shadow: none;
   }
-
   .btn-secondary {
-    @apply border border-line bg-surface-2 text-ink hover:border-muted;
+    @apply border border-line bg-surface text-ink hover:border-accent-strong/40 hover:bg-surface-2;
   }
-
   .btn-danger {
-    @apply border border-danger/40 bg-transparent text-danger hover:bg-danger-soft;
+    @apply border border-danger/30 bg-surface text-danger hover:bg-danger-soft;
   }
-
   .btn-ghost {
-    @apply bg-surface-2 text-ink hover:bg-line;
+    @apply bg-surface-2 text-soft hover:bg-line;
   }
-
   .btn-link {
-    @apply cursor-pointer font-semibold text-accent underline-offset-4 hover:underline;
+    @apply cursor-pointer font-semibold text-accent-strong underline-offset-4 hover:underline;
   }
-
   .card {
-    @apply rounded-2xl border border-line bg-surface p-4 sm:p-5;
+    @apply rounded-2xl border border-line bg-surface p-4 sm:p-6;
+    box-shadow: none;
   }
-
   .label {
-    @apply mb-1.5 block text-xs font-semibold tracking-wide text-muted uppercase;
+    @apply mb-2 block text-sm font-semibold leading-snug text-soft;
   }
-
   .chip {
-    @apply inline-flex items-center gap-1 rounded-lg bg-surface-2 px-2.5 py-1 text-sm text-soft;
+    @apply inline-flex items-center gap-1.5 rounded-lg bg-surface-2 px-3 py-1.5 text-sm font-medium text-soft;
   }
-
   .alert-error {
-    @apply rounded-xl border-l-4 border-danger bg-danger-soft px-4 py-3 text-sm text-danger;
+    @apply rounded-xl border border-danger/20 bg-danger-soft px-4 py-3 text-sm leading-relaxed text-danger;
   }
-
   .alert-success {
-    @apply rounded-xl border-l-4 border-success bg-success-soft px-4 py-3 text-sm text-success;
+    @apply rounded-xl border border-success/20 bg-success-soft px-4 py-3 text-sm leading-relaxed text-success;
+  }
+  .eyebrow {
+    @apply text-xs font-bold uppercase tracking-[0.15em] text-accent-strong;
+  }
+  .section-title {
+    @apply text-xl font-extrabold uppercase leading-snug sm:text-2xl;
+  }
+  .metric-card {
+    @apply flex min-w-0 items-center gap-4 rounded-2xl border border-line/50 bg-surface p-4 sm:p-5;
+  }
+  .metric-icon {
+    @apply flex h-12 w-12 shrink-0 items-center justify-center rounded-xl;
+  }
+  .empty-state {
+    @apply rounded-2xl border border-dashed border-line bg-field p-6 text-center text-sm leading-relaxed text-muted;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

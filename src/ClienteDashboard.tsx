@@ -77,7 +77,8 @@ function Stepper({
   segnaposto = '0',
   onChange,
 }: StepperProps) {
-  const larghezzaBottone = compatto ? 'w-10' : 'w-12';
+  // Bottoni − / + più stretti sui telefoni piccoli: lo spazio serve al numero (es. 102,5 kg).
+  const larghezzaBottone = compatto ? 'w-9' : 'w-9 min-[380px]:w-10 sm:w-12';
   function cambia(delta: number) {
     const attuale = leggiNumero(valore) || 0;
     onChange(scriviNumero(Math.max(minimo, attuale + delta)));
@@ -86,11 +87,11 @@ function Stepper({
   return (
     <div>
       <span className="label text-center">{etichetta}</span>
-      <div className="flex items-stretch overflow-hidden rounded-xl border border-line bg-field focus-within:border-accent">
+      <div className="flex items-stretch overflow-hidden rounded-xl border border-line bg-field transition focus-within:border-accent-strong focus-within:ring-2 focus-within:ring-accent-strong/15">
         <button
           type="button"
           aria-label={`Diminuisci ${etichetta}`}
-          className={`${larghezzaBottone} shrink-0 text-2xl font-bold text-soft transition active:bg-surface-2`}
+          className={`${larghezzaBottone} shrink-0 text-2xl font-medium text-soft transition hover:bg-surface-2 active:bg-accent-soft`}
           onClick={() => cambia(-passo)}
         >
           −
@@ -99,7 +100,8 @@ function Stepper({
           // inputMode sceglie la tastiera del telefono: numerica con virgola per i kg,
           // solo cifre per le ripetizioni.
           inputMode={decimali ? 'decimal' : 'numeric'}
-          className={`w-full min-w-0 bg-transparent text-center font-bold text-ink outline-none ${compatto ? 'min-h-12 text-lg' : 'min-h-14 text-2xl'}`}
+          aria-label={etichetta}
+          className={`w-full min-w-0 bg-transparent px-0 text-center font-bold tracking-tight tabular-nums text-ink outline-none ${compatto ? 'min-h-12 text-lg' : 'min-h-14 text-[clamp(1.05rem,5.2vw,1.5rem)]'}`}
           value={valore}
           placeholder={segnaposto}
           onChange={(e) => onChange(e.target.value)}
@@ -107,7 +109,7 @@ function Stepper({
         <button
           type="button"
           aria-label={`Aumenta ${etichetta}`}
-          className={`${larghezzaBottone} shrink-0 text-2xl font-bold text-soft transition active:bg-surface-2`}
+          className={`${larghezzaBottone} shrink-0 text-2xl font-medium text-soft transition hover:bg-surface-2 active:bg-accent-soft`}
           onClick={() => cambia(passo)}
         >
           +
@@ -184,7 +186,7 @@ function SerieRiga({ serie, etichetta, onModificata, onEliminata }: SerieRigaPro
   if (modalita === 'modifica') {
     return (
       <li className="space-y-3 bg-surface-2 px-3 py-3">
-        <p className="text-xs font-semibold tracking-wide text-accent uppercase">Correggi · {etichetta}</p>
+        <p className="text-xs font-semibold tracking-wide text-accent-strong uppercase">Correggi · {etichetta}</p>
         <div className="grid grid-cols-2 gap-3">
           <Stepper etichetta="Kg" valore={kg} passo={2.5} minimo={0} decimali compatto onChange={setKg} />
           <Stepper etichetta="Reps" valore={reps} passo={1} minimo={1} decimali={false} compatto onChange={setReps} />
@@ -203,7 +205,7 @@ function SerieRiga({ serie, etichetta, onModificata, onEliminata }: SerieRigaPro
   }
 
   return (
-    <li className="px-3 py-2">
+    <li className="px-3 py-2.5">
       <div className="flex items-center gap-2">
         <span className="w-16 shrink-0 text-sm text-muted">{etichetta}</span>
         <span className="min-w-0 flex-1 text-sm whitespace-nowrap">
@@ -226,14 +228,14 @@ function SerieRiga({ serie, etichetta, onModificata, onEliminata }: SerieRigaPro
               className="btn-ghost min-h-9 w-9 px-0 text-sm"
               onClick={apriModifica}
             >
-              ✎
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-4 w-4" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15l-1 5Z" /></svg>
             </button>
             <button
               aria-label={`Elimina ${etichetta}`}
               className="btn-ghost min-h-9 w-9 px-0 text-sm text-muted hover:text-danger"
               onClick={() => setModalita('conferma')}
             >
-              ✕
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-4 w-4" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7M14 10v7" /></svg>
             </button>
           </>
         )}
@@ -532,16 +534,20 @@ export default function ClienteDashboard() {
   }
 
   if (caricamento) {
-    return <p className="py-12 text-center text-muted">Carico la tua scheda…</p>;
+    return <p className="card py-16 text-center text-muted" role="status">Carico la tua scheda…</p>;
   }
 
   if (schede.length === 0) {
     return (
       <div className="space-y-4">
         {errore && <p className="alert-error">{errore}</p>}
-        <p className="rounded-2xl border border-dashed border-line p-8 text-center text-muted">
-          Il tuo trainer non ti ha ancora assegnato una scheda.
-        </p>
+        <div className="card py-14 text-center">
+          <span className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-accent-strong" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-7 w-7"><rect x="6" y="4" width="12" height="17" rx="2" /><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3" /></svg>
+          </span>
+          <h2 className="text-2xl font-black uppercase tracking-tight">Il tuo percorso inizia qui</h2>
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">Il tuo trainer non ti ha ancora assegnato una scheda. Quando sarà pronta, la troverai in questa pagina.</p>
+        </div>
       </div>
     );
   }
@@ -549,13 +555,30 @@ export default function ClienteDashboard() {
   // ---------- HOME: elenco delle schede ----------
   if (schedaAperta === null) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-7">
         {errore && <p className="alert-error">{errore}</p>}
+
+        <p className="text-sm capitalize text-muted">{new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+
+        <div className="grid grid-cols-3 gap-3 sm:gap-4">
+          <div className="card !p-4 sm:!p-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">Le tue schede</p>
+            <p className="mt-2 text-4xl font-black tabular-nums tracking-tight">{schede.length}</p>
+          </div>
+          <div className="card border-accent-strong bg-accent !p-4 text-accent-ink sm:!p-5">
+            <p className="text-xs font-semibold uppercase tracking-wide">Serie oggi</p>
+            <p className="mt-2 text-4xl font-black tabular-nums tracking-tight">{schede.reduce((totale, scheda) => totale + statoScheda(scheda).serieFatte, 0)}</p>
+          </div>
+          <div className="card !p-4 sm:!p-5">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">Sessioni concluse</p>
+            <p className="mt-2 text-4xl font-black tabular-nums tracking-tight">{sessioni.length}</p>
+          </div>
+        </div>
 
         {riepilogo && (
           <div className="card border-success/40 bg-success-soft">
             <p className="text-xs font-semibold tracking-wide text-success uppercase">Allenamento completato</p>
-            <p className="mt-1 text-xl font-extrabold">{riepilogo.scheda.nome}</p>
+            <p className="mt-1 text-2xl font-black uppercase tracking-tight">{riepilogo.scheda.nome}</p>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div className="rounded-xl bg-bg/40 px-3 py-2">
                 <p className="text-2xl font-extrabold tabular-nums">
@@ -575,7 +598,7 @@ export default function ClienteDashboard() {
             <p className="mt-3 text-sm text-soft">Il tuo trainer vedrà che hai concluso l’allenamento.</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button className="btn-ghost" onClick={() => riprendiAllenamento(riepilogo.schedaId)}>
-                ↺ Riprendi
+                Riprendi
               </button>
               <button className="btn-secondary" onClick={() => setRiepilogo(null)}>
                 Ok
@@ -584,34 +607,48 @@ export default function ClienteDashboard() {
           </div>
         )}
 
-        <div className="space-y-3">
-          <h2 className="label">Le tue schede</h2>
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-2xl font-black uppercase tracking-tight sm:text-3xl">Il tuo programma</h2>
+            <p className="mt-1 text-sm text-muted">Le schede preparate dal tuo trainer.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
           {schede.map((scheda) => {
             const { serieFatte, serieTotali, ultimaData } = statoScheda(scheda);
             const iniziataOggi = serieFatte > 0;
             const sessioneOggi = sessioneDiOggi(scheda.id);
             const chiusaOggi = sessioneOggi !== undefined;
             return (
-              <article key={scheda.id} className="card space-y-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="text-xl font-extrabold tracking-tight">{scheda.nome}</h3>
+              <article key={scheda.id} className="card flex flex-col gap-5 border-t-2 border-t-accent/70 transition hover:border-accent-strong/70">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-2xl font-black uppercase tracking-tight">{scheda.nome}</h3>
                     <p className="mt-1 text-sm text-muted">
                       {scheda.esercizi.length} esercizi · {serieTotali} serie
                     </p>
                   </div>
                   {chiusaOggi ? (
-                    <span className="chip shrink-0 text-success">✓ Completata oggi</span>
+                    <span className="chip shrink-0 bg-success-soft text-success">Completata oggi</span>
                   ) : (
                     iniziataOggi && (
-                      <span className="chip shrink-0 text-accent">
+                      <span className="chip shrink-0 bg-accent-soft text-accent-strong">
                         {serieFatte}/{serieTotali} oggi
                       </span>
                     )
                   )}
                 </div>
 
-                <p className="text-sm text-muted">
+                <div className="rounded-xl bg-surface-2 px-4 py-3">
+                  <div className="mb-2 flex items-center justify-between gap-3 text-xs font-medium text-muted">
+                    <span>Avanzamento di oggi</span>
+                    <span className="tabular-nums text-ink">{serieFatte} / {serieTotali} serie</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-line" role="progressbar" aria-label={`Avanzamento ${scheda.nome}`} aria-valuenow={serieFatte} aria-valuemin={0} aria-valuemax={serieTotali}>
+                    <div className="h-full rounded-full bg-accent" style={{ width: `${serieTotali ? (serieFatte / serieTotali) * 100 : 0}%` }} />
+                  </div>
+                </div>
+
+                <p className="mt-auto text-sm text-muted">
                   {ultimaData
                     ? `Ultimo allenamento: ${ultimaData.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}`
                     : 'Non ancora iniziata'}
@@ -624,7 +661,7 @@ export default function ClienteDashboard() {
                     className="btn-secondary min-h-14 w-full text-base"
                     onClick={() => riprendiAllenamento(scheda.id)}
                   >
-                    ↺ Riprendi allenamento
+                    Riprendi allenamento
                   </button>
                 ) : (
                   <button className="btn-primary min-h-14 w-full text-base" onClick={() => apriScheda(scheda.id)}>
@@ -634,6 +671,7 @@ export default function ClienteDashboard() {
               </article>
             );
           })}
+          </div>
         </div>
       </div>
     );
@@ -642,7 +680,7 @@ export default function ClienteDashboard() {
   // ---------- ALLENAMENTO sulla scheda aperta ----------
   return (
     // Spazio in fondo quando c'è la barra del timer, così non copre l'ultimo esercizio.
-    <div className={`space-y-8 ${timer ? 'pb-32' : ''}`}>
+    <div className={`mx-auto max-w-3xl space-y-6 ${timer ? 'pb-32' : ''}`}>
       {errore && <p className="alert-error">{errore}</p>}
 
       <button className="btn-ghost -mt-2" onClick={tornaAllaHome}>
@@ -653,16 +691,17 @@ export default function ClienteDashboard() {
         const { serieFatte, serieTotali } = statoScheda(scheda);
 
         return (
-          <section key={scheda.id} className="space-y-4">
+          <section key={scheda.id} className="space-y-5">
             {/* Intestazione scheda con avanzamento della giornata */}
-            <div>
-              <div className="flex items-end justify-between gap-3">
-                <h2 className="text-2xl font-extrabold tracking-tight">{scheda.nome}</h2>
-                <span className="shrink-0 text-sm text-muted">
+            <div className="rounded-2xl border border-line border-l-4 border-l-accent bg-surface p-5 sm:p-6">
+              <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-accent-strong">Il tuo allenamento</p>
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <h2 className="text-3xl font-black uppercase tracking-tight sm:text-4xl">{scheda.nome}</h2>
+                <span className="shrink-0 text-sm text-soft">
                   <span className="font-bold text-ink">{serieFatte}</span>/{serieTotali} serie oggi
                 </span>
               </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-accent/10" role="progressbar" aria-label="Serie completate oggi" aria-valuenow={serieFatte} aria-valuemin={0} aria-valuemax={serieTotali}>
                 <div
                   className="h-full rounded-full bg-accent transition-all duration-500"
                   style={{ width: `${serieTotali ? (serieFatte / serieTotali) * 100 : 0}%` }}
@@ -681,20 +720,20 @@ export default function ClienteDashboard() {
               return (
                 <article
                   key={es.id}
-                  className={`card space-y-4 transition ${completato ? 'border-success/40' : ''}`}
+                  className={`card space-y-5 transition ${completato ? 'border-success/30' : ''}`}
                 >
                   {/* Titolo + stato */}
                   <header className="flex items-start gap-3">
                     <span
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-extrabold ${
-                        completato ? 'bg-success text-accent-ink' : 'bg-accent text-accent-ink'
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-black ${
+                        completato ? 'bg-success-soft text-success' : 'bg-accent text-accent-ink'
                       }`}
                     >
                       {completato ? '✓' : indice + 1}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-lg leading-tight font-bold">{es.nome}</h3>
-                      <p className="mt-1 text-sm text-soft">
+                      <h3 className="text-lg leading-snug font-extrabold tracking-tight sm:text-xl">{es.nome}</h3>
+                      <p className="mt-1 text-sm leading-relaxed text-soft">
                         <span className="font-semibold text-ink">{riassuntoSerie(es)}</span>
                         <span className="text-muted"> · {testoRecupero(es.recuperoSecondi)}</span>
                       </p>
@@ -713,7 +752,7 @@ export default function ClienteDashboard() {
                               ? 'bg-success'
                               : 'bg-accent'
                             : serie.aggiunta
-                              ? 'border border-dashed border-accent/70'
+                              ? 'border border-dashed border-accent-strong/70'
                               : 'bg-surface-2'
                         }`}
                       />
@@ -721,9 +760,9 @@ export default function ClienteDashboard() {
                   </div>
 
                   {es.descrizione && (
-                    <div className="rounded-xl border-l-4 border-accent bg-accent-soft px-3 py-2.5">
-                      <p className="text-xs font-semibold tracking-wide text-accent uppercase">Dal tuo trainer</p>
-                      <p className="mt-0.5 text-sm text-soft">{es.descrizione}</p>
+                    <div className="rounded-xl border-l-4 border-accent-strong bg-accent-soft px-3 py-2.5">
+                      <p className="text-xs font-semibold tracking-wide text-accent-strong uppercase">Dal tuo trainer</p>
+                      <p className="mt-1 text-sm leading-relaxed text-soft">{es.descrizione}</p>
                     </div>
                   )}
 
@@ -752,7 +791,7 @@ export default function ClienteDashboard() {
                       <p className="alert-error">Non sono riuscito a caricare le tue serie di questo esercizio.</p>
                       {erroreEsercizio?.id === es.id && <p className="alert-error">{erroreEsercizio.testo}</p>}
                       <button className="btn-secondary min-h-12 w-full" onClick={() => ricaricaStorico(es)}>
-                        ↻ Riprova a caricare
+                        Riprova a caricare
                       </button>
                     </div>
                   ) : completato ? (
@@ -762,8 +801,8 @@ export default function ClienteDashboard() {
                       {/* Se la prossima serie ha valori propri (aggiunta dal trainer) o è "Max",
                           lo diciamo chiaramente prima dei campi */}
                       {prossima && (prossima.aggiunta || prossima.reps == null) && (
-                        <div className="rounded-xl border border-dashed border-accent/70 bg-accent-soft px-3 py-2.5">
-                          <p className="text-xs font-semibold tracking-wide text-accent uppercase">
+                        <div className="rounded-xl border border-dashed border-accent-strong/70 bg-accent-soft px-3 py-2.5">
+                          <p className="text-xs font-semibold tracking-wide text-accent-strong uppercase">
                             Serie {prossima.numero}
                           </p>
                           <p className="mt-0.5 text-sm text-ink">
@@ -777,7 +816,7 @@ export default function ClienteDashboard() {
                       )}
 
                       {ultimaVolta && (
-                        <p className="text-sm text-muted">
+                        <p className="rounded-xl bg-surface-2 px-4 py-3 text-sm text-muted">
                           Ultima volta:{' '}
                           <span className="font-semibold text-soft">
                             {scriviNumero(ultimaVolta.pesoUsato)} kg × {ultimaVolta.repsFatte}
@@ -788,7 +827,7 @@ export default function ClienteDashboard() {
 
                       <div className="grid grid-cols-2 gap-3">
                         <Stepper
-                          etichetta="Kg"
+                          etichetta="Peso (kg)"
                           valore={peso[es.id] || ''}
                           passo={2.5}
                           minimo={0}
@@ -796,7 +835,7 @@ export default function ClienteDashboard() {
                           onChange={(v) => setPeso((prev) => ({ ...prev, [es.id]: v }))}
                         />
                         <Stepper
-                          etichetta="Reps"
+                          etichetta="Ripetizioni"
                           valore={reps[es.id] || ''}
                           passo={1}
                           minimo={1}
@@ -810,6 +849,7 @@ export default function ClienteDashboard() {
                         <input
                           className="input"
                           autoFocus
+                          aria-label="Nota per il trainer"
                           placeholder='Per il trainer, es. "fastidio alla spalla"'
                           value={nota[es.id] || ''}
                           maxLength={500}
@@ -824,28 +864,29 @@ export default function ClienteDashboard() {
                         disabled={inInvio.has(es.id)}
                         onClick={() => handleRegistra(es)}
                       >
-                        {inInvio.has(es.id) ? 'Salvo…' : `✓ Registra serie ${oggi + 1} di ${piano.length}`}
+                        {inInvio.has(es.id) ? 'Salvo…' : `Registra serie ${oggi + 1} di ${piano.length}`}
                       </button>
                     </>
                   )}
 
                   {/* Azioni secondarie, piccole e in basso: non rubano spazio al bottone principale */}
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 border-t border-line pt-3">
                     {es.videoUrl && (
                       <a href={es.videoUrl} target="_blank" rel="noreferrer" className="btn-ghost flex-1">
-                        ▶ Video
+                        Video esercizio
                       </a>
                     )}
                     {!completato && (
                       <button
-                        className={`btn-ghost flex-1 ${nota[es.id] ? 'text-accent' : ''}`}
+                        className={`btn-ghost flex-1 ${nota[es.id] ? 'text-accent-strong' : ''}`}
                         onClick={() => setNotaAperta(notaAperta === es.id ? null : es.id)}
                       >
-                        {nota[es.id] ? '✎ Nota pronta' : '+ Nota'}
+                        {nota[es.id] ? 'Nota pronta' : 'Aggiungi nota'}
                       </button>
                     )}
                     <button
-                      className={`btn-ghost flex-1 ${progressiAperti === es.id ? 'bg-line' : ''}`}
+                      className={`btn-ghost flex-1 ${progressiAperti === es.id ? 'bg-accent-soft text-accent-strong' : ''}`}
+                      aria-expanded={progressiAperti === es.id}
                       onClick={() => setProgressiAperti(progressiAperti === es.id ? null : es.id)}
                     >
                       Progressi
@@ -882,10 +923,12 @@ export default function ClienteDashboard() {
             })}
 
             {/* Fine allenamento: salva il riepilogo e torna alla home */}
-            <div className="space-y-2 pt-2">
+            <div className="rounded-2xl border border-line bg-surface p-5 sm:p-6">
+              <h3 className="mb-2 text-xl font-black uppercase tracking-tight">Hai concluso per oggi?</h3>
+              <p className="mb-4 text-sm leading-relaxed text-muted">Salva il riepilogo dell’allenamento per condividerlo con il tuo trainer.</p>
               {errore && <p className="alert-error">{errore}</p>}
               {serieFatte < serieTotali && (
-                <p className="text-center text-sm text-muted">
+                <p className="mb-3 text-sm text-muted">
                   Mancano {serieTotali - serieFatte} serie: puoi chiudere lo stesso.
                 </p>
               )}
@@ -896,7 +939,7 @@ export default function ClienteDashboard() {
                 disabled={inChiusura}
                 onClick={() => handleCompleta(scheda)}
               >
-                {inChiusura ? 'Salvo…' : '✓ Allenamento completato'}
+                {inChiusura ? 'Salvo…' : 'Allenamento completato'}
               </button>
             </div>
           </section>
@@ -905,13 +948,13 @@ export default function ClienteDashboard() {
 
       {/* Barra del recupero, fissa in basso dove arriva il pollice */}
       {timer && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
-          <div className="mx-auto flex max-w-4xl items-center gap-3">
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.3)] backdrop-blur">
+          <div className="mx-auto flex max-w-3xl items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs text-muted">
                 {recuperoFinito ? 'Recupero finito' : 'Recupero'} · {timer.nome}
               </p>
-              <p className={`text-3xl font-extrabold tabular-nums ${recuperoFinito ? 'text-success' : 'text-ink'}`}>
+              <p className={`text-4xl font-black tabular-nums ${recuperoFinito ? 'text-success' : 'text-accent-strong'}`}>
                 {recuperoFinito ? 'Via!' : formattaTempo(secondiRimasti)}
               </p>
             </div>
@@ -924,7 +967,7 @@ export default function ClienteDashboard() {
               {recuperoFinito ? 'Chiudi' : 'Salta'}
             </button>
           </div>
-          <div className="mx-auto mt-2 h-1 max-w-4xl overflow-hidden rounded-full bg-surface-2">
+          <div className="mx-auto mt-3 h-1.5 max-w-3xl overflow-hidden rounded-full bg-surface-2">
             <div
               className="h-full rounded-full bg-accent transition-[width] duration-300 ease-linear"
               style={{ width: `${timer.totale ? Math.max(0, Math.min(100, ((timer.fine - ora) / timer.totale) * 100)) : 0}%` }}
