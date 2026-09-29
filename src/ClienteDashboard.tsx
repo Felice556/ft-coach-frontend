@@ -14,6 +14,7 @@ import {
 } from './api';
 import ProgressoChart from './ProgressoChart';
 import { pianoSerie, riassuntoSerie, testoReps, testoRecupero, SerieDaFare } from './serie';
+import { sbloccaAudio, suonoConteggio, suonoFine, tieniSchermoAcceso } from './suono';
 
 // Valore di partenza del campo reps per una serie: il numero se è fisso,
 // vuoto se è "Max" o un intervallo (6-9): lì il cliente scrive quante ne ha fatte davvero.
@@ -349,9 +350,32 @@ export default function ClienteDashboard() {
   useEffect(() => {
     if (!recuperoFinito) return;
     navigator.vibrate?.([200, 100, 200]);
+    suonoFine();
     const id = setTimeout(() => setTimer(null), 4000);
     return () => clearTimeout(id);
   }, [recuperoFinito]);
+
+  // Ultimi 3 secondi: un bip per secondo (3, 2, 1).
+  const timerAttivo = timer !== null;
+  useEffect(() => {
+    if (timerAttivo && secondiRimasti > 0 && secondiRimasti <= 3) suonoConteggio();
+  }, [secondiRimasti, timerAttivo]);
+
+  // Mentre il timer corre teniamo acceso lo schermo: se si spegne, il telefono
+  // addormenta la pagina e il suono di fine recupero non partirebbe.
+  useEffect(() => {
+    if (!timerAttivo) return;
+    let blocco: Awaited<ReturnType<typeof tieniSchermoAcceso>> = null;
+    let finito = false;
+    tieniSchermoAcceso().then((b) => {
+      if (finito) void b?.release();
+      else blocco = b;
+    });
+    return () => {
+      finito = true;
+      void blocco?.release();
+    };
+  }, [timerAttivo]);
 
   // Il recupero dipende dalla serie appena fatta: una serie aggiunta può averne uno diverso.
   function avviaRecupero(nome: string, secondi: number) {
@@ -361,8 +385,17 @@ export default function ClienteDashboard() {
     setTimer({ nome, fine: adesso + secondi * 1000, totale: secondi * 1000 });
   }
 
-  function aggiungiTempo() {
-    setTimer((t) => t && { ...t, fine: Math.max(t.fine, Date.now()) + 15000, totale: t.totale + 15000 });
+  // +10 / +15 / -10 / -15 secondi. Togliendo non si va sotto zero (a zero il recupero finisce).
+  function cambiaTempo(secondi: number) {
+    sbloccaAudio();
+    const adesso = Date.now();
+    setOra(adesso);
+    setTimer((t) => {
+      if (!t) return t;
+      const fine = Math.max(adesso, Math.max(t.fine, adesso) + secondi * 1000);
+      // la barra resta proporzionata: se il tempo rimasto supera il totale, il totale cresce
+      return { ...t, fine, totale: Math.max(t.totale, fine - adesso) };
+    });
   }
 
   // Riprova a caricare lo storico di un esercizio che all'inizio non era arrivato.
@@ -420,6 +453,7 @@ export default function ClienteDashboard() {
 
   async function handleRegistra(es: Esercizio) {
     if (inInvio.has(es.id)) return; // doppio tocco: la prima richiesta è ancora in corso
+    sbloccaAudio(); // dentro il tocco: così a fine recupero il telefono può suonare
     setErroreEsercizio(null);
     if (storiciFalliti.has(es.id)) {
       setErroreEsercizio({ id: es.id, testo: 'Prima tocca "Riprova a caricare": serve lo storico per contare le serie' });
@@ -680,7 +714,7 @@ export default function ClienteDashboard() {
   // ---------- ALLENAMENTO sulla scheda aperta ----------
   return (
     // Spazio in fondo quando c'è la barra del timer, così non copre l'ultimo esercizio.
-    <div className={`mx-auto max-w-3xl space-y-6 ${timer ? 'pb-32' : ''}`}>
+    <div className={`mx-auto max-w-3xl space-y-6 ${timer ? 'pb-52' : ''}`}>
       {errore && <p className="alert-error">{errore}</p>}
 
       <button className="btn-ghost -mt-2" onClick={tornaAllaHome}>
@@ -959,15 +993,25 @@ export default function ClienteDashboard() {
                 {recuperoFinito ? 'Via!' : formattaTempo(secondiRimasti)}
               </p>
             </div>
-            {!recuperoFinito && (
-              <button className="btn-ghost" onClick={aggiungiTempo}>
-                +15s
-              </button>
-            )}
             <button className="btn-secondary" onClick={() => setTimer(null)}>
               {recuperoFinito ? 'Chiudi' : 'Salta'}
             </button>
           </div>
+          {!recuperoFinito && (
+            <div className="mx-auto mt-3 grid max-w-3xl grid-cols-4 gap-2">
+              {[-15, -10, 10, 15].map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className="btn-ghost px-0 tabular-nums"
+                  aria-label={s > 0 ? `Aggiungi ${s} secondi` : `Togli ${-s} secondi`}
+                  onClick={() => cambiaTempo(s)}
+                >
+                  {s > 0 ? `+${s}s` : `−${-s}s`}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="mx-auto mt-3 h-1.5 max-w-3xl overflow-hidden rounded-full bg-surface-2">
             <div
               className="h-full rounded-full bg-accent transition-[width] duration-300 ease-linear"
