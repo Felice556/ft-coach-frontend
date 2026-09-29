@@ -3,10 +3,11 @@ import { EVENTO_CAMBIO_PASSWORD, EVENTO_SESSIONE_SCADUTA, getInfoRegistrazione, 
 import TrainerDashboard from './TrainerDashboard';
 import ClienteDashboard from './ClienteDashboard';
 import CambioPassword from './CambioPassword';
+import InformativaPrivacy from './Privacy';
 import { leggiSceltaTema, salvaSceltaTema, SceltaTema } from './tema';
 
 // Impostazioni: tema dell'app (salvato su questo telefono) e cambio password.
-function Impostazioni({ onCambiaPassword, onChiudi }: { onCambiaPassword: () => void; onChiudi: () => void }) {
+function Impostazioni({ onCambiaPassword, onPrivacy, onChiudi }: { onCambiaPassword: () => void; onPrivacy: () => void; onChiudi: () => void }) {
   const [tema, setTema] = useState<SceltaTema>(leggiSceltaTema);
   const opzioni: { valore: SceltaTema; nome: string; descrizione: string }[] = [
     { valore: 'automatico', nome: 'Automatico', descrizione: 'Come il telefono' },
@@ -47,6 +48,7 @@ function Impostazioni({ onCambiaPassword, onChiudi }: { onCambiaPassword: () => 
       <div>
         <p className="label">Account</p>
         <button type="button" className="btn-secondary w-full" onClick={onCambiaPassword}>Cambia password</button>
+        <button type="button" className="btn-link mt-3 w-full text-sm" onClick={onPrivacy}>Informativa privacy</button>
       </div>
     </div>
   );
@@ -127,6 +129,9 @@ export default function App() {
   const [errore, setErrore] = useState('');
   const [inInvio, setInInvio] = useState(false);
   const [mostraPassword, setMostraPassword] = useState(false);
+  // Informativa privacy aperta, e consenso dato in registrazione (serve per peso e massa grassa).
+  const [privacyAperta, setPrivacyAperta] = useState(false);
+  const [consensoPrivacy, setConsensoPrivacy] = useState(false);
 
   // Sessione scaduta mentre l'app è aperta: invece di buttare fuori l'utente (e fargli
   // perdere quello che stava scrivendo) mostriamo un login in sovrimpressione.
@@ -198,6 +203,10 @@ export default function App() {
     e.preventDefault();
     if (inInvio) return;
     setErrore('');
+    if (!consensoPrivacy) {
+      setErrore('Per registrarti devi accettare l’informativa privacy');
+      return;
+    }
     setInInvio(true);
     try {
       await register(
@@ -269,8 +278,11 @@ export default function App() {
                 <h1 className="max-w-sm text-[2.35rem] font-black uppercase leading-[0.95] tracking-[-0.06em] text-white sm:text-[3.5rem] lg:text-[3.9rem]">Allenati.<br />Migliora.<br /><span className="text-accent">Ripeti.</span></h1>
                 <p className="mt-6 hidden max-w-xs text-sm leading-6 text-white/80 lg:block">Schede mirate. Carichi sotto controllo. Un programma da seguire, una serie alla volta.</p>
               </div>
-              <div className="relative z-10 mt-10 hidden items-center gap-4 border-t border-white/20 pt-6 text-[10px] font-bold uppercase tracking-[0.16em] text-white/65 lg:flex">
-                <span>Forza</span><span className="h-1 w-1 rounded-full bg-accent" aria-hidden="true" /><span>Metodo</span><span className="h-1 w-1 rounded-full bg-accent" aria-hidden="true" /><span>Costanza</span>
+              <div className="relative z-10 mt-8 flex items-center gap-3 border-t border-white/20 pt-4 lg:mt-10 lg:pt-6">
+                <span className="h-1 w-1 rounded-full bg-accent" aria-hidden="true" />
+                <button type="button" className="min-h-11 text-xs font-bold uppercase tracking-[0.16em] text-white/80 underline-offset-4 hover:text-white hover:underline" onClick={() => setPrivacyAperta(true)}>
+                  Informativa privacy
+                </button>
               </div>
             </section>
             <section className="flex items-center p-6 sm:p-10 lg:p-12">
@@ -312,6 +324,23 @@ export default function App() {
                     </div>
                   )}
                   {modalitaRegistrazione && ruoloScelto === 'TRAINER' && <div><label htmlFor="auth-trainer-code" className="label">Codice trainer</label><input id="auth-trainer-code" className="input" type="password" autoComplete="off" placeholder="Il tuo codice di accesso" value={codiceTrainer} onChange={(e) => setCodiceTrainer(e.target.value)} required /></div>}
+                  {modalitaRegistrazione && (
+                    <div className="flex items-start gap-3 rounded-xl border border-line bg-field p-3">
+                      <input
+                        id="auth-privacy"
+                        type="checkbox"
+                        className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-accent-strong"
+                        checked={consensoPrivacy}
+                        onChange={(e) => setConsensoPrivacy(e.target.checked)}
+                        required
+                      />
+                      <label htmlFor="auth-privacy" className="text-sm leading-snug text-soft">
+                        Ho letto l’
+                        <button type="button" className="btn-link inline p-0 text-sm" onClick={() => setPrivacyAperta(true)}>informativa privacy</button>{' '}
+                        e acconsento al trattamento dei miei dati, compresi peso e massa grassa.
+                      </label>
+                    </div>
+                  )}
                   {errore && <p role={errore.startsWith('Registrazione completata') ? 'status' : 'alert'} className={errore.startsWith('Registrazione completata') ? 'alert-success' : 'alert-error'}>{errore}</p>}
                   <button type="submit" className="btn-primary w-full py-3 uppercase tracking-wide" disabled={inInvio}>
                     {inInvio ? 'Un momento…' : modalitaRegistrazione ? 'Crea il tuo account' : 'Accedi'}
@@ -325,6 +354,11 @@ export default function App() {
           </div>
           <p className="mt-6 text-center text-xs text-muted">FT COACH · TRAIN WITH PURPOSE</p>
         </div>
+        {privacyAperta && (
+          <Modal titleId="privacy-titolo" onClose={() => setPrivacyAperta(false)}>
+            <InformativaPrivacy onChiudi={() => setPrivacyAperta(false)} />
+          </Modal>
+        )}
       </main>
     );
   }
@@ -374,7 +408,17 @@ export default function App() {
               setImpostazioniAperte(false);
               setCambioPasswordAperto(true);
             }}
+            onPrivacy={() => {
+              setImpostazioniAperte(false);
+              setPrivacyAperta(true);
+            }}
           />
+        </Modal>
+      )}
+
+      {privacyAperta && (
+        <Modal titleId="privacy-titolo" onClose={() => setPrivacyAperta(false)}>
+          <InformativaPrivacy onChiudi={() => setPrivacyAperta(false)} />
         </Modal>
       )}
 
