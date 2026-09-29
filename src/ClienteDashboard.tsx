@@ -14,7 +14,17 @@ import {
 } from './api';
 import ProgressoChart from './ProgressoChart';
 import { pianoSerie, riassuntoSerie, testoReps, testoRecupero, SerieDaFare } from './serie';
-import { sbloccaAudio, suonoConteggio, suonoFine, tieniSchermoAcceso } from './suono';
+import {
+  impostaSuono,
+  impostaVolume,
+  leggiVolume,
+  provaSuono,
+  sbloccaAudio,
+  suonoAttivo,
+  suonoConteggio,
+  suonoFine,
+  tieniSchermoAcceso,
+} from './suono';
 
 // Valore di partenza del campo reps per una serie: il numero se è fisso,
 // vuoto se è "Max" o un intervallo (6-9): lì il cliente scrive quante ne ha fatte davvero.
@@ -251,6 +261,23 @@ function SerieRiga({ serie, etichetta, onModificata, onEliminata }: SerieRigaPro
 
 type Timer = { nome: string; fine: number; totale: number };
 
+// Icona altoparlante: con le onde se il suono è attivo, con la X se è silenziato.
+function IconaVolume({ muto }: { muto: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M11 5 6 9H3v6h3l5 4V5z" fill="currentColor" />
+      {muto ? (
+        <path d="m16 9 5 6m0-6-5 6" />
+      ) : (
+        <>
+          <path d="M15.5 8.5a5 5 0 0 1 0 7" />
+          <path d="M18.5 5.5a9 9 0 0 1 0 13" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 export default function ClienteDashboard() {
   const [schede, setSchede] = useState<Scheda[]>([]);
   const [caricamento, setCaricamento] = useState(true);
@@ -289,6 +316,9 @@ export default function ClienteDashboard() {
   // se il telefono blocca lo schermo e il browser rallenta, il conto resta giusto.
   const [timer, setTimer] = useState<Timer | null>(null);
   const [ora, setOra] = useState(Date.now());
+  // Suono del timer: silenziato sì/no e volume (0-100), salvati su questo telefono.
+  const [suono, setSuono] = useState(suonoAttivo);
+  const [volume, setVolume] = useState(leggiVolume);
 
   useEffect(() => {
     async function carica() {
@@ -396,6 +426,30 @@ export default function ClienteDashboard() {
       // la barra resta proporzionata: se il tempo rimasto supera il totale, il totale cresce
       return { ...t, fine, totale: Math.max(t.totale, fine - adesso) };
     });
+  }
+
+  // Tocco sull'altoparlante: silenzia / riattiva. Se il volume era a zero lo riporta a metà.
+  const muto = !suono || volume === 0;
+
+  function cambiaMuto() {
+    sbloccaAudio();
+    const attivo = muto;
+    if (attivo && volume === 0) {
+      setVolume(50);
+      impostaVolume(50);
+    }
+    setSuono(attivo);
+    impostaSuono(attivo);
+    if (attivo) provaSuono();
+  }
+
+  function cambiaVolume(valore: number) {
+    setVolume(valore);
+    impostaVolume(valore);
+    if (!suono && valore > 0) {
+      setSuono(true);
+      impostaSuono(true);
+    }
   }
 
   // Riprova a caricare lo storico di un esercizio che all'inizio non era arrivato.
@@ -714,7 +768,7 @@ export default function ClienteDashboard() {
   // ---------- ALLENAMENTO sulla scheda aperta ----------
   return (
     // Spazio in fondo quando c'è la barra del timer, così non copre l'ultimo esercizio.
-    <div className={`mx-auto max-w-3xl space-y-6 ${timer ? 'pb-52' : ''}`}>
+    <div className={`mx-auto max-w-3xl space-y-6 ${timer ? 'pb-64' : ''}`}>
       {errore && <p className="alert-error">{errore}</p>}
 
       <button className="btn-ghost -mt-2" onClick={tornaAllaHome}>
@@ -984,11 +1038,39 @@ export default function ClienteDashboard() {
       {/* Barra del recupero, fissa in basso dove arriva il pollice */}
       {timer && (
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.3)] backdrop-blur">
+          {/* Riga del suono: altoparlante per silenziare e slider del volume */}
+          <div className="mx-auto flex max-w-3xl items-center gap-2">
+            <p className="min-w-0 flex-1 truncate text-xs text-muted">
+              {recuperoFinito ? 'Recupero finito' : 'Recupero'} · {timer.nome}
+            </p>
+            <button
+              type="button"
+              onClick={cambiaMuto}
+              aria-label={muto ? 'Riattiva il suono del timer' : 'Silenzia il timer'}
+              aria-pressed={muto}
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors ${
+                muto ? 'bg-surface-2 text-muted' : 'bg-accent-soft text-accent-strong'
+              }`}
+            >
+              <IconaVolume muto={muto} />
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={muto ? 0 : volume}
+              aria-label="Volume del timer"
+              aria-valuetext={muto ? 'silenziato' : `${volume}%`}
+              onChange={(e) => cambiaVolume(Number(e.target.value))}
+              // anteprima del suono quando si lascia lo slider
+              onPointerUp={provaSuono}
+              onKeyUp={provaSuono}
+              className={`h-11 w-24 shrink-0 cursor-pointer accent-accent-strong min-[380px]:w-32 ${muto ? 'opacity-50' : ''}`}
+            />
+          </div>
           <div className="mx-auto flex max-w-3xl items-center gap-3">
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs text-muted">
-                {recuperoFinito ? 'Recupero finito' : 'Recupero'} · {timer.nome}
-              </p>
               <p className={`text-4xl font-black tabular-nums ${recuperoFinito ? 'text-success' : 'text-accent-strong'}`}>
                 {recuperoFinito ? 'Via!' : formattaTempo(secondiRimasti)}
               </p>

@@ -8,7 +8,9 @@
 // - Se lo schermo si spegne il browser si addormenta: per questo, mentre il timer
 //   è attivo, chiediamo al telefono di tenere lo schermo acceso (vedi tieniSchermoAcceso).
 
-const CHIAVE = 'suonoTimer';
+const CHIAVE = 'suonoTimer'; // 'no' = silenziato
+const CHIAVE_VOLUME = 'volumeTimer'; // da 0 a 100
+const VOLUME_PREDEFINITO = 80;
 
 type ContestoAudio = AudioContext;
 let contesto: ContestoAudio | null = null;
@@ -28,6 +30,28 @@ export function impostaSuono(attivo: boolean) {
     // se non si può salvare vale fino alla chiusura della pagina
   }
 }
+
+// Volume scelto con lo slider, da 0 a 100 (salvato su questo telefono).
+export function leggiVolume(): number {
+  try {
+    const v = Number(localStorage.getItem(CHIAVE_VOLUME));
+    if (localStorage.getItem(CHIAVE_VOLUME) !== null && Number.isFinite(v)) return Math.min(100, Math.max(0, Math.round(v)));
+  } catch {
+    // niente localStorage: volume predefinito
+  }
+  return VOLUME_PREDEFINITO;
+}
+
+export function impostaVolume(volume: number) {
+  try {
+    localStorage.setItem(CHIAVE_VOLUME, String(Math.min(100, Math.max(0, Math.round(volume)))));
+  } catch {
+    // vale fino alla chiusura della pagina
+  }
+}
+
+// Si sente qualcosa? (non silenziato e volume sopra zero)
+const siSente = () => suonoAttivo() && leggiVolume() > 0;
 
 // Da chiamare dentro un tocco dell'utente: prepara l'audio così a fine recupero può suonare.
 export function sbloccaAudio() {
@@ -49,8 +73,12 @@ export function sbloccaAudio() {
 }
 
 // Un "bip": frequenza in Hz, durata e ritardo in secondi.
-function bip(frequenza: number, durata: number, ritardo = 0, volume = 0.18) {
+function bip(frequenza: number, durata: number, ritardo = 0, forza = 0.18) {
   if (!contesto) return;
+  // Lo slider va da 0 a 100; al quadrato perché l'orecchio sente il volume "in curva":
+  // così la metà dello slider suona davvero come metà volume.
+  const volume = forza * 1.5 * (leggiVolume() / 100) ** 2; // al 100% un po' più forte di prima
+  if (volume <= 0.0002) return;
   if (contesto.state === 'suspended') void contesto.resume();
   const inizio = contesto.currentTime + ritardo;
   const oscillatore = contesto.createOscillator();
@@ -68,21 +96,22 @@ function bip(frequenza: number, durata: number, ritardo = 0, volume = 0.18) {
 
 // Ultimi 3 secondi: un bip corto per secondo.
 export function suonoConteggio() {
-  if (!suonoAttivo()) return;
+  if (!siSente()) return;
   bip(660, 0.12, 0, 0.12);
 }
 
 // Fine recupero: due bip e uno più lungo e acuto.
 export function suonoFine() {
-  if (!suonoAttivo()) return;
+  if (!siSente()) return;
   bip(880, 0.16);
   bip(880, 0.16, 0.22);
   bip(1320, 0.45, 0.44, 0.2);
 }
 
-// Per il tasto di prova nelle impostazioni.
+// Anteprima quando si sposta lo slider del volume.
 export function provaSuono() {
   sbloccaAudio();
+  if (!siSente()) return;
   bip(880, 0.16);
   bip(1320, 0.4, 0.22, 0.2);
 }

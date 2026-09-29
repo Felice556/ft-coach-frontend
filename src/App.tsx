@@ -4,12 +4,10 @@ import TrainerDashboard from './TrainerDashboard';
 import ClienteDashboard from './ClienteDashboard';
 import CambioPassword from './CambioPassword';
 import { leggiSceltaTema, salvaSceltaTema, SceltaTema } from './tema';
-import { impostaSuono, provaSuono, suonoAttivo } from './suono';
 
 // Impostazioni: tema dell'app (salvato su questo telefono) e cambio password.
 function Impostazioni({ onCambiaPassword, onChiudi }: { onCambiaPassword: () => void; onChiudi: () => void }) {
   const [tema, setTema] = useState<SceltaTema>(leggiSceltaTema);
-  const [suono, setSuono] = useState(suonoAttivo);
   const opzioni: { valore: SceltaTema; nome: string; descrizione: string }[] = [
     { valore: 'automatico', nome: 'Automatico', descrizione: 'Come il telefono' },
     { valore: 'chiaro', nome: 'Chiaro', descrizione: 'Sempre chiaro' },
@@ -45,32 +43,6 @@ function Impostazioni({ onCambiaPassword, onChiudi }: { onCambiaPassword: () => 
           ))}
         </div>
         <p className="mt-2 text-xs text-muted">La scelta vale per questo telefono o computer.</p>
-      </fieldset>
-      <fieldset>
-        <legend className="label">Suono a fine recupero</legend>
-        <div className="grid grid-cols-2 gap-2" role="radiogroup">
-          {([true, false] as const).map((valore) => (
-            <button
-              key={String(valore)}
-              type="button"
-              role="radio"
-              aria-checked={suono === valore}
-              onClick={() => {
-                setSuono(valore);
-                impostaSuono(valore);
-                if (valore) provaSuono(); // fa sentire subito com'è
-              }}
-              className={`min-h-12 rounded-xl border px-2 text-sm font-semibold transition-colors ${
-                suono === valore ? 'border-accent-strong bg-accent text-accent-ink' : 'border-line bg-field text-ink hover:border-accent-strong'
-              }`}
-            >
-              {valore ? 'Attivo' : 'Spento'}
-            </button>
-          ))}
-        </div>
-        <p className="mt-2 text-xs text-muted">
-          Bip negli ultimi 3 secondi e alla fine. Su iPhone non si sente se il tasto silenzioso è attivo.
-        </p>
       </fieldset>
       <div>
         <p className="label">Account</p>
