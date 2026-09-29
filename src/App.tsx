@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { EVENTO_SESSIONE_SCADUTA, login, register, Ruolo } from './api';
+import { EVENTO_CAMBIO_PASSWORD, EVENTO_SESSIONE_SCADUTA, login, register, Ruolo } from './api';
 import TrainerDashboard from './TrainerDashboard';
 import ClienteDashboard from './ClienteDashboard';
+import CambioPassword from './CambioPassword';
 
 export default function App() {
   // Stato di sessione: se c'è un token, siamo "loggati". Persistito in localStorage
@@ -27,10 +28,25 @@ export default function App() {
   // ripartono da zero, per non mostrare a lei i dati dell'altro utente.
   const [chiaveUtente, setChiaveUtente] = useState(0);
 
+  // Password temporanea (reimpostata dal trainer): finché non se ne sceglie una nuova,
+  // al posto dell'app c'è solo la schermata di cambio. Salvato anche nel telefono,
+  // così ricaricando la pagina non si salta il passaggio.
+  const [devoCambiarePassword, setDevoCambiarePassword] = useState(localStorage.getItem('passwordTemporanea') === '1');
+  // Finestra "Cambia password" aperta dal bottone in alto (cambio volontario).
+  const [cambioPasswordAperto, setCambioPasswordAperto] = useState(false);
+
   useEffect(() => {
     const quandoScade = () => setSessioneScaduta(true);
+    const quandoServeCambio = () => {
+      localStorage.setItem('passwordTemporanea', '1');
+      setDevoCambiarePassword(true);
+    };
     window.addEventListener(EVENTO_SESSIONE_SCADUTA, quandoScade);
-    return () => window.removeEventListener(EVENTO_SESSIONE_SCADUTA, quandoScade);
+    window.addEventListener(EVENTO_CAMBIO_PASSWORD, quandoServeCambio);
+    return () => {
+      window.removeEventListener(EVENTO_SESSIONE_SCADUTA, quandoScade);
+      window.removeEventListener(EVENTO_CAMBIO_PASSWORD, quandoServeCambio);
+    };
   }, []);
 
   async function handleLogin(e: React.FormEvent) {
@@ -47,6 +63,10 @@ export default function App() {
       setNome(dati.nome);
       setSessioneScaduta(false);
       setPassword('');
+      if (dati.passwordTemporanea) {
+        localStorage.setItem('passwordTemporanea', '1');
+        setDevoCambiarePassword(true);
+      }
     } catch (err) {
       setErrore(err instanceof Error ? err.message : 'Errore di login');
     }
@@ -68,10 +88,25 @@ export default function App() {
     localStorage.removeItem('token');
     localStorage.removeItem('ruolo');
     localStorage.removeItem('nome');
+    localStorage.removeItem('passwordTemporanea');
     setToken('');
     setRuolo('');
     setNome('');
     setSessioneScaduta(false);
+    setDevoCambiarePassword(false);
+    setCambioPasswordAperto(false);
+  }
+
+  // Password cambiata dopo un reset: le schermate ripartono da zero e ricaricano i dati.
+  function passwordTemporaneaCambiata() {
+    setToken(localStorage.getItem('token') || '');
+    setDevoCambiarePassword(false);
+    setChiaveUtente((k) => k + 1);
+  }
+
+  function passwordCambiata() {
+    setToken(localStorage.getItem('token') || '');
+    setCambioPasswordAperto(false);
   }
 
   // Non ancora loggato: form di login/registrazione
@@ -199,9 +234,16 @@ export default function App() {
               {ruolo === 'TRAINER' ? 'Trainer' : 'Cliente'}
             </span>
           </div>
-          <button className="btn-secondary" onClick={handleLogout}>
-            Esci
-          </button>
+          <div className="flex shrink-0 gap-2">
+            {!devoCambiarePassword && (
+              <button className="btn-ghost" onClick={() => setCambioPasswordAperto(true)}>
+                Password
+              </button>
+            )}
+            <button className="btn-secondary" onClick={handleLogout}>
+              Esci
+            </button>
+          </div>
         </div>
       </header>
 
@@ -210,8 +252,27 @@ export default function App() {
           Ciao, <span className="underline decoration-accent decoration-4 underline-offset-4">{nome}</span>
         </h1>
 
-        {ruolo === 'TRAINER' ? <TrainerDashboard key={chiaveUtente} /> : <ClienteDashboard key={chiaveUtente} />}
+        {devoCambiarePassword ? (
+          // Dopo un reset del trainer: prima la nuova password, poi l'app.
+          <div className="flex justify-center">
+            <CambioPassword obbligatorio onFatto={passwordTemporaneaCambiata} />
+          </div>
+        ) : ruolo === 'TRAINER' ? (
+          <TrainerDashboard key={chiaveUtente} />
+        ) : (
+          <ClienteDashboard key={chiaveUtente} />
+        )}
       </main>
+
+      {cambioPasswordAperto && !devoCambiarePassword && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm">
+          <CambioPassword
+            obbligatorio={false}
+            onFatto={passwordCambiata}
+            onAnnulla={() => setCambioPasswordAperto(false)}
+          />
+        </div>
+      )}
 
       {sessioneScaduta && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm">

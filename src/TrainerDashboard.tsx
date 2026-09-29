@@ -22,6 +22,8 @@ import {
   NotaPreset,
   getClienti,
   Cliente,
+  cambiaEmailCliente,
+  reimpostaPasswordCliente,
   getEserciziArchiviati,
   ripristinaEsercizio,
   EsercizioArchiviato,
@@ -75,6 +77,129 @@ const dataBreve = (iso: string) => new Date(iso).toLocaleDateString('it-IT', { d
 
 // Più vecchia di 90 giorni: probabilmente il programma va aggiornato.
 const eVecchia = (iso: string) => Date.now() - new Date(iso).getTime() > 90 * 86_400_000;
+
+// Password temporanea facile da dettare a voce: 4 lettere + 4 cifre, es. "kmtr-4827".
+// Niente lettere che si confondono (l/i/o). crypto.getRandomValues = casuale vero, non prevedibile.
+function generaPasswordTemporanea(): string {
+  const lettere = 'abcdefghjkmnpqrstuvwxyz';
+  const casuali = crypto.getRandomValues(new Uint32Array(8));
+  const parte1 = Array.from(casuali.slice(0, 4), (n) => lettere[n % lettere.length]).join('');
+  const parte2 = Array.from(casuali.slice(4), (n) => String(n % 10)).join('');
+  return `${parte1}-${parte2}`;
+}
+
+// Gestione accesso di un cliente: correzione email e password temporanea.
+// La password attuale del cliente non si vede mai (il database ne ha solo una versione cifrata).
+function AccessoCliente({ cliente, onEmailCambiata }: { cliente: Cliente; onEmailCambiata: (c: Cliente) => void }) {
+  const [email, setEmail] = useState(cliente.email);
+  const [temporanea, setTemporanea] = useState<string | null>(null); // proposta, non ancora salvata
+  const [salvata, setSalvata] = useState<string | null>(null); // salvata: da comunicare al cliente
+  const [messaggio, setMessaggio] = useState<{ ok: boolean; testo: string } | null>(null);
+  const [inInvio, setInInvio] = useState(false);
+
+  async function salvaEmail() {
+    if (inInvio || email.trim().toLowerCase() === cliente.email) return;
+    setInInvio(true);
+    setMessaggio(null);
+    try {
+      const aggiornato = await cambiaEmailCliente(cliente.id, email);
+      onEmailCambiata(aggiornato);
+      setEmail(aggiornato.email);
+      setMessaggio({ ok: true, testo: `Email aggiornata: ora ${cliente.nome} accede con ${aggiornato.email}` });
+    } catch (err) {
+      setMessaggio({ ok: false, testo: err instanceof Error ? err.message : 'Errore nel salvataggio' });
+    } finally {
+      setInInvio(false);
+    }
+  }
+
+  async function confermaReset() {
+    if (inInvio || !temporanea) return;
+    setInInvio(true);
+    setMessaggio(null);
+    try {
+      await reimpostaPasswordCliente(cliente.id, temporanea);
+      setSalvata(temporanea);
+      setTemporanea(null);
+    } catch (err) {
+      setMessaggio({ ok: false, testo: err instanceof Error ? err.message : 'Errore nel reset' });
+    } finally {
+      setInInvio(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4 border-t border-line pt-3">
+      <div>
+        <label className="label">Email per accedere</label>
+        <div className="flex gap-2">
+          <input
+            className="input min-w-0 flex-1"
+            type="email"
+            autoCapitalize="none"
+            maxLength={254}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <button
+            type="button"
+            className="btn-secondary shrink-0 px-3 text-xs"
+            disabled={inInvio || email.trim().toLowerCase() === cliente.email}
+            onClick={salvaEmail}
+          >
+            Salva
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <p className="label">Password</p>
+        {salvata ? (
+          <div className="rounded-xl border border-success/40 bg-success-soft p-3 text-sm">
+            <p>
+              Password temporanea di {cliente.nome}:
+            </p>
+            <p className="my-2 text-center font-mono text-2xl font-extrabold tracking-wider select-all">{salvata}</p>
+            <p className="text-soft">
+              Diglielo a voce o scrivigliela. Al primo accesso dovrà sceglierne una sua, che tu non vedrai.
+              I suoi dispositivi collegati sono stati disconnessi.
+            </p>
+            <button type="button" className="btn-link mt-2 text-xs" onClick={() => setSalvata(null)}>
+              Ok, fatto
+            </button>
+          </div>
+        ) : temporanea ? (
+          <div className="rounded-xl border border-accent/50 bg-accent-soft p-3 text-sm">
+            <p>Nuova password temporanea:</p>
+            <p className="my-2 text-center font-mono text-2xl font-extrabold tracking-wider">{temporanea}</p>
+            <p className="text-soft">La password attuale di {cliente.nome} smetterà di funzionare.</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button type="button" className="btn-secondary text-xs" onClick={() => setTemporanea(null)} disabled={inInvio}>
+                Annulla
+              </button>
+              <button type="button" className="btn-primary text-xs" onClick={confermaReset} disabled={inInvio}>
+                {inInvio ? 'Salvo…' : 'Conferma'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="btn-secondary w-full text-xs"
+            onClick={() => {
+              setMessaggio(null);
+              setTemporanea(generaPasswordTemporanea());
+            }}
+          >
+            Reimposta password
+          </button>
+        )}
+      </div>
+
+      {messaggio && <p className={messaggio.ok ? 'alert-success' : 'alert-error'}>{messaggio.testo}</p>}
+    </div>
+  );
+}
 
 // Scelta del cliente scrivendo le prime lettere: compaiono i nomi che corrispondono
 // e si tocca quello giusto. Sul telefono è più veloce di un menu con tutti i clienti.
@@ -363,6 +488,9 @@ export default function TrainerDashboard() {
 
   // Clienti per il menu a tendina: si sceglie il nome, non si scrive l'ID a mano.
   const [clienti, setClienti] = useState<Cliente[]>([]);
+  // Sezione "I tuoi clienti": cliente di cui è aperta la gestione dell'accesso.
+  const [accessoAperto, setAccessoAperto] = useState<number | null>(null);
+  const [clientiAperti, setClientiAperti] = useState(false);
   async function caricaClienti() {
     try {
       setClienti(await getClienti());
@@ -1198,6 +1326,51 @@ export default function TrainerDashboard() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* Accesso dei clienti: correggere l'email o dare una password temporanea a chi l'ha dimenticata */}
+      <section>
+        <button
+          type="button"
+          className="btn-ghost w-full justify-between px-4"
+          onClick={() => setClientiAperti(!clientiAperti)}
+        >
+          <span>I tuoi clienti ({clienti.length}) · email e password</span>
+          <span aria-hidden>{clientiAperti ? '▴' : '▾'}</span>
+        </button>
+        {clientiAperti && (
+          <div className="mt-3 space-y-2">
+            {clienti.length === 0 && (
+              <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">
+                Nessun cliente registrato.
+              </p>
+            )}
+            {clienti.map((c) => (
+              <div key={c.id} className="card space-y-3 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold">{c.nome}</p>
+                    <p className="truncate text-xs text-muted">{c.email}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-secondary shrink-0 px-3 py-1.5 text-xs"
+                    onClick={() => setAccessoAperto(accessoAperto === c.id ? null : c.id)}
+                  >
+                    {accessoAperto === c.id ? 'Chiudi' : 'Gestisci'}
+                  </button>
+                </div>
+                {accessoAperto === c.id && (
+                  <AccessoCliente
+                    key={c.id}
+                    cliente={c}
+                    onEmailCambiata={(agg) => setClienti((prev) => prev.map((x) => (x.id === agg.id ? { ...x, ...agg } : x)))}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Archivio: schede tolte dalla vista. Nessun dato perso: si ripristinano con un tocco. */}

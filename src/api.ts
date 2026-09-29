@@ -64,6 +64,8 @@ export interface RegistroAllenamento {
 
 // Evento lanciato quando il server risponde 401 (sessione scaduta): lo ascolta App.
 export const EVENTO_SESSIONE_SCADUTA = 'palestra:sessione-scaduta';
+// Evento lanciato quando il server chiede di scegliere una nuova password (dopo un reset del trainer).
+export const EVENTO_CAMBIO_PASSWORD = 'palestra:cambio-password';
 
 // Nomi leggibili dei campi, per i messaggi di errore.
 const NOMI_CAMPI: Record<string, string> = {
@@ -114,19 +116,22 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     },
   });
 
-  // Token scaduto (dura 7 giorni) o non più valido: invece di mostrare pagine vuote
-  // o errori strani, chiudiamo la sessione e torniamo al login.
   // Token scaduto o non più valido. NON ricarichiamo la pagina: si perderebbe quello che
   // l'utente sta scrivendo (kg/reps a metà serie, o un'intera scheda nel form del trainer).
   // Avvisiamo App, che mostra un piccolo login SOPRA la pagina: dopo l'accesso si riprova
   // la stessa azione e tutto quello che era scritto è ancora lì.
-  if (risposta.status === 401 && token) {
+  // (/login escluso: lì un 401 vuol dire solo "email o password sbagliate".)
+  if (risposta.status === 401 && token && path !== '/login') {
     window.dispatchEvent(new Event(EVENTO_SESSIONE_SCADUTA));
     throw new Error('Sessione scaduta: accedi di nuovo qui sopra, poi riprova');
   }
 
   if (!risposta.ok) {
     const corpo = await risposta.json().catch(() => ({}));
+    // Password temporanea impostata dal trainer: App mostra la schermata "Scegli una nuova password".
+    if (risposta.status === 403 && corpo.codice === 'CAMBIO_PASSWORD') {
+      window.dispatchEvent(new Event(EVENTO_CAMBIO_PASSWORD));
+    }
     if (corpo.errore) throw new Error(corpo.errore);
     // Errori di validazione (zod): il backend manda un elenco "errori" con il percorso del campo.
     // Li traduciamo in qualcosa di leggibile, es. "Esercizio 2 → video: link non valido".
@@ -143,7 +148,8 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 }
 
 export function login(email: string, password: string) {
-  return apiFetch<{ token: string; ruolo: Ruolo; nome: string }>('/login', {
+  // passwordTemporanea = true: il trainer ha reimpostato la password, va scelta una nuova.
+  return apiFetch<{ token: string; ruolo: Ruolo; nome: string; passwordTemporanea?: boolean }>('/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
@@ -166,6 +172,30 @@ export interface Cliente {
 // Elenco clienti per il menu a tendina del trainer.
 export function getClienti() {
   return apiFetch<Cliente[]>('/clienti');
+}
+
+// Cambio della propria password: restituisce un token nuovo (gli altri dispositivi vengono disconnessi).
+export function cambiaMiaPassword(passwordAttuale: string, nuovaPassword: string) {
+  return apiFetch<{ token: string }>('/me/password', {
+    method: 'PUT',
+    body: JSON.stringify({ passwordAttuale, nuovaPassword }),
+  });
+}
+
+// Solo trainer: imposta una password temporanea per un cliente (lui dovrà cambiarla al primo accesso).
+export function reimpostaPasswordCliente(clienteId: number, nuovaPassword: string) {
+  return apiFetch<void>(`/clienti/${clienteId}/password`, {
+    method: 'PUT',
+    body: JSON.stringify({ nuovaPassword }),
+  });
+}
+
+// Solo trainer: corregge l'email (cioè il nome utente per accedere) di un cliente.
+export function cambiaEmailCliente(clienteId: number, email: string) {
+  return apiFetch<Cliente>(`/clienti/${clienteId}/email`, {
+    method: 'PUT',
+    body: JSON.stringify({ email }),
+  });
 }
 
 export function getSchede(clienteId?: number) {
