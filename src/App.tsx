@@ -116,9 +116,9 @@ export default function App() {
         <div className="w-full max-w-sm">
           <div className="mb-8 text-center">
             <h1 className="text-4xl font-extrabold tracking-tight">
-              Palestra<span className="text-accent">.</span>
+              FT Coach<span className="text-accent">.</span>
             </h1>
-            <div className="mx-auto mt-3 h-1 w-12 rounded-full bg-accent" />
+            <div className="mx-auto mt-3 h-1 w-12 bg-accent" />
           </div>
 
           <div className="card border-t-4 border-t-accent p-6 sm:p-8">
@@ -228,9 +228,9 @@ export default function App() {
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <span className="text-lg font-extrabold tracking-tight">
-              Palestra<span className="text-accent">.</span>
+              FT Coach<span className="text-accent">.</span>
             </span>
-            <span className="hidden rounded-full border border-accent px-2 py-0.5 text-xs font-semibold uppercase sm:inline">
+            <span className="hidden rounded-md border border-accent px-2 py-0.5 text-xs font-semibold uppercase sm:inline">
               {ruolo === 'TRAINER' ? 'Trainer' : 'Cliente'}
             </span>
           </div>

@@ -934,7 +934,7 @@ export default function TrainerDashboard() {
                   {preset.map((p) => (
                     <span
                       key={p.id}
-                      className="inline-flex items-center overflow-hidden rounded-full border border-line bg-surface-2 text-sm"
+                      className="inline-flex items-center overflow-hidden rounded-md border border-line bg-surface-2 text-sm"
                     >
                       <button
                         type="button"
@@ -1220,7 +1220,7 @@ export default function TrainerDashboard() {
                     type="button"
                     aria-pressed={attivo}
                     onClick={() => setClienteVisto(attivo ? null : c.id)}
-                    className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition ${
+                    className={`inline-flex min-h-11 items-center gap-2 rounded-md border px-4 text-sm font-semibold transition ${
                       attivo
                         ? 'border-accent bg-accent text-accent-ink'
                         : 'border-line bg-surface-2 text-ink hover:border-accent'
@@ -1250,7 +1250,7 @@ export default function TrainerDashboard() {
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <strong className="block text-lg leading-tight font-bold break-words">{scheda.nome}</strong>
-                  <span className="mt-1 inline-block rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">
+                  <span className="mt-1 inline-block rounded-md bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">
                     {nomeCliente(scheda.clienteId)}
                   </span>
                   {/* Data di creazione + quanto tempo fa: le schede sono già in ordine dalla più recente */}
