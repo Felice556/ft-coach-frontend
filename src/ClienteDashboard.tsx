@@ -13,6 +13,7 @@ import {
   RegistroAllenamento,
 } from './api';
 import ProgressoChart from './ProgressoChart';
+import MisureCorporee from './MisureCorporee';
 import { pianoSerie, riassuntoSerie, testoReps, testoRecupero, SerieDaFare } from './serie';
 import {
   impostaSuono,
@@ -636,6 +637,7 @@ export default function ClienteDashboard() {
           <h2 className="text-2xl font-black uppercase tracking-tight">Il tuo percorso inizia qui</h2>
           <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">Il tuo trainer non ti ha ancora assegnato una scheda. Quando sarà pronta, la troverai in questa pagina.</p>
         </div>
+        <MisureCorporee ruolo="CLIENTE" />
       </div>
     );
   }
@@ -761,6 +763,9 @@ export default function ClienteDashboard() {
           })}
           </div>
         </div>
+
+        {/* Peso corporeo (lo scrive il cliente) e massa grassa (la scrive il trainer) */}
+        <MisureCorporee ruolo="CLIENTE" />
       </div>
     );
   }

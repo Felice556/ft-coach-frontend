@@ -424,3 +424,32 @@ export function ripristinaEsercizio(id: number) {
 export function getStorico(esercizioId: number) {
   return apiFetch<RegistroAllenamento[]>(`/registro/${esercizioId}`);
 }
+
+// ---------- Misure del corpo: peso (lo scrive il cliente) e % massa grassa (la scrive il trainer) ----------
+
+export type TipoMisura = 'PESO' | 'MASSA_GRASSA';
+
+export interface MisuraCorporea {
+  id: number;
+  tipo: TipoMisura;
+  valore: number;
+  data: string; // "2026-09-29T00:00:00.000Z": conta solo il giorno
+  clienteId: number;
+}
+
+// Cliente: le proprie. Trainer: quelle del cliente indicato.
+export function getMisure(clienteId?: number) {
+  return apiFetch<MisuraCorporea[]>(`/misure${clienteId ? `?clienteId=${clienteId}` : ''}`);
+}
+
+// Salva o corregge (se quel giorno c'è già) una misura. data = "AAAA-MM-GG".
+export function salvaMisura(tipo: TipoMisura, valore: number, data: string, clienteId?: number) {
+  return apiFetch<MisuraCorporea>('/misure', {
+    method: 'PUT',
+    body: JSON.stringify({ tipo, valore, data, clienteId }),
+  });
+}
+
+export function eliminaMisura(id: number) {
+  return apiFetch<void>(`/misure/${id}`, { method: 'DELETE' });
+}

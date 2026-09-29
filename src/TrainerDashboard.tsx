@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import SezioneInviti from './Inviti';
 import StoricoCliente from './StoricoCliente';
+import MisureCorporee from './MisureCorporee';
 import {
   creaScheda,
   aggiornaScheda,
@@ -1305,6 +1306,12 @@ export default function TrainerDashboard() {
           <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">
             Tocca il nome di un cliente per vedere le sue schede.
           </p>
+        )}
+        {/* Cliente scelto: prima peso e massa grassa, poi le sue schede */}
+        {clienteVisto !== null && (
+          <div className="mb-6">
+            <MisureCorporee key={clienteVisto} ruolo="TRAINER" clienteId={clienteVisto} nomeCliente={nomeCliente(clienteVisto)} />
+          </div>
         )}
         {clienteVisto !== null && !schede.some((sc) => sc.clienteId === clienteVisto) && (
           <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">
