@@ -116,6 +116,13 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     },
   });
 
+  // Sessione che si rinnova da sola: ogni tanto il server manda un token nuovo (valido
+  // altri 30 giorni). Lo salviamo solo se nel frattempo l'utente non è uscito o cambiato.
+  const nuovoToken = risposta.headers.get('X-Nuovo-Token');
+  if (nuovoToken && token && localStorage.getItem('token') === token) {
+    localStorage.setItem('token', nuovoToken);
+  }
+
   // Token scaduto o non più valido. NON ricarichiamo la pagina: si perderebbe quello che
   // l'utente sta scrivendo (kg/reps a metà serie, o un'intera scheda nel form del trainer).
   // Avvisiamo App, che mostra un piccolo login SOPRA la pagina: dopo l'accesso si riprova
