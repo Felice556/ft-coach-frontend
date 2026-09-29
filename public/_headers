@@ -1,0 +1,11 @@
+# Intestazioni di sicurezza per Cloudflare Pages (valgono per tutte le pagine del sito).
+# - Content-Security-Policy: la pagina può caricare script solo da sé stessa e parlare solo
+#   con il nostro server. Se un giorno cambia l'indirizzo del backend, va aggiornato qui (connect-src).
+# - X-Frame-Options / frame-ancestors: nessun altro sito può mostrare l'app "dentro" una sua pagina.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://palestra-backend-ytp0.onrender.com; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Strict-Transport-Security: max-age=31536000

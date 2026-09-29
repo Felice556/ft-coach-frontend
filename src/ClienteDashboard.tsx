@@ -871,7 +871,8 @@ export default function ClienteDashboard() {
 
                   {/* Azioni secondarie, piccole e in basso: non rubano spazio al bottone principale */}
                   <div className="flex flex-wrap gap-2 border-t border-line pt-3">
-                    {es.videoUrl && (
+                    {/* Solo link web normali: un link "javascript:" non viene mai reso cliccabile */}
+                    {es.videoUrl && /^https?:\/\//i.test(es.videoUrl) && (
                       <a href={es.videoUrl} target="_blank" rel="noreferrer" className="btn-ghost flex-1">
                         Video esercizio
                       </a>

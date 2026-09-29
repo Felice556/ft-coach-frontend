@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import SezioneInviti from './Inviti';
 import {
   creaScheda,
   aggiornaScheda,
@@ -856,6 +857,7 @@ export default function TrainerDashboard() {
           <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#attivita">Panoramica</a>
           <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#schede-clienti">Schede</a>
           <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#gestione-clienti">Clienti</a>
+          <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#inviti">Inviti</a>
         </nav>
         <button type="button" className="btn-primary" aria-expanded={editorAperto} aria-controls="scheda-editor" onClick={() => {
           setEditorAperto(true);
@@ -1382,6 +1384,8 @@ export default function TrainerDashboard() {
       </section>
 
       {/* Accesso dei clienti: correggere l'email o dare una password temporanea a chi l'ha dimenticata */}
+      <SezioneInviti />
+
       <section id="gestione-clienti" className="card scroll-mt-24">
         <button
           type="button"

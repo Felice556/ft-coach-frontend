@@ -156,11 +156,66 @@ export function login(email: string, password: string) {
 }
 
 // codiceTrainer serve solo per creare un account TRAINER (deve coincidere con CODICE_TRAINER del backend).
-export function register(nome: string, email: string, password: string, ruolo: Ruolo, codiceTrainer?: string) {
+// codiceInvito: l'invito personale che il trainer dà al cliente (obbligatorio se il server lo richiede).
+export function register(
+  nome: string,
+  email: string,
+  password: string,
+  ruolo: Ruolo,
+  codiceTrainer?: string,
+  codiceInvito?: string
+) {
   return apiFetch<{ id: number; nome: string; ruolo: Ruolo }>('/register', {
     method: 'POST',
-    body: JSON.stringify({ nome, email, password, ruolo, codiceTrainer: codiceTrainer || undefined }),
+    body: JSON.stringify({
+      nome,
+      email,
+      password,
+      ruolo,
+      codiceTrainer: codiceTrainer || undefined,
+      codiceInvito: codiceInvito?.trim() || undefined,
+    }),
   });
+}
+
+// Dice alla schermata di registrazione se il codice invito è obbligatorio.
+export function getInfoRegistrazione() {
+  return apiFetch<{ invitoObbligatorio: boolean }>('/registrazione/info');
+}
+
+// ---------- Inviti (solo trainer) ----------
+export type StatoInvito = 'attivo' | 'usato' | 'scaduto' | 'annullato';
+
+export interface Invito {
+  id: number;
+  codice: string;
+  nota: string | null;
+  creatoIl: string;
+  scadeIl: string;
+  usatoIl: string | null;
+  annullatoIl: string | null;
+  stato: StatoInvito;
+  usatoDa: { nome: string; email: string } | null;
+}
+
+export function getInviti() {
+  return apiFetch<Invito[]>('/inviti');
+}
+
+export function creaInvito(nota: string, giorni: number) {
+  return apiFetch<Invito>('/inviti', {
+    method: 'POST',
+    body: JSON.stringify({ nota: nota.trim() || undefined, giorni }),
+  });
+}
+
+export function annullaInvito(id: number) {
+  return apiFetch<void>(`/inviti/${id}/annulla`, { method: 'POST' });
+}
+
+// Link di registrazione già con il codice: il cliente lo apre e trova il campo compilato.
+export function linkInvito(codice: string) {
+  return `${window.location.origin}/?invito=${encodeURIComponent(codice)}`;
 }
 
 export interface Cliente {

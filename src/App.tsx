@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { EVENTO_CAMBIO_PASSWORD, EVENTO_SESSIONE_SCADUTA, login, register, Ruolo } from './api';
+import { EVENTO_CAMBIO_PASSWORD, EVENTO_SESSIONE_SCADUTA, getInfoRegistrazione, login, register, Ruolo } from './api';
 import TrainerDashboard from './TrainerDashboard';
 import ClienteDashboard from './ClienteDashboard';
 import CambioPassword from './CambioPassword';
@@ -113,7 +113,11 @@ export default function App() {
   const [ruolo, setRuolo] = useState<Ruolo | ''>((localStorage.getItem('ruolo') as Ruolo) || '');
   const [nome, setNome] = useState(localStorage.getItem('nome') || '');
 
-  const [modalitaRegistrazione, setModalitaRegistrazione] = useState(false);
+  // Link d'invito (…/?invito=K7M3-Q9TX): si apre direttamente la registrazione con il codice già scritto.
+  const invitoDalLink = new URLSearchParams(window.location.search).get('invito') || '';
+  const [modalitaRegistrazione, setModalitaRegistrazione] = useState(invitoDalLink !== '');
+  const [codiceInvito, setCodiceInvito] = useState(invitoDalLink);
+  const [invitoObbligatorio, setInvitoObbligatorio] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nomeInput, setNomeInput] = useState('');
@@ -182,14 +186,32 @@ export default function App() {
     }
   }
 
+  // Quando si apre la registrazione chiediamo al server se serve l'invito (per il campo obbligatorio).
+  useEffect(() => {
+    if (!modalitaRegistrazione) return;
+    getInfoRegistrazione()
+      .then((info) => setInvitoObbligatorio(info.invitoObbligatorio))
+      .catch(() => setInvitoObbligatorio(false)); // server vecchio o irraggiungibile: il campo resta facoltativo
+  }, [modalitaRegistrazione]);
+
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     if (inInvio) return;
     setErrore('');
     setInInvio(true);
     try {
-      await register(nomeInput, email, password, ruoloScelto, ruoloScelto === 'TRAINER' ? codiceTrainer : undefined);
+      await register(
+        nomeInput,
+        email,
+        password,
+        ruoloScelto,
+        ruoloScelto === 'TRAINER' ? codiceTrainer : undefined,
+        ruoloScelto === 'CLIENTE' ? codiceInvito : undefined
+      );
       setModalitaRegistrazione(false);
+      setCodiceInvito('');
+      // Il codice è stato usato: lo togliamo dall'indirizzo, così un "indietro" non lo ripropone.
+      if (invitoDalLink) window.history.replaceState(null, '', window.location.pathname);
       setErrore('Registrazione completata, ora accedi');
     } catch (err) {
       setErrore(err instanceof Error ? err.message : 'Errore di registrazione');
@@ -270,6 +292,25 @@ export default function App() {
                     </div>
                   </div>
                   {modalitaRegistrazione && <div><label htmlFor="auth-role" className="label">Come userai FT Coach?</label><select id="auth-role" name="role" className="input" value={ruoloScelto} onChange={(e) => setRuoloScelto(e.target.value as Ruolo)}><option value="CLIENTE">Sono un cliente</option><option value="TRAINER">Sono un trainer</option></select></div>}
+                  {modalitaRegistrazione && ruoloScelto === 'CLIENTE' && (
+                    <div>
+                      <label htmlFor="auth-invite" className="label">
+                        Codice invito{!invitoObbligatorio && <span className="font-normal text-muted"> (se te l’ha dato il tuo trainer)</span>}
+                      </label>
+                      <input
+                        id="auth-invite"
+                        className="input font-mono uppercase tracking-wider"
+                        autoComplete="off"
+                        autoCapitalize="characters"
+                        spellCheck={false}
+                        maxLength={20}
+                        placeholder="Es. K7M3-Q9TX"
+                        value={codiceInvito}
+                        onChange={(e) => setCodiceInvito(e.target.value)}
+                        required={invitoObbligatorio}
+                      />
+                    </div>
+                  )}
                   {modalitaRegistrazione && ruoloScelto === 'TRAINER' && <div><label htmlFor="auth-trainer-code" className="label">Codice trainer</label><input id="auth-trainer-code" className="input" type="password" autoComplete="off" placeholder="Il tuo codice di accesso" value={codiceTrainer} onChange={(e) => setCodiceTrainer(e.target.value)} required /></div>}
                   {errore && <p role={errore.startsWith('Registrazione completata') ? 'status' : 'alert'} className={errore.startsWith('Registrazione completata') ? 'alert-success' : 'alert-error'}>{errore}</p>}
                   <button type="submit" className="btn-primary w-full py-3 uppercase tracking-wide" disabled={inInvio}>
