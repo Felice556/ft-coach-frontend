@@ -23,9 +23,12 @@ I'm a personal trainer and a junior developer: I built FT Coach for my own coach
 - **Progress charts** — best set of each day for every exercise
 - **Body weight tracking** — log your weight with a chart and the change since the first entry; see the body-fat % measured by the trainer
 - **Notes for the trainer** on any set (e.g. "shoulder pain")
+- **Supersets and jumpsets** — linked exercises are grouped (A1, A2…): in a superset the app moves you straight to the next exercise, in a jumpset it starts the rest in between and tells you what comes next
+- **End-of-workout feedback** — an effort score from 1 to 10 and a note for the trainer
 
 ### For the trainer
-- **Plan editor** — sets, rep ranges, rest, notes, video links, extra sets with their own reps/rest; reusable exercise and note libraries
+- **Plan editor** — sets, rep ranges, rest, notes, video links, extra sets with their own reps/rest; reusable exercise and note libraries; link exercises into **supersets, jumpsets or trisets** (sets and reps can differ)
+- **Client feedback** — effort score and notes after every workout, with an effort chart over time
 - **Client history** — tap a plan or a completed workout to see every set the client logged, *per exercise* (with charts) or *per workout* (day by day)
 - **Body composition** — log clients' body-fat % and see their body weight, both charted
 - **Invites** — single-use, expiring codes shared via WhatsApp/SMS with a pre-filled sign-up link
@@ -75,6 +78,7 @@ I'm a personal trainer and a junior developer: I built FT Coach for my own coach
 Unit tests with **Vitest** (in a simulated browser with jsdom), run on every push with **GitHub Actions** together with the TypeScript check and the production build:
 
 - **Set logic** — rep ranges typed by the trainer (`6-9`, `6/9`, `Max`), the order of normal and extra sets
+- **Supersets and jumpsets** — groups (A1, A2…), which exercise comes next and how long to rest, skipping an exercise that has finished its sets
 - **Numbers and dates** — `72,5` and `72.5` both accepted, dates that don't shift with the time zone
 - **Timer sound settings** — mute and volume saved on the phone, volume always between 0 and 100
 - **API client** — token sent on every call, renewed token saved *only* if the user hasn't logged out in the meantime, expired session handled without reloading the page, readable error messages
@@ -91,9 +95,11 @@ src/
 ├── TrainerDashboard.tsx  # trainer: plan editor, clients, completed workouts
 ├── StoricoCliente.tsx    # trainer: full history of a plan (per exercise / per workout)
 ├── MisureCorporee.tsx    # body weight and body-fat % with charts
+├── FeedbackCliente.tsx   # end-of-workout feedback: effort score and notes
 ├── Inviti.tsx            # trainer: invite codes
 ├── ProgressoChart.tsx    # exercise progress chart
 ├── Privacy.tsx           # privacy notice
+├── collegamenti.ts       # supersets / jumpsets: groups, next exercise, rest
 ├── misure-formati.ts     # numbers and dates for body measurements
 ├── serie.ts              # set / rep-range logic
 ├── suono.ts              # timer sounds, volume, wake lock

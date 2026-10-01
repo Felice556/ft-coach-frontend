@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import SezioneInviti from './Inviti';
 import StoricoCliente from './StoricoCliente';
 import MisureCorporee from './MisureCorporee';
+import FeedbackCliente, { ChipFatica } from './FeedbackCliente';
+import { gruppiCollegati, sigla, InfoGruppo } from './collegamenti';
 import {
   creaScheda,
   aggiornaScheda,
@@ -31,6 +33,7 @@ import {
   ripristinaEsercizio,
   EsercizioArchiviato,
   Esercizio,
+  TipoCollegamento,
 } from './api';
 import { riassuntoSerie, testoReps, testoRecupero, leggiReps } from './serie';
 
@@ -304,6 +307,89 @@ function SceltaCliente({
   );
 }
 
+// ---------- Superset / jumpset nell'editor ----------
+
+// Etichetta del gruppo sulla card: "Superset", "Jumpset"… (la sigla A1/A2 è nel pallino accanto).
+function ChipGruppo({ g }: { g: InfoGruppo }) {
+  return <span className="chip min-w-0 truncate bg-accent-soft text-accent-strong">{g.nome}</span>;
+}
+
+// Al posto del campo recupero, in un superset: tra i due esercizi non si riposa.
+function RecuperoAssente() {
+  return (
+    <p className="input flex items-center text-sm text-muted" aria-label="Nessun recupero">
+      Nessuno
+    </p>
+  );
+}
+
+// Cosa succede con il recupero di questo esercizio dentro il gruppo, in parole semplici.
+function spiegaRecupero(tipo: TipoCollegamento | '', g: InfoGruppo): string {
+  const successivo = `${g.lettera}${g.posizione + 1}`;
+  if (tipo === 'SUPERSET' && g.posizione < g.dimensione) return `Dopo ogni serie si passa subito a ${successivo}, senza recupero.`;
+  if (tipo === 'JUMPSET' && g.posizione < g.dimensione) return `Questo recupero si fa prima di passare a ${successivo}.`;
+  return `Fine giro: questo recupero si fa prima di ricominciare da ${g.lettera}1 (esercizio ${g.inizio + 1}).`;
+}
+
+// Tra un esercizio e il successivo: collegali in superset o jumpset, oppure scollegali.
+function Collegamento({
+  tipo,
+  onCambia,
+  numeroSuccessivo,
+}: {
+  tipo: TipoCollegamento | '';
+  onCambia: (tipo: TipoCollegamento | '') => void;
+  numeroSuccessivo: number;
+}) {
+  if (!tipo) {
+    return (
+      <div className="flex justify-center py-1.5">
+        <button
+          type="button"
+          className="btn-ghost min-h-9 px-3 text-xs text-muted"
+          onClick={() => onCambia('SUPERSET')}
+        >
+          + Collega con l’esercizio {numeroSuccessivo}
+        </button>
+      </div>
+    );
+  }
+  const opzione = (valore: TipoCollegamento, testo: string) => (
+    <button
+      type="button"
+      aria-pressed={tipo === valore}
+      className={`min-h-9 rounded-full px-3 text-xs font-semibold transition ${
+        tipo === valore ? 'bg-accent text-accent-ink' : 'text-soft hover:text-ink'
+      }`}
+      onClick={() => onCambia(valore)}
+    >
+      {testo}
+    </button>
+  );
+  return (
+    <div className="relative flex justify-center py-1.5">
+      {/* La linea verticale "lega" visivamente le due card */}
+      <span aria-hidden className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-accent-strong/60" />
+      <div
+        role="group"
+        aria-label={`Collegamento con l’esercizio ${numeroSuccessivo}`}
+        className="relative flex items-center gap-1 rounded-full border border-accent-strong/60 bg-surface p-1"
+      >
+        {opzione('SUPERSET', 'Superset')}
+        {opzione('JUMPSET', 'Jumpset')}
+        <button
+          type="button"
+          aria-label="Scollega"
+          className="min-h-9 rounded-full px-3 text-xs text-muted transition hover:text-danger"
+          onClick={() => onCambia('')}
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // "oggi alle 18:32", "ieri alle 9:05", oppure "lun 21/09 alle 18:32".
 function quando(iso: string): string {
   const d = new Date(iso);
@@ -338,10 +424,12 @@ type EsercizioBozza = {
   repsTarget: string;
   recuperoSecondi: string;
   serieExtra: SerieExtraBozza[];
+  // Collegato all'esercizio successivo ('' = singolo)
+  collegamento: TipoCollegamento | '';
 };
 
 // Campi "semplici" (testo) di un esercizio, modificabili con aggiornaEsercizio.
-type CampoTesto = Exclude<keyof EsercizioBozza, 'id' | 'serieExtra' | 'chiave'>;
+type CampoTesto = Exclude<keyof EsercizioBozza, 'id' | 'serieExtra' | 'chiave' | 'collegamento'>;
 
 let prossimaChiave = 1;
 const nuovaChiave = () => prossimaChiave++;
@@ -355,6 +443,7 @@ const esercizioVuoto = (): EsercizioBozza => ({
   repsTarget: '10',
   recuperoSecondi: '60',
   serieExtra: [],
+  collegamento: '',
 });
 
 export default function TrainerDashboard() {
@@ -423,6 +512,7 @@ export default function TrainerDashboard() {
         recuperoSecondi: String(x.recuperoSecondi),
         nota: x.nota || '',
       })),
+      collegamento: es.collegamento ?? '',
     };
   }
 
@@ -678,6 +768,19 @@ export default function TrainerDashboard() {
     );
   }
 
+  // Superset / jumpset: collega (o scollega) l'esercizio con quello successivo.
+  // Passando a jumpset il recupero torna visibile: se era 0 (es. veniva da un superset)
+  // proponiamo 60 secondi, così non resta un jumpset senza recupero per sbaglio.
+  function cambiaCollegamento(indice: number, tipo: TipoCollegamento | '') {
+    setEsercizi(
+      esercizi.map((es, i) => {
+        if (i !== indice) return es;
+        const senzaRecupero = !es.recuperoSecondi.trim() || Number(es.recuperoSecondi) === 0;
+        return { ...es, collegamento: tipo, recuperoSecondi: tipo === 'JUMPSET' && senzaRecupero ? '60' : es.recuperoSecondi };
+      })
+    );
+  }
+
   function aggiungiRigaEsercizio() {
     setEsercizi([...esercizi, esercizioVuoto()]);
   }
@@ -732,7 +835,16 @@ export default function TrainerDashboard() {
         return n;
       };
 
-      const eserciziValidati = esercizi.map((es, indice) => ({
+      // In un superset il recupero tra un esercizio e il successivo non c'è (il campo è nascosto):
+      // se è vuoto o strano non blocchiamo il salvataggio, mandiamo 0.
+      const recuperoNascosto = (testo: string) => {
+        const n = Number(testo);
+        return testo.trim() && Number.isInteger(n) && n >= 0 ? n : 0;
+      };
+
+      const eserciziValidati = esercizi.map((es, indice) => {
+        const superset = es.collegamento === 'SUPERSET' && indice < esercizi.length - 1;
+        return {
         nome: es.nome,
         videoUrl: link(es.videoUrl),
         descrizione: es.descrizione || undefined,
@@ -741,18 +853,25 @@ export default function TrainerDashboard() {
           const r = reps(es.repsTarget, es.nome || 'Esercizio');
           return { repsTarget: r.reps, repsMax: r.repsMax };
         })(),
-        recuperoSecondi: intero(es.recuperoSecondi, es.nome || `Esercizio ${indice + 1}`, 'recupero', 0),
+        recuperoSecondi: superset
+          ? recuperoNascosto(es.recuperoSecondi)
+          : intero(es.recuperoSecondi, es.nome || `Esercizio ${indice + 1}`, 'recupero', 0),
         serieExtra: es.serieExtra.map((x, j) => ({
           ...reps(x.reps, `${es.nome || 'Esercizio'}, serie ${Number(es.serieTarget) + j + 1}`),
-          recuperoSecondi: intero(
-            x.recuperoSecondi,
-            `${es.nome || `Esercizio ${indice + 1}`}, serie ${Number(es.serieTarget) + j + 1}`,
-            'recupero',
-            0
-          ),
+          recuperoSecondi: superset
+            ? recuperoNascosto(x.recuperoSecondi)
+            : intero(
+                x.recuperoSecondi,
+                `${es.nome || `Esercizio ${indice + 1}`}, serie ${Number(es.serieTarget) + j + 1}`,
+                'recupero',
+                0
+              ),
           nota: x.nota || undefined,
         })),
-      }));
+        // L'ultimo esercizio non ha un "successivo" a cui collegarsi.
+        collegamento: indice < esercizi.length - 1 && es.collegamento ? es.collegamento : null,
+        };
+      });
 
       if (schedaInModifica !== null) {
         // Rimettiamo gli id sugli esercizi già esistenti, così il backend li aggiorna.
@@ -832,6 +951,7 @@ export default function TrainerDashboard() {
   }
 
   const sessioniVisibili = mostraTutte ? sessioni : sessioni.slice(0, 5);
+  const gruppiBozza = gruppiCollegati(esercizi);
 
   return (
     <div className="space-y-8">
@@ -921,6 +1041,13 @@ export default function TrainerDashboard() {
                     </p>
                     <p className="mt-0.5 text-sm text-soft break-words">{s.scheda.nome}</p>
                     <p className="mt-0.5 text-xs text-muted">{quando(s.completataIl)}</p>
+                    {/* Feedback del cliente a fine allenamento */}
+                    {(s.fatica != null || s.nota) && (
+                      <div className="mt-2 flex flex-wrap items-start gap-2">
+                        {s.fatica != null && <ChipFatica fatica={s.fatica} />}
+                        {s.nota && <p className="min-w-0 flex-1 text-sm italic leading-snug text-soft break-words">“{s.nota}”</p>}
+                      </div>
+                    )}
                   </div>
                   <div className="shrink-0 text-right">
                     <p className={`rounded-md px-2 py-1 text-xs font-semibold tabular-nums sm:text-sm ${completa ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}>
@@ -1025,16 +1152,26 @@ export default function TrainerDashboard() {
               )}
             </div>
 
-            <div className="space-y-3">
-              {esercizi.map((es, i) => (
+            <div>
+              {esercizi.map((es, i) => {
+                const g = gruppiBozza[i];
+                const ultimo = i === esercizi.length - 1;
+                const superset = es.collegamento === 'SUPERSET' && !ultimo;
+                return (
+                <Fragment key={es.chiave}>
                 <div
-                  key={es.chiave}
-                  className="rounded-2xl border border-line bg-field p-4 transition-colors focus-within:border-accent-strong/50 sm:p-5"
+                  className={`rounded-2xl border bg-field p-4 transition-colors focus-within:border-accent-strong/50 sm:p-5 ${
+                    g ? 'border-accent-strong/60' : 'border-line'
+                  }`}
                 >
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent text-xs font-bold text-accent-ink">
-                      {i + 1}
-                    </span>
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-bold text-accent-ink">
+                        {g ? sigla(g) : i + 1}
+                      </span>
+                      {/* Su schermi stretti il nome del gruppo sta sotto (vedi sotto), qui solo da tablet in su */}
+                      {g && <span className="hidden sm:inline-flex"><ChipGruppo g={g} /></span>}
+                    </div>
                     <div className="flex gap-2">
                       <button
                         type="button"
@@ -1054,6 +1191,11 @@ export default function TrainerDashboard() {
                       )}
                     </div>
                   </div>
+                  {g && (
+                    <p className="-mt-1 mb-3 text-xs font-bold tracking-wide text-accent-strong uppercase sm:hidden">
+                      {g.nome} {g.lettera}
+                    </p>
+                  )}
                   <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
                     <div className="col-span-3 sm:col-span-3">
                       <label className="label">Esercizio</label>
@@ -1092,15 +1234,20 @@ export default function TrainerDashboard() {
                     </div>
                     <div className="sm:col-span-2">
                       <label className="label">Rec. (sec)</label>
-                      <input
-                        className="input"
-                        type="number"
-                        placeholder="Recupero (sec)"
-                        value={es.recuperoSecondi}
-                        onChange={(e) => aggiornaEsercizio(i, 'recuperoSecondi', e.target.value)}
-                      />
+                      {superset ? (
+                        <RecuperoAssente />
+                      ) : (
+                        <input
+                          className="input"
+                          type="number"
+                          placeholder="Recupero (sec)"
+                          value={es.recuperoSecondi}
+                          onChange={(e) => aggiornaEsercizio(i, 'recuperoSecondi', e.target.value)}
+                        />
+                      )}
                     </div>
                   </div>
+                  {g && <p className="mt-2 text-xs leading-relaxed text-accent-strong">{spiegaRecupero(es.collegamento, g)}</p>}
                   {/* Serie aggiunte dopo quelle normali, con valori propri: es. 2 × 10 + una da 15 in drop set */}
                   {es.serieExtra.length > 0 && (
                     <div className="mt-3 space-y-2">
@@ -1126,13 +1273,17 @@ export default function TrainerDashboard() {
                             </div>
                             <div>
                               <label className="label">Rec. (sec)</label>
-                              <input
-                                className="input"
-                                type="number"
-                                inputMode="numeric"
-                                value={x.recuperoSecondi}
-                                onChange={(e) => aggiornaSerieExtra(i, j, 'recuperoSecondi', e.target.value)}
-                              />
+                              {superset ? (
+                                <RecuperoAssente />
+                              ) : (
+                                <input
+                                  className="input"
+                                  type="number"
+                                  inputMode="numeric"
+                                  value={x.recuperoSecondi}
+                                  onChange={(e) => aggiornaSerieExtra(i, j, 'recuperoSecondi', e.target.value)}
+                                />
+                              )}
                             </div>
                           </div>
                           <input
@@ -1216,7 +1367,16 @@ export default function TrainerDashboard() {
                     )}
                   </div>
                 </div>
-              ))}
+                {!ultimo && (
+                  <Collegamento
+                    tipo={es.collegamento}
+                    onCambia={(tipo) => cambiaCollegamento(i, tipo)}
+                    numeroSuccessivo={i + 2}
+                  />
+                )}
+                </Fragment>
+                );
+              })}
             </div>
             <button type="button" className="btn-secondary mt-3 w-full border-dashed sm:w-auto" onClick={aggiungiRigaEsercizio}>
               + Aggiungi esercizio
@@ -1311,6 +1471,7 @@ export default function TrainerDashboard() {
         {clienteVisto !== null && (
           <div className="mb-6">
             <MisureCorporee key={clienteVisto} ruolo="TRAINER" clienteId={clienteVisto} nomeCliente={nomeCliente(clienteVisto)} />
+            <FeedbackCliente key={`f${clienteVisto}`} clienteId={clienteVisto} nomeCliente={nomeCliente(clienteVisto)} />
           </div>
         )}
         {clienteVisto !== null && !schede.some((sc) => sc.clienteId === clienteVisto) && (
@@ -1351,18 +1512,27 @@ export default function TrainerDashboard() {
                 </div>
               </div>
               <ul className="divide-y divide-line border-t border-line">
-                {scheda.esercizi.map((es) => (
-                  <li key={es.id} className="py-3 text-sm">
+                {scheda.esercizi.map((es, i, tutti) => {
+                  const g = gruppiCollegati(tutti)[i];
+                  const superset = es.collegamento === 'SUPERSET' && g !== null && g.posizione < g.dimensione;
+                  return (
+                  <li key={es.id} className={`py-3 text-sm ${g ? 'border-l-2 border-l-accent-strong pl-3' : ''}`}>
+                    {g && g.posizione === 1 && (
+                      <p className="mb-1 text-xs font-semibold tracking-wide text-accent-strong uppercase">{g.nome} {g.lettera}</p>
+                    )}
                     {/* flex-wrap: se nome e serie non stanno sulla stessa riga, il testo va a capo invece di uscire dallo schermo */}
                     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-                      <span className="min-w-0 font-medium break-words">{es.nome}</span>
+                      <span className="min-w-0 font-medium break-words">
+                        {g && <span className="mr-1.5 font-bold text-accent-strong">{sigla(g)}</span>}
+                        {es.nome}
+                      </span>
                       <span className="min-w-0 text-muted">
-                        <span className="font-semibold text-ink">{riassuntoSerie(es)}</span> · {testoRecupero(es.recuperoSecondi)}
+                        <span className="font-semibold text-ink">{riassuntoSerie(es)}</span> · {superset ? 'subito il successivo' : testoRecupero(es.recuperoSecondi)}
                       </span>
                     </div>
                     {(es.serieExtra || []).map((x, j) => (
                       <p key={j} className="mt-1 text-xs text-accent-strong">
-                        + Serie {es.serieTarget + j + 1}: {testoReps(x.reps, x.repsMax)} reps · {testoRecupero(x.recuperoSecondi)}
+                        + Serie {es.serieTarget + j + 1}: {testoReps(x.reps, x.repsMax)} reps{superset ? '' : ` · ${testoRecupero(x.recuperoSecondi)}`}
                         {x.nota ? ` · ${x.nota}` : ''}
                       </p>
                     ))}
@@ -1398,7 +1568,8 @@ export default function TrainerDashboard() {
                       </div>
                     )}
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             </div>
           ))}

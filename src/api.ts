@@ -29,6 +29,10 @@ export interface SerieExtra {
   nota?: string | null;
 }
 
+// Collegamento con l'esercizio SUCCESSIVO della scheda:
+// SUPERSET = si passa subito al successivo; JUMPSET = si alterna con un recupero in mezzo.
+export type TipoCollegamento = 'SUPERSET' | 'JUMPSET';
+
 export interface Esercizio {
   id: number;
   nome: string;
@@ -40,6 +44,7 @@ export interface Esercizio {
   recuperoSecondi: number;
   schedaId: number;
   serieExtra: SerieExtra[];
+  collegamento?: TipoCollegamento | null; // null = esercizio singolo
 }
 
 export interface Scheda {
@@ -377,6 +382,17 @@ export interface SessioneAllenamento {
   clienteId: number;
   scheda: { nome: string };
   cliente: { nome: string };
+  // Feedback del cliente a fine allenamento (facoltativi)
+  nota?: string | null;
+  fatica?: number | null; // da 1 a 10
+}
+
+// Il cliente salva com'è andato l'allenamento: nota e voto di fatica (null = toglie).
+export function salvaFeedback(sessioneId: number, nota: string | null, fatica: number | null) {
+  return apiFetch<SessioneAllenamento>(`/sessioni/${sessioneId}/feedback`, {
+    method: 'PUT',
+    body: JSON.stringify({ nota, fatica }),
+  });
 }
 
 // Storico completo di una scheda (solo trainer): esercizi, anche quelli tolti, con tutte le serie del cliente.

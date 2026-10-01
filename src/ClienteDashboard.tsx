@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import {
   getSchede,
   registraAllenamento,
@@ -7,6 +7,7 @@ import {
   eliminaSerie,
   getSessioni,
   completaAllenamento,
+  salvaFeedback,
   SessioneAllenamento,
   Scheda,
   Esercizio,
@@ -14,6 +15,8 @@ import {
 } from './api';
 import ProgressoChart from './ProgressoChart';
 import MisureCorporee from './MisureCorporee';
+import { SceltaFatica } from './FeedbackCliente';
+import { gruppiCollegati, prossimoPasso, sigla } from './collegamenti';
 import { pianoSerie, riassuntoSerie, testoReps, testoRecupero, SerieDaFare } from './serie';
 import {
   impostaSuono,
@@ -260,7 +263,8 @@ function SerieRiga({ serie, etichetta, onModificata, onEliminata }: SerieRigaPro
 
 // ---------- Vista cliente ----------
 
-type Timer = { nome: string; fine: number; totale: number };
+// `poi`: in superset/jumpset, l'esercizio da fare dopo il recupero (es. "A2 · Rematore").
+type Timer = { nome: string; fine: number; totale: number; poi?: string };
 
 // Icona altoparlante: con le onde se il suono è attivo, con la X se è silenziato.
 function IconaVolume({ muto }: { muto: boolean }) {
@@ -305,6 +309,36 @@ export default function ClienteDashboard() {
   // Sessione appena chiusa: la mostriamo in home come riepilogo.
   const [riepilogo, setRiepilogo] = useState<SessioneAllenamento | null>(null);
   const [inChiusura, setInChiusura] = useState(false);
+  // Feedback nel riepilogo: voto di fatica (1-10) e nota per il trainer.
+  const [fatica, setFatica] = useState<number | null>(null);
+  const [notaFinale, setNotaFinale] = useState('');
+  const [statoFeedback, setStatoFeedback] = useState<'modifica' | 'salvo' | 'salvato'>('modifica');
+  const [erroreFeedback, setErroreFeedback] = useState('');
+  const idRiepilogo = riepilogo?.id;
+  useEffect(() => {
+    // Ogni volta che si apre un riepilogo, i campi partono da quello già salvato (se c'è).
+    if (!riepilogo) return;
+    setFatica(riepilogo.fatica ?? null);
+    setNotaFinale(riepilogo.nota ?? '');
+    setStatoFeedback(riepilogo.fatica != null || riepilogo.nota ? 'salvato' : 'modifica');
+    setErroreFeedback('');
+    // solo quando cambia allenamento, non a ogni aggiornamento dello stesso
+  }, [idRiepilogo]);
+
+  async function inviaFeedback() {
+    if (!riepilogo || statoFeedback === 'salvo') return;
+    setStatoFeedback('salvo');
+    setErroreFeedback('');
+    try {
+      const aggiornata = await salvaFeedback(riepilogo.id, notaFinale.trim() || null, fatica);
+      setSessioni((prev) => prev.map((s) => (s.id === aggiornata.id ? aggiornata : s)));
+      setRiepilogo(aggiornata);
+      setStatoFeedback('salvato');
+    } catch (err) {
+      setErroreFeedback(err instanceof Error ? err.message : 'Feedback non salvato, riprova');
+      setStatoFeedback('modifica');
+    }
+  }
   // Esercizi con una serie in fase di salvataggio. Un insieme e non un solo id: in una
   // superserie si può registrare su due esercizi quasi insieme, e ognuno deve restare
   // bloccato finché la SUA richiesta non finisce (niente serie doppie per un doppio tocco).
@@ -409,11 +443,27 @@ export default function ClienteDashboard() {
   }, [timerAttivo]);
 
   // Il recupero dipende dalla serie appena fatta: una serie aggiunta può averne uno diverso.
-  function avviaRecupero(nome: string, secondi: number) {
+  function avviaRecupero(nome: string, secondi: number, poi?: string) {
     if (secondi <= 0) return;
     const adesso = Date.now();
     setOra(adesso);
-    setTimer({ nome, fine: adesso + secondi * 1000, totale: secondi * 1000 });
+    setAvviso(null);
+    setTimer({ nome, fine: adesso + secondi * 1000, totale: secondi * 1000, poi });
+  }
+
+  // Superset: dopo una serie si passa subito al prossimo esercizio, senza timer.
+  // Al posto della barra del recupero compare un avviso "Ora: A2 · Rematore".
+  const [avviso, setAvviso] = useState<string | null>(null);
+  useEffect(() => {
+    if (!avviso) return;
+    const t = setTimeout(() => setAvviso(null), 6000);
+    return () => clearTimeout(t);
+  }, [avviso]);
+
+  // Porta in vista la card di un esercizio (in superset/jumpset: il prossimo da fare).
+  function vaiAEsercizio(id: number) {
+    // dopo il render, così la card ha già lo stato aggiornato
+    setTimeout(() => document.getElementById(`esercizio-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   }
 
   // +10 / +15 / -10 / -15 secondi. Togliendo non si va sotto zero (a zero il recupero finisce).
@@ -535,11 +585,33 @@ export default function ClienteDashboard() {
       const piano = pianoSerie(es);
       const fatteOggi = aggiornato.filter((x) => eOggi(x.data)).length;
       const prossima = piano[fatteOggi];
-      if (prossima) {
-        // Parte il recupero della serie appena fatta, e le reps passano a quelle della
-        // prossima serie (utile quando la prossima ha reps diverse, o è "Max" → campo vuoto).
-        avviaRecupero(es.nome, piano[fatteOggi - 1]?.recuperoSecondi ?? es.recuperoSecondi);
-        setReps((prev) => ({ ...prev, [es.id]: repsDiPartenza(prossima) }));
+      // Le reps passano a quelle della prossima serie
+      // (utile quando la prossima ha reps diverse, o è "Max" → campo vuoto).
+      if (prossima) setReps((prev) => ({ ...prev, [es.id]: repsDiPartenza(prossima) }));
+
+      // Cosa si fa adesso: per un esercizio singolo, il suo recupero. In superset/jumpset
+      // si passa all'esercizio successivo del gruppo (con o senza recupero).
+      const lista = schede.find((sc) => sc.esercizi.some((e) => e.id === es.id))?.esercizi ?? [es];
+      const indice = lista.findIndex((e) => e.id === es.id);
+      const restano = (j: number) => {
+        const e = lista[j];
+        const fatte = e.id === es.id ? fatteOggi : (storici[e.id] || []).filter((x) => eOggi(x.data)).length;
+        return fatte < pianoSerie(e).length;
+      };
+      const recuperoSerie = piano[fatteOggi - 1]?.recuperoSecondi ?? es.recuperoSecondi;
+      const passo = prossimoPasso(lista, indice, restano, recuperoSerie);
+      if (passo.prossimo === indice) {
+        avviaRecupero(es.nome, passo.recupero);
+      } else if (passo.prossimo !== null) {
+        const successivo = lista[passo.prossimo];
+        const etichetta = `${sigla(gruppiCollegati(lista)[passo.prossimo])} · ${successivo.nome}`;
+        if (passo.recupero > 0) {
+          avviaRecupero(es.nome, passo.recupero, etichetta);
+        } else {
+          setTimer(null);
+          setAvviso(etichetta);
+        }
+        vaiAEsercizio(successivo.id);
       }
     } catch (err) {
       setErroreEsercizio({ id: es.id, testo: err instanceof Error ? err.message : 'Errore nella registrazione' });
@@ -587,6 +659,7 @@ export default function ClienteDashboard() {
 
   function tornaAllaHome() {
     setTimer(null);
+    setAvviso(null);
     setNotaAperta(null);
     setProgressiAperti(null);
     setSchedaAperta(null);
@@ -686,6 +759,52 @@ export default function ClienteDashboard() {
               </div>
             </div>
             <p className="mt-3 text-sm text-soft">Il tuo trainer vedrà che hai concluso l’allenamento.</p>
+
+            {/* Feedback per il trainer: com'è andata oggi */}
+            <div className="mt-4 space-y-3 rounded-xl bg-bg/40 p-3">
+              <p className="font-bold">Com’è andato l’allenamento?</p>
+              {statoFeedback === 'salvato' ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-success">✓ Inviato al tuo trainer</p>
+                  {riepilogo.fatica != null && (
+                    <p className="text-sm">
+                      Fatica: <span className="font-bold">{riepilogo.fatica}/10</span>
+                    </p>
+                  )}
+                  {riepilogo.nota && <p className="text-sm italic text-soft break-words">“{riepilogo.nota}”</p>}
+                  <button className="btn-ghost min-h-10 px-3 text-sm" onClick={() => setStatoFeedback('modifica')}>
+                    Modifica
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <p className="label">Quanto è stato faticoso?</p>
+                    <SceltaFatica valore={fatica} onChange={setFatica} />
+                  </div>
+                  <div>
+                    <label className="label" htmlFor="nota-finale">Nota per il trainer (facoltativa)</label>
+                    <textarea
+                      id="nota-finale"
+                      className="input min-h-[72px] resize-y"
+                      maxLength={1000}
+                      placeholder='Es. "Oggi stanco, la panca è andata bene"'
+                      value={notaFinale}
+                      onChange={(e) => setNotaFinale(e.target.value)}
+                    />
+                  </div>
+                  {erroreFeedback && <p className="alert-error">{erroreFeedback}</p>}
+                  <button
+                    className="btn-primary min-h-12 w-full"
+                    disabled={statoFeedback === 'salvo' || (fatica === null && !notaFinale.trim() && riepilogo.fatica == null && !riepilogo.nota)}
+                    onClick={inviaFeedback}
+                  >
+                    {statoFeedback === 'salvo' ? 'Invio…' : 'Invia al trainer'}
+                  </button>
+                </>
+              )}
+            </div>
+
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button className="btn-ghost" onClick={() => riprendiAllenamento(riepilogo.schedaId)}>
                 Riprendi
@@ -747,12 +866,26 @@ export default function ClienteDashboard() {
                 {/* Già chiusa oggi → "Riprendi" riapre la scheda (senza cancellare nulla);
                     iniziata ma non chiusa → "Continua"; altrimenti → "Inizia". */}
                 {sessioneOggi ? (
-                  <button
-                    className="btn-secondary min-h-14 w-full text-base"
-                    onClick={() => riprendiAllenamento(scheda.id)}
-                  >
-                    Riprendi allenamento
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      className="btn-secondary min-h-14 w-full text-base"
+                      onClick={() => riprendiAllenamento(scheda.id)}
+                    >
+                      Riprendi allenamento
+                    </button>
+                    {/* Il feedback si può lasciare (o correggere) anche dopo aver chiuso il riepilogo */}
+                    {riepilogo?.id !== sessioneOggi.id && (
+                      <button
+                        className="btn-ghost min-h-11 w-full text-sm"
+                        onClick={() => {
+                          setRiepilogo(sessioneOggi);
+                          vaiInCima();
+                        }}
+                      >
+                        {sessioneOggi.fatica != null || sessioneOggi.nota ? 'Vedi il tuo feedback' : 'Com’è andata? Lascia un feedback'}
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <button className="btn-primary min-h-14 w-full text-base" onClick={() => apriScheda(scheda.id)}>
                     {iniziataOggi ? 'Continua allenamento' : 'Inizia allenamento'}
@@ -773,7 +906,7 @@ export default function ClienteDashboard() {
   // ---------- ALLENAMENTO sulla scheda aperta ----------
   return (
     // Spazio in fondo quando c'è la barra del timer, così non copre l'ultimo esercizio.
-    <div className={`mx-auto max-w-3xl space-y-6 ${timer ? 'pb-64' : ''}`}>
+    <div className={`mx-auto max-w-3xl space-y-6 ${timer ? 'pb-64' : avviso ? 'pb-32' : ''}`}>
       {errore && <p className="alert-error">{errore}</p>}
 
       <button className="btn-ghost -mt-2" onClick={tornaAllaHome}>
@@ -809,11 +942,45 @@ export default function ClienteDashboard() {
               const completato = oggi >= piano.length;
               const prossima = piano[oggi]; // undefined se l'esercizio è finito
               const ultimaVolta = [...storico].reverse().find((x) => !eOggi(x.data));
+              // Superset / jumpset: in che gruppo sta l'esercizio e cosa viene dopo
+              const gruppi = gruppiCollegati(scheda.esercizi);
+              const g = gruppi[indice];
+              const nelMezzo = g !== null && g.posizione < g.dimensione; // ha un "successivo" nel gruppo
+              const superset = nelMezzo && es.collegamento === 'SUPERSET';
+              const dopo = g ? (nelMezzo ? sigla(gruppi[indice + 1]) : `${g.lettera}1`) : null;
+              const testoDopo = !g
+                ? testoRecupero(es.recuperoSecondi)
+                : superset
+                  ? `poi subito ${dopo}`
+                  : `${testoRecupero(es.recuperoSecondi)}, poi ${nelMezzo ? '' : 'di nuovo '}${dopo}`;
 
               return (
+                <Fragment key={es.id}>
+                {/* Inizio di un superset/jumpset: un'intestazione spiega come si fa */}
+                {g && g.posizione === 1 && (
+                  <div className="rounded-2xl border border-accent-strong/50 bg-accent-soft px-4 py-3">
+                    <p className="text-xs font-bold tracking-[0.14em] text-accent-strong uppercase">
+                      {g.nome} {g.lettera}
+                    </p>
+                    <p className="mt-1 text-sm leading-relaxed text-soft">
+                      {scheda.esercizi
+                        .slice(g.inizio, g.fine + 1)
+                        .map((e, k) => `${g.lettera}${k + 1} ${e.nome}`)
+                        .join(' + ')}
+                      .{' '}
+                      {g.nome === 'Jumpset'
+                        ? 'Alterna gli esercizi, con il recupero tra uno e l’altro.'
+                        : g.nome === 'Circuito'
+                          ? 'Alterna gli esercizi nell’ordine: l’app ti dice quando recuperare.'
+                          : 'Alterna gli esercizi senza recupero; recuperi a fine giro.'}
+                    </p>
+                  </div>
+                )}
                 <article
-                  key={es.id}
-                  className={`card space-y-5 transition ${completato ? 'border-success/30' : ''}`}
+                  id={`esercizio-${es.id}`}
+                  className={`card scroll-mt-4 space-y-5 transition ${completato ? 'border-success/30' : g ? 'border-accent-strong/50' : ''} ${
+                    g && g.posizione > 1 ? '!mt-2' : ''
+                  }`}
                 >
                   {/* Titolo + stato */}
                   <header className="flex items-start gap-3">
@@ -822,13 +989,13 @@ export default function ClienteDashboard() {
                         completato ? 'bg-success-soft text-success' : 'bg-accent text-accent-ink'
                       }`}
                     >
-                      {completato ? '✓' : indice + 1}
+                      {completato ? '✓' : g ? sigla(g) : indice + 1}
                     </span>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-lg leading-snug font-extrabold tracking-tight sm:text-xl">{es.nome}</h3>
                       <p className="mt-1 text-sm leading-relaxed text-soft">
                         <span className="font-semibold text-ink">{riassuntoSerie(es)}</span>
-                        <span className="text-muted"> · {testoRecupero(es.recuperoSecondi)}</span>
+                        <span className="text-muted"> · {testoDopo}</span>
                       </p>
                     </div>
                   </header>
@@ -902,7 +1069,7 @@ export default function ClienteDashboard() {
                             <span className="font-bold">
                               {prossima.reps == null ? 'Max ripetizioni' : `${testoReps(prossima.reps, prossima.repsMax)} reps`}
                             </span>
-                            <span className="text-soft"> · {testoRecupero(prossima.recuperoSecondi)}</span>
+                            {!superset && <span className="text-soft"> · {testoRecupero(prossima.recuperoSecondi)}</span>}
                             {prossima.nota && <span className="text-soft"> · {prossima.nota}</span>}
                           </p>
                         </div>
@@ -1013,6 +1180,7 @@ export default function ClienteDashboard() {
                     </div>
                   )}
                 </article>
+                </Fragment>
               );
             })}
 
@@ -1039,6 +1207,24 @@ export default function ClienteDashboard() {
           </section>
         );
       })}
+
+      {/* Superset: niente recupero, si passa subito al prossimo esercizio */}
+      {!timer && avviso && (
+        <div
+          role="status"
+          className="fixed inset-x-0 bottom-0 z-20 border-t border-accent-strong/60 bg-surface/95 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.3)] backdrop-blur"
+        >
+          <div className="mx-auto flex max-w-3xl items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-muted">Niente recupero · tocca a</p>
+              <p className="truncate text-xl font-black text-accent-strong">{avviso}</p>
+            </div>
+            <button className="btn-secondary" onClick={() => setAvviso(null)}>
+              Ok
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Barra del recupero, fissa in basso dove arriva il pollice */}
       {timer && (
@@ -1079,6 +1265,11 @@ export default function ClienteDashboard() {
               <p className={`text-4xl font-black tabular-nums ${recuperoFinito ? 'text-success' : 'text-accent-strong'}`}>
                 {recuperoFinito ? 'Via!' : formattaTempo(secondiRimasti)}
               </p>
+              {timer.poi && (
+                <p className="truncate text-sm text-soft">
+                  Poi: <span className="font-bold text-ink">{timer.poi}</span>
+                </p>
+              )}
             </div>
             <button className="btn-secondary" onClick={() => setTimer(null)}>
               {recuperoFinito ? 'Chiudi' : 'Salta'}
