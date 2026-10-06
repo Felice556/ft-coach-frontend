@@ -4,6 +4,7 @@ import StoricoCliente from './StoricoCliente';
 import MisureCorporee from './MisureCorporee';
 import FeedbackCliente, { ChipFatica } from './FeedbackCliente';
 import { gruppiCollegati, sigla, InfoGruppo } from './collegamenti';
+import { CampoNomeEsercizio, PannelloLibreria, SceltaGruppo } from './LibreriaEsercizi';
 import {
   creaScheda,
   aggiornaScheda,
@@ -16,6 +17,8 @@ import {
   getPreset,
   creaPreset,
   cancellaPreset,
+  cambiaGruppoPreset,
+  GruppoMuscolare,
   Scheda,
   RegistroAllenamento,
   EsercizioPreset,
@@ -650,14 +653,62 @@ export default function TrainerDashboard() {
     // Riempiamo l'ultima riga solo se è vuota E nuova. Se è un esercizio già salvato a cui è
     // stato cancellato il nome, NON la riusiamo: le sue serie passate finirebbero sotto un
     // esercizio diverso (es. lo storico della panca attaccato allo squat).
+    let chiave = riga.chiave;
     if (ultima && !ultima.nome.trim() && ultima.id === undefined) {
-      setEsercizi([...esercizi.slice(0, -1), { ...riga, chiave: ultima.chiave }]);
+      chiave = ultima.chiave;
+      setEsercizi([...esercizi.slice(0, -1), { ...riga, chiave }]);
     } else {
       setEsercizi([...esercizi, riga]);
     }
+    // Sul telefono chiudiamo il pannello e portiamo in vista l'esercizio appena aggiunto.
+    setLibreriaAperta(false);
+    setTimeout(() => document.getElementById(`riga-${chiave}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
   }
 
-  async function salvaComePreset(indice: number) {
+  // Suggerimento scelto mentre si scrive il nome: riempie quella riga
+  // (video e note solo se erano vuoti, per non cancellare quello che hai già scritto).
+  function scegliSuggerimento(indice: number, p: EsercizioPreset) {
+    setEsercizi(
+      esercizi.map((es, i) =>
+        i === indice
+          ? { ...es, nome: p.nome, videoUrl: es.videoUrl || p.videoUrl || '', descrizione: es.descrizione || p.descrizione || '' }
+          : es
+      )
+    );
+  }
+
+  // Libreria su telefono: pannello che si apre dal basso.
+  const [libreriaAperta, setLibreriaAperta] = useState(false);
+  const [scrivendo, setScrivendo] = useState(false);
+  // Riga per cui si sta scegliendo il gruppo muscolare prima di salvarla in libreria.
+  const [gruppoPer, setGruppoPer] = useState<number | null>(null);
+
+  async function handleCambiaGruppo(p: EsercizioPreset, gruppo: GruppoMuscolare | null) {
+    try {
+      const aggiornato = await cambiaGruppoPreset(p.id, gruppo);
+      setPreset((prev) => prev.map((x) => (x.id === aggiornato.id ? aggiornato : x)));
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : 'Errore nel cambio di gruppo');
+    }
+  }
+
+  // Primo tocco su "Salva esercizio": chiede il gruppo muscolare; poi salva.
+  function chiediGruppo(indice: number) {
+    const es = esercizi[indice];
+    if (!es.nome.trim()) {
+      setErrore('Scrivi almeno il nome dell’esercizio prima di salvarlo');
+      return;
+    }
+    if (preset.some((p) => p.nome.toLowerCase() === es.nome.trim().toLowerCase())) {
+      setErrore(`"${es.nome}" è già nella tua libreria`);
+      return;
+    }
+    setErrore('');
+    setGruppoPer(es.chiave);
+  }
+
+  async function salvaComePreset(indice: number, gruppo: GruppoMuscolare) {
+    setGruppoPer(null);
     const es = esercizi[indice];
     if (!es.nome.trim()) {
       setErrore('Scrivi almeno il nome dell’esercizio prima di salvarlo');
@@ -671,7 +722,7 @@ export default function TrainerDashboard() {
     try {
       setErrore('');
       // In libreria esercizi vanno solo nome e video: le note hanno la loro libreria a parte.
-      await creaPreset(es.nome.trim(), es.videoUrl);
+      await creaPreset(es.nome.trim(), es.videoUrl, undefined, gruppo);
       await caricaPreset();
     } catch (err) {
       setErrore(err instanceof Error ? err.message : 'Errore nel salvataggio');
@@ -1092,7 +1143,13 @@ export default function TrainerDashboard() {
             quando vuoi dall’elenco in fondo agli esercizi.
           </p>
         )}
-        <form onSubmit={handleSalvaScheda} className="space-y-6">
+        <form
+          onSubmit={handleSalvaScheda}
+          className="space-y-6"
+          // Mentre scrivi, il bottone "+ Libreria" si nasconde: non copre i suggerimenti né la tastiera.
+          onFocus={(e) => setScrivendo(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)}
+          onBlur={() => setScrivendo(false)}
+        >
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="label" htmlFor="nome-scheda">Nome scheda</label>
@@ -1113,44 +1170,11 @@ export default function TrainerDashboard() {
             </div>
           </div>
 
-          <div>
+          {/* Su PC: esercizi a sinistra e libreria fissa a destra (resta visibile mentre scorri).
+              Su telefono: la libreria si apre dal bottone "Libreria" in basso. */}
+          <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start lg:gap-6">
+          <div className="min-w-0">
             <h3 className="mb-3 text-lg font-bold text-ink">Esercizi della scheda</h3>
-
-            <div className="mb-4 rounded-xl border border-line bg-surface p-3">
-              <p className="mb-2 text-sm font-semibold text-soft">
-                Libreria esercizi <span className="font-normal text-muted">· tocca per aggiungere</span>
-              </p>
-              {preset.length === 0 ? (
-                <p className="text-xs text-muted">
-                  Vuota. Scrivi un esercizio qui sotto e premi “Salva esercizio” per riusarlo le prossime volte.
-                </p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {preset.map((p) => (
-                    <span
-                      key={p.id}
-                      className="inline-flex items-center overflow-hidden rounded-md border border-line bg-surface-2 text-sm"
-                    >
-                      <button
-                        type="button"
-                        className="px-3 py-1.5 font-medium transition hover:bg-accent hover:text-accent-ink"
-                        onClick={() => aggiungiDaPreset(p)}
-                      >
-                        + {p.nome}
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Rimuovi ${p.nome} dalla libreria`}
-                        className="border-l border-line px-2 py-1.5 text-muted transition hover:bg-danger-soft hover:text-danger"
-                        onClick={() => handleCancellaPreset(p.id)}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
 
             <div>
               {esercizi.map((es, i) => {
@@ -1160,6 +1184,7 @@ export default function TrainerDashboard() {
                 return (
                 <Fragment key={es.chiave}>
                 <div
+                  id={`riga-${es.chiave}`}
                   className={`rounded-2xl border bg-field p-4 transition-colors focus-within:border-accent-strong/50 sm:p-5 ${
                     g ? 'border-accent-strong/60' : 'border-line'
                   }`}
@@ -1176,7 +1201,8 @@ export default function TrainerDashboard() {
                       <button
                         type="button"
                         className="btn-secondary px-3 py-1 text-xs"
-                        onClick={() => salvaComePreset(i)}
+                        aria-expanded={gruppoPer === es.chiave}
+                        onClick={() => (gruppoPer === es.chiave ? setGruppoPer(null) : chiediGruppo(i))}
                       >
                         ☆ Salva esercizio
                       </button>
@@ -1196,16 +1222,17 @@ export default function TrainerDashboard() {
                       {g.nome} {g.lettera}
                     </p>
                   )}
+                  {gruppoPer === es.chiave && (
+                    <SceltaGruppo onScegli={(gruppo) => salvaComePreset(i, gruppo)} onAnnulla={() => setGruppoPer(null)} />
+                  )}
                   <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
                     <div className="col-span-3 sm:col-span-3">
                       <label className="label">Esercizio</label>
-                      <input
-                        className="input"
-                        placeholder="Nome esercizio"
-                        maxLength={100}
-                        value={es.nome}
-                        onChange={(e) => aggiornaEsercizio(i, 'nome', e.target.value)}
-                        required
+                      <CampoNomeEsercizio
+                        valore={es.nome}
+                        preset={preset}
+                        onChange={(v) => aggiornaEsercizio(i, 'nome', v)}
+                        onScegli={(p) => scegliSuggerimento(i, p)}
                       />
                     </div>
                     <div className="col-span-3 sm:col-span-3">
@@ -1407,6 +1434,50 @@ export default function TrainerDashboard() {
               </div>
             )}
           </div>
+            <aside
+              aria-label="Libreria esercizi"
+              className="hidden rounded-2xl border border-line bg-surface p-4 lg:sticky lg:top-24 lg:block lg:h-[calc(100vh-8rem)]"
+            >
+              <PannelloLibreria
+                preset={preset}
+                onAggiungi={aggiungiDaPreset}
+                onCambiaGruppo={handleCambiaGruppo}
+                onElimina={(p) => handleCancellaPreset(p.id)}
+              />
+            </aside>
+          </div>
+
+          {/* Telefono: libreria in un pannello dal basso */}
+          {libreriaAperta && (
+            <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Libreria esercizi">
+              <button type="button" aria-label="Chiudi la libreria" className="absolute inset-0 bg-black/50" onClick={() => setLibreriaAperta(false)} />
+              <div className="absolute inset-x-0 bottom-0 flex h-[75vh] flex-col rounded-t-3xl border-t border-line bg-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl">
+                <div className="mb-2 flex justify-end">
+                  <button type="button" className="btn-ghost min-h-9 px-3 text-sm" onClick={() => setLibreriaAperta(false)}>
+                    Chiudi
+                  </button>
+                </div>
+                <div className="min-h-0 flex-1">
+                  <PannelloLibreria
+                    preset={preset}
+                    onAggiungi={aggiungiDaPreset}
+                    onCambiaGruppo={handleCambiaGruppo}
+                    onElimina={(p) => handleCancellaPreset(p.id)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Bottone "Libreria" sempre a portata mentre scorri l'editor (solo telefono) */}
+          {editorAperto && !libreriaAperta && !scrivendo && (
+            <button
+              type="button"
+              className="btn-primary fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 min-h-12 px-4 shadow-lg lg:hidden"
+              onClick={() => setLibreriaAperta(true)}
+            >
+              + Libreria
+            </button>
+          )}
 
           {errore && <p className="alert-error">{errore}</p>}
           <div className="flex flex-col-reverse gap-3 border-t border-line pt-5 sm:flex-row sm:justify-end">

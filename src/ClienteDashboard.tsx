@@ -148,6 +148,7 @@ function SerieRiga({ serie, etichetta, onModificata, onEliminata }: SerieRigaPro
   const [modalita, setModalita] = useState<'vista' | 'modifica' | 'conferma'>('vista');
   const [kg, setKg] = useState(scriviNumero(serie.pesoUsato));
   const [reps, setReps] = useState(String(serie.repsFatte));
+  const [testoNota, setTestoNota] = useState(serie.nota ?? '');
   const [inInvio, setInInvio] = useState(false);
   const [errore, setErrore] = useState('');
 
@@ -163,6 +164,7 @@ function SerieRiga({ serie, etichetta, onModificata, onEliminata }: SerieRigaPro
     // Ripartiamo sempre dai valori salvati, non da un tentativo precedente annullato.
     setKg(scriviNumero(serie.pesoUsato));
     setReps(String(serie.repsFatte));
+    setTestoNota(serie.nota ?? '');
     setErrore('');
     setModalita('modifica');
   }
@@ -176,7 +178,8 @@ function SerieRiga({ serie, etichetta, onModificata, onEliminata }: SerieRigaPro
     const nuoveReps = leggiNumero(reps);
     setInInvio(true);
     try {
-      const aggiornata = await modificaSerie(serie.id, nuovoKg, nuoveReps, serie.nota ?? undefined);
+      // Nota vuota = nota tolta (il server la salva come "nessuna nota").
+      const aggiornata = await modificaSerie(serie.id, nuovoKg, nuoveReps, testoNota.trim());
       onModificata(aggiornata);
       setModalita('vista');
     } catch (err) {
@@ -201,11 +204,19 @@ function SerieRiga({ serie, etichetta, onModificata, onEliminata }: SerieRigaPro
   if (modalita === 'modifica') {
     return (
       <li className="space-y-3 bg-surface-2 px-3 py-3">
-        <p className="text-xs font-semibold tracking-wide text-accent-strong uppercase">Correggi · {etichetta}</p>
+        <p className="text-xs font-semibold tracking-wide text-accent-strong uppercase">Modifica · {etichetta}</p>
         <div className="grid grid-cols-2 gap-3">
           <Stepper etichetta="Kg" valore={kg} passo={2.5} minimo={0} decimali compatto onChange={setKg} />
           <Stepper etichetta="Reps" valore={reps} passo={1} minimo={1} decimali={false} compatto onChange={setReps} />
         </div>
+        <input
+          className="input"
+          aria-label="Nota per il trainer"
+          placeholder='Nota per il trainer, es. "fastidio alla spalla"'
+          maxLength={500}
+          value={testoNota}
+          onChange={(e) => setTestoNota(e.target.value)}
+        />
         {errore && <p className="alert-error">{errore}</p>}
         <div className="grid grid-cols-2 gap-2">
           <button className="btn-secondary" onClick={() => setModalita('vista')} disabled={inInvio}>
@@ -1030,6 +1041,7 @@ export default function ClienteDashboard() {
                   {oggi > 0 && (
                     <div>
                       <p className="label">Serie di oggi</p>
+                      <p className="-mt-1 mb-2 text-xs text-muted">Tocca la matita per correggere peso, ripetizioni o nota.</p>
                       <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line">
                         {storico
                           .filter((x) => eOggi(x.data))

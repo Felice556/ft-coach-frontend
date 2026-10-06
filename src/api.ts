@@ -321,21 +321,32 @@ export function registraAllenamento(
   });
 }
 
+export type GruppoMuscolare = 'PETTO' | 'DORSO' | 'SPALLE' | 'BRACCIA' | 'GAMBE' | 'ADDOME' | 'CARDIO' | 'ALTRO';
+
 export interface EsercizioPreset {
   id: number;
   nome: string;
   videoUrl?: string | null;
   descrizione?: string | null;
+  gruppo?: GruppoMuscolare | null; // null = non ancora assegnato
 }
 
 export function getPreset() {
   return apiFetch<EsercizioPreset[]>('/preset-esercizi');
 }
 
-export function creaPreset(nome: string, videoUrl?: string, descrizione?: string) {
+export function creaPreset(nome: string, videoUrl?: string, descrizione?: string, gruppo?: GruppoMuscolare | null) {
   return apiFetch<EsercizioPreset>('/preset-esercizi', {
     method: 'POST',
-    body: JSON.stringify({ nome, videoUrl: videoUrl || undefined, descrizione: descrizione || undefined }),
+    body: JSON.stringify({ nome, videoUrl: videoUrl || undefined, descrizione: descrizione || undefined, gruppo: gruppo ?? null }),
+  });
+}
+
+// Sposta un esercizio della libreria in un altro gruppo muscolare.
+export function cambiaGruppoPreset(id: number, gruppo: GruppoMuscolare | null) {
+  return apiFetch<EsercizioPreset>(`/preset-esercizi/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ gruppo }),
   });
 }
 
