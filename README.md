@@ -31,6 +31,7 @@ I'm a personal trainer and a junior developer: I built FT Coach for my own coach
 - **Client feedback** — effort score and notes after every workout, with an effort chart over time
 - **Client history** — tap a plan or a completed workout to see every set the client logged, *per exercise* (with charts) or *per workout* (day by day)
 - **Body composition** — log clients' body-fat % and see their body weight, both charted
+- **Skinfold calculator** — 3 or 7 skinfolds (Jackson & Pollock + Siri) give the body-fat %, fat and lean mass in kg; one tap saves it to the client's body fat
 - **Invites** — single-use, expiring codes shared via WhatsApp/SMS with a pre-filled sign-up link
 - **Account management** — change a client's email or set a temporary password without ever seeing their password
 - **Nothing gets lost** — plans and exercises are archived, not deleted, so the history is always kept
@@ -78,6 +79,7 @@ I'm a personal trainer and a junior developer: I built FT Coach for my own coach
 Unit tests with **Vitest** (in a simulated browser with jsdom), run on every push with **GitHub Actions** together with the TypeScript check and the production build:
 
 - **Set logic** — rep ranges typed by the trainer (`6-9`, `6/9`, `Max`), the order of normal and extra sets
+- **Skinfolds** — Jackson & Pollock formulas (3 and 7 sites, men and women) checked against reference values
 - **Exercise library** — search with a few letters (accents and case ignored), grouping by muscle group
 - **Supersets and jumpsets** — groups (A1, A2…), which exercise comes next and how long to rest, skipping an exercise that has finished its sets
 - **Numbers and dates** — `72,5` and `72.5` both accepted, dates that don't shift with the time zone
@@ -97,6 +99,8 @@ src/
 ├── StoricoCliente.tsx    # trainer: full history of a plan (per exercise / per workout)
 ├── MisureCorporee.tsx    # body weight and body-fat % with charts
 ├── FeedbackCliente.tsx   # end-of-workout feedback: effort score and notes
+├── CalcoloPliche.tsx     # trainer: skinfold calculator window
+├── plicometria.ts        # Jackson & Pollock / Siri formulas
 ├── Inviti.tsx            # trainer: invite codes
 ├── ProgressoChart.tsx    # exercise progress chart
 ├── Privacy.tsx           # privacy notice

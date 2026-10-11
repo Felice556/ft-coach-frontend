@@ -3,6 +3,7 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import { eliminaMisura, getMisure, MisuraCorporea, salvaMisura, TipoMisura } from './api';
 import { useColoriTema } from './tema';
 import { dataCorta, dataLunga, giornoDi, leggiNumero, numero, oggi } from './misure-formati';
+import CalcoloPliche from './CalcoloPliche';
 
 // Sezione "Il tuo corpo": peso corporeo e % di massa grassa, con grafico.
 // - Il CLIENTE scrive il proprio peso e vede la massa grassa (la misura il trainer).
@@ -137,6 +138,7 @@ function SchedaMisura({
   ruolo,
   clienteId,
   nomeCliente,
+  pesoAttuale,
   onCambiate,
 }: {
   tipo: TipoMisura;
@@ -144,6 +146,7 @@ function SchedaMisura({
   ruolo: Ruolo;
   clienteId?: number;
   nomeCliente?: string;
+  pesoAttuale?: number | null; // ultimo peso del cliente: serve alla plicometria
   onCambiate: (nuove: MisuraCorporea[]) => void;
 }) {
   const info = TIPI[tipo];
@@ -154,6 +157,8 @@ function SchedaMisura({
   const [salvato, setSalvato] = useState(false);
   const [inInvio, setInInvio] = useState(false);
   const [tutte, setTutte] = useState(false);
+  // Finestra della plicometria (solo trainer, solo massa grassa)
+  const [plicheAperte, setPlicheAperte] = useState(false);
 
   const ultima = misure[misure.length - 1];
   const prima = misure[0];
@@ -164,10 +169,13 @@ function SchedaMisura({
 
   async function salva(e: React.FormEvent) {
     e.preventDefault();
+    await salvaValore(leggiNumero(valore));
+  }
+
+  async function salvaValore(n: number | null) {
     if (inInvio) return;
     setErrore('');
     setSalvato(false);
-    const n = leggiNumero(valore);
     if (n === null || n < info.min || n > info.max) {
       setErrore(`Scrivi un valore tra ${info.min} e ${info.max} ${info.unita} (${info.esempio})`);
       return;
@@ -195,6 +203,20 @@ function SchedaMisura({
   const idCampo = `misura-${tipo}`;
   return (
     <article className="card space-y-4">
+      {plicheAperte && clienteId !== undefined && (
+        <CalcoloPliche
+          clienteId={clienteId}
+          nomeCliente={nomeCliente}
+          pesoAttuale={pesoAttuale ?? null}
+          onChiudi={() => setPlicheAperte(false)}
+          onUsa={(grasso) => {
+            // Si salva subito, nel giorno scelto nel modulo (di solito oggi).
+            setPlicheAperte(false);
+            setValore(String(grasso).replace('.', ','));
+            void salvaValore(grasso);
+          }}
+        />
+      )}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h3 className="text-lg font-extrabold tracking-tight">{info.titolo}</h3>
@@ -264,6 +286,11 @@ function SchedaMisura({
           <button type="submit" className="btn-primary min-h-12 w-full" disabled={inInvio}>
             {inInvio ? 'Salvo…' : salvato ? 'Salvato ✓' : giaPresente ? 'Correggi' : 'Salva'}
           </button>
+          {tipo === 'MASSA_GRASSA' && ruolo === 'TRAINER' && clienteId !== undefined && (
+            <button type="button" className="btn-secondary min-h-12 w-full" onClick={() => setPlicheAperte(true)}>
+              Calcola con le pliche
+            </button>
+          )}
         </form>
       ) : (
         <p className="text-xs text-muted">
@@ -345,6 +372,7 @@ export default function MisureCorporee({ ruolo, clienteId, nomeCliente }: { ruol
               ruolo={ruolo}
               clienteId={clienteId}
               nomeCliente={nomeCliente}
+              pesoAttuale={perTipo('PESO').at(-1)?.valore ?? null}
               onCambiate={aggiorna(tipo)}
             />
           ))}
