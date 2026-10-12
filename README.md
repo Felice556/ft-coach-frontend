@@ -22,7 +22,7 @@ I'm a personal trainer and a junior developer: I built FT Coach for my own coach
 - **Rest timer** — starts automatically after each set, `−15s / −10s / +10s / +15s`, countdown beeps, mute button and volume slider, keeps the screen awake so the sound always plays
 - **Progress charts** — best set of each day for every exercise
 - **Body weight tracking** — log your weight with a chart and the change since the first entry; see the body-fat % measured by the trainer
-- **Notes for the trainer** on any set (e.g. "shoulder pain"), editable later together with weight and reps
+- **Notes for the trainer** on any set (e.g. "shoulder pain"), editable later together with weight and reps; past notes are shown again before the next set and listed per exercise
 - **Supersets and jumpsets** — linked exercises are grouped (A1, A2…): in a superset the app moves you straight to the next exercise, in a jumpset it starts the rest in between and tells you what comes next
 - **End-of-workout feedback** — an effort score from 1 to 10 and a note for the trainer
 

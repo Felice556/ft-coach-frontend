@@ -311,6 +311,8 @@ export default function ClienteDashboard() {
   const [nota, setNota] = useState<Record<number, string>>({});
   const [notaAperta, setNotaAperta] = useState<number | null>(null);
   const [progressiAperti, setProgressiAperti] = useState<number | null>(null);
+  // Esercizio di cui è aperto l'elenco "Le tue note" (tutte le note scritte nel tempo).
+  const [noteAperte, setNoteAperte] = useState<number | null>(null);
 
   // Navigazione: null = home con l'elenco schede; un id = allenamento in corso su quella scheda.
   // Niente router: con due sole schermate basta uno stato.
@@ -673,6 +675,7 @@ export default function ClienteDashboard() {
     setAvviso(null);
     setNotaAperta(null);
     setProgressiAperti(null);
+    setNoteAperte(null);
     setSchedaAperta(null);
     vaiInCima();
   }
@@ -953,6 +956,9 @@ export default function ClienteDashboard() {
               const completato = oggi >= piano.length;
               const prossima = piano[oggi]; // undefined se l'esercizio è finito
               const ultimaVolta = [...storico].reverse().find((x) => !eOggi(x.data));
+              // Tutte le note scritte su questo esercizio, dalla più recente.
+              const leMieNote = [...storico].reverse().filter((x) => x.nota && x.nota.trim());
+              const ultimaNotaPassata = leMieNote.find((x) => !eOggi(x.data));
               // Superset / jumpset: in che gruppo sta l'esercizio e cosa viene dopo
               const gruppi = gruppiCollegati(scheda.esercizi);
               const g = gruppi[indice];
@@ -1097,6 +1103,14 @@ export default function ClienteDashboard() {
                         </p>
                       )}
 
+                      {/* L'ultima nota che il cliente ha scritto le volte scorse: utile da rileggere prima di iniziare */}
+                      {ultimaNotaPassata && (
+                        <p className="rounded-xl border-l-4 border-line bg-surface-2 px-4 py-3 text-sm text-muted">
+                          La tua nota del {new Date(ultimaNotaPassata.data).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })}:{' '}
+                          <span className="italic text-soft">“{ultimaNotaPassata.nota}”</span>
+                        </p>
+                      )}
+
                       <div className="grid grid-cols-2 gap-3">
                         <Stepper
                           etichetta="Peso (kg)"
@@ -1157,6 +1171,15 @@ export default function ClienteDashboard() {
                         {nota[es.id] ? 'Nota pronta' : 'Aggiungi nota'}
                       </button>
                     )}
+                    {leMieNote.length > 0 && (
+                      <button
+                        className={`btn-ghost flex-1 ${noteAperte === es.id ? 'bg-accent-soft text-accent-strong' : ''}`}
+                        aria-expanded={noteAperte === es.id}
+                        onClick={() => setNoteAperte(noteAperte === es.id ? null : es.id)}
+                      >
+                        Le tue note ({leMieNote.length})
+                      </button>
+                    )}
                     <button
                       className={`btn-ghost flex-1 ${progressiAperti === es.id ? 'bg-accent-soft text-accent-strong' : ''}`}
                       aria-expanded={progressiAperti === es.id}
@@ -1165,6 +1188,24 @@ export default function ClienteDashboard() {
                       Progressi
                     </button>
                   </div>
+
+                  {/* Tutte le note scritte su questo esercizio, con data e serie: si possono anche correggere */}
+                  {noteAperte === es.id && leMieNote.length > 0 && (
+                    <div className="space-y-2 border-t border-line pt-4">
+                      <p className="label">Le tue note su {es.nome}</p>
+                      <ul className="divide-y divide-line rounded-xl bg-surface-2 text-sm">
+                        {leMieNote.map((r) => (
+                          <SerieRiga
+                            key={r.id}
+                            serie={r}
+                            etichetta={new Date(r.data).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })}
+                            onModificata={(nuova) => sostituisciSerie(es.id, nuova)}
+                            onEliminata={(id) => rimuoviSerie(es.id, id)}
+                          />
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
                   {progressiAperti === es.id && (
                     <div className="space-y-3 border-t border-line pt-4">
