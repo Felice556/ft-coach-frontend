@@ -269,9 +269,9 @@ export default function App() {
       <main className="flex min-h-screen items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
         <div className="w-full max-w-6xl">
           <div className="grid overflow-hidden rounded-3xl border border-line bg-surface shadow-[0_20px_80px_-30px_rgba(0,0,0,0.55)] lg:min-h-[710px] lg:grid-cols-[1.05fr_1fr]">
-            <section className="relative flex min-h-[275px] flex-col overflow-hidden bg-[#171717] p-6 sm:min-h-[340px] sm:p-10 lg:p-12">
+            <section className="relative flex min-h-[275px] flex-col overflow-hidden bg-[#0a1430] p-6 sm:min-h-[340px] sm:p-10 lg:p-12">
               <img src="/training-floor.webp" alt="" className="absolute inset-0 h-full w-full object-cover object-[center_40%] opacity-65" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-black/35" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0a1430] via-[#0a1430]/60 to-[#0a1430]/40" />
               <div className="relative z-10"><Brand suFoto /></div>
               <div className="relative z-10 mt-auto pt-10 lg:pt-20">
                 <p className="mb-4 hidden text-xs font-bold uppercase tracking-[0.18em] text-oro sm:block">Il tuo prossimo livello</p>
