@@ -58,13 +58,13 @@ function Impostazioni({ onCambiaPassword, onPrivacy, onChiudi }: { onCambiaPassw
 function Brand({ compact = false, suFoto = false }: { compact?: boolean; suFoto?: boolean }) {
   return (
     <div className={compact ? "flex items-center gap-2 sm:gap-3" : "flex items-center gap-3"}>
-      <span className={`flex shrink-0 items-center justify-center rounded-xl bg-accent text-accent-ink ${compact ? "h-7 w-7 sm:h-10 sm:w-10" : "h-10 w-10"}`} aria-hidden="true">
+      <span className={`flex shrink-0 items-center justify-center rounded-xl ${suFoto ? 'bg-oro text-oro-ink' : 'bg-accent text-accent-ink'} ${compact ? "h-7 w-7 sm:h-10 sm:w-10" : "h-10 w-10"}`} aria-hidden="true">
         <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <path d="M7 9v6m10-6v6M4 10v4m16-4v4M7 12h10M7 8H5v8h2m10-8h2v8h-2" />
         </svg>
       </span>
       <div>
-        <span className={`block whitespace-nowrap font-black uppercase tracking-[-0.05em] ${suFoto ? 'text-white' : 'text-ink'} ${compact ? "text-base sm:text-xl" : "text-xl"}`}>FT COACH<span className={suFoto ? 'text-accent' : 'text-accent-strong'}>.</span></span>
+        <span className={`block whitespace-nowrap font-black uppercase tracking-[-0.05em] ${suFoto ? 'text-white' : 'text-ink'} ${compact ? "text-base sm:text-xl" : "text-xl"}`}>FT COACH<span className={suFoto ? 'text-oro' : 'text-accent-strong'}>.</span></span>
         {!compact && <span className={`block text-[10px] font-bold uppercase tracking-[0.15em] ${suFoto ? 'text-white/70' : 'text-muted'}`}>Forza. Metodo. Progressi.</span>}
       </div>
     </div>
@@ -274,12 +274,12 @@ export default function App() {
               <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-black/35" />
               <div className="relative z-10"><Brand suFoto /></div>
               <div className="relative z-10 mt-auto pt-10 lg:pt-20">
-                <p className="mb-4 hidden text-xs font-bold uppercase tracking-[0.18em] text-accent sm:block">Il tuo prossimo livello</p>
-                <h1 className="max-w-sm text-[2.35rem] font-black uppercase leading-[0.95] tracking-[-0.06em] text-white sm:text-[3.5rem] lg:text-[3.9rem]">Allenati.<br />Migliora.<br /><span className="text-accent">Ripeti.</span></h1>
+                <p className="mb-4 hidden text-xs font-bold uppercase tracking-[0.18em] text-oro sm:block">Il tuo prossimo livello</p>
+                <h1 className="max-w-sm text-[2.35rem] font-black uppercase leading-[0.95] tracking-[-0.06em] text-white sm:text-[3.5rem] lg:text-[3.9rem]">Allenati.<br />Migliora.<br /><span className="text-oro">Ripeti.</span></h1>
                 <p className="mt-6 hidden max-w-xs text-sm leading-6 text-white/80 lg:block">Schede mirate. Carichi sotto controllo. Un programma da seguire, una serie alla volta.</p>
               </div>
               <div className="relative z-10 mt-8 flex items-center gap-3 border-t border-white/20 pt-4 lg:mt-10 lg:pt-6">
-                <span className="h-1 w-1 rounded-full bg-accent" aria-hidden="true" />
+                <span className="h-1 w-1 rounded-full bg-oro" aria-hidden="true" />
                 <button type="button" className="min-h-11 text-xs font-bold uppercase tracking-[0.16em] text-white/80 underline-offset-4 hover:text-white hover:underline" onClick={() => setPrivacyAperta(true)}>
                   Informativa privacy
                 </button>

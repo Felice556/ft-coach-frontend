@@ -7,7 +7,7 @@ export type SceltaTema = 'automatico' | 'chiaro' | 'scuro';
 const CHIAVE = 'tema';
 const EVENTO_TEMA = 'palestra:tema';
 // Colore della barra del browser/telefono, come lo sfondo dell'app.
-const COLORE_BARRA = { chiaro: '#f5f5f3', scuro: '#1f2023' };
+const COLORE_BARRA = { chiaro: '#e9eefb', scuro: '#0a1430' };
 
 const mediaScuro = () => window.matchMedia('(prefers-color-scheme: dark)');
 

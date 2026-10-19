@@ -6,9 +6,12 @@
   variabile (--t-...) che cambia a seconda del tema scelto (attributo data-tema su <html>).
   "inline" serve a Tailwind per usare direttamente la variabile, così il cambio tema è istantaneo.
 
-  Giallo FT: "accent" è il giallo pieno dei bottoni (con testo scuro sopra).
-  "accent-strong" è la versione per scritte, bordi e icone: nel tema chiaro diventa
-  ocra scuro, perché il giallo su bianco non si legge; nel tema scuro resta giallo.
+  Colori FT: blu reale + oro.
+  "accent" è il colore pieno dei bottoni: blu reale nel tema chiaro (testo bianco sopra),
+  oro nel tema scuro (testo scuro sopra).
+  "accent-strong" è la versione per scritte, bordi e icone: oro scuro nel tema chiaro
+  (l'oro chiaro su fondo chiaro non si leggerebbe), oro nel tema scuro.
+  "oro" resta oro in tutti e due i temi: serve sopra le foto scure (pagina di accesso).
 */
 @theme inline {
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -33,6 +36,8 @@
   --color-warning-soft: var(--t-warning-soft);
   --color-info: var(--t-info);
   --color-info-soft: var(--t-info-soft);
+  --color-oro: var(--t-oro);
+  --color-oro-ink: var(--t-oro-ink);
 
   /* Angoli arrotondati (stile della versione dark). Per angoli vivi: 2/3/3/4/4/6px */
   --radius-sm: 6px;
@@ -46,55 +51,59 @@
 /* Tema chiaro (anche quello di partenza, prima che il JavaScript scelga il tema) */
 :root {
   color-scheme: light;
-  --t-bg: #f5f5f3;
+  --t-bg: #e9eefb;
   --t-surface: #ffffff;
-  --t-surface-2: #efeee9;
-  --t-field: #fafaf8;
-  --t-line: #e2e0da;
-  --t-ink: #1c1b18;
-  --t-soft: #45433d;
-  --t-muted: #66635b;
-  --t-accent: #facc15;
-  --t-accent-hover: #eab308;
-  --t-accent-ink: #1c1b18;
-  --t-accent-strong: #8a5a00;
-  --t-accent-soft: #fdf3c4;
+  --t-surface-2: #dde5f8;
+  --t-field: #f6f8fe;
+  --t-line: #c9d5f0;
+  --t-ink: #131a2c;
+  --t-soft: #3b4458;
+  --t-muted: #5b6479;
+  --t-accent: #1d3fa8;
+  --t-accent-hover: #2449c0;
+  --t-accent-ink: #ffffff;
+  --t-accent-strong: #8f5d0b;
+  --t-accent-soft: #d9e3fb;
   --t-danger: #b42318;
   --t-danger-soft: #fdecea;
   --t-success: #1f7a45;
   --t-success-soft: #e7f5ec;
   --t-warning: #9a4d00;
   --t-warning-soft: #fdf0dc;
-  --t-info: #5b4a9e;
-  --t-info-soft: #eeebf8;
-  --t-ombra: rgba(28, 27, 24, 0.06);
+  --t-info: #1d3fa8;
+  --t-info-soft: #d9e3fb;
+  --t-oro: #fbbf24;
+  --t-oro-ink: #141000;
+  --t-ombra: rgba(19, 26, 44, 0.07);
 }
 
-/* Tema scuro: grafite scura, stesso giallo */
+/* Tema scuro: blu reale profondo e oro. Gli avvisi sono arancio per non confondersi con l'oro */
 :root[data-tema='scuro'] {
   color-scheme: dark;
-  --t-bg: #1f2023;
-  --t-surface: #27292d;
-  --t-surface-2: #303237;
-  --t-field: #18191c;
-  --t-line: #3a3c42;
-  --t-ink: #f2f3f5;
-  --t-soft: #dbdee1;
-  --t-muted: #a3a9b1;
-  --t-accent: #facc15;
-  --t-accent-hover: #fde047;
-  --t-accent-ink: #1c1b18;
-  --t-accent-strong: #facc15;
-  --t-accent-soft: #332d1a;
+  --t-bg: #0a1430;
+  --t-surface: #111e42;
+  --t-surface-2: #192851;
+  --t-field: #071026;
+  --t-line: #263769;
+  --t-ink: #eef2fa;
+  --t-soft: #cfd6e4;
+  --t-muted: #98a3ba;
+  --t-accent: #fbbf24;
+  --t-accent-hover: #fcd34d;
+  --t-accent-ink: #141000;
+  --t-accent-strong: #fbbf24;
+  --t-accent-soft: #2b2b25;
   --t-danger: #f87171;
-  --t-danger-soft: #36252a;
+  --t-danger-soft: #3a1f2b;
   --t-success: #4ade80;
-  --t-success-soft: #1f3226;
-  --t-warning: #fbbf24;
-  --t-warning-soft: #3a2f14;
-  --t-info: #b4a6f0;
-  --t-info-soft: #2c2840;
-  --t-ombra: rgba(0, 0, 0, 0.25);
+  --t-success-soft: #15302a;
+  --t-warning: #fb923c;
+  --t-warning-soft: #3a2414;
+  --t-info: #93b0f8;
+  --t-info-soft: #1a2a5a;
+  --t-oro: #fbbf24;
+  --t-oro-ink: #141000;
+  --t-ombra: rgba(0, 0, 0, 0.3);
 }
 
 @layer base {
