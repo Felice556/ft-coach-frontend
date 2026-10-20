@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import SezioneInviti from './Inviti';
+import PanoramicaTrainer from './PanoramicaTrainer';
 import StoricoCliente from './StoricoCliente';
 import MisureCorporee from './MisureCorporee';
 import FeedbackCliente, { ChipFatica } from './FeedbackCliente';
@@ -1042,7 +1043,7 @@ export default function TrainerDashboard() {
           <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#gestione-clienti">Clienti</a>
           <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#inviti">Inviti</a>
           {admin && (
-            <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#inviti-trainer">Trainer</a>
+            <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#trainer-app">Trainer</a>
           )}
         </nav>
         <button type="button" className="btn-primary" aria-expanded={editorAperto} aria-controls="scheda-editor" onClick={() => {
@@ -1662,6 +1663,7 @@ export default function TrainerDashboard() {
       <SezioneInviti />
 
       {/* Solo l'amministratore: inviti per far entrare nuovi trainer (ognuno con i suoi clienti) */}
+      {admin && <PanoramicaTrainer />}
       {admin && <SezioneInviti tipo="TRAINER" />}
 
       <section id="gestione-clienti" className="card scroll-mt-24">

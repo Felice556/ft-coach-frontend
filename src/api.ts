@@ -229,6 +229,30 @@ export function linkInvito(codice: string, tipo: TipoInvito = 'CLIENTE') {
   return `${window.location.origin}/?invito=${encodeURIComponent(codice)}${ruolo}`;
 }
 
+// ---------- Panoramica trainer (solo amministratore) ----------
+// Solo numeri: nessun dato dei clienti degli altri trainer.
+export interface RigaTrainer {
+  id: number;
+  nome: string;
+  email: string;
+  admin: boolean;
+  registratoIl: string | null;
+  clienti: number;
+  clientiAttivi: number; // con almeno un allenamento negli ultimi 30 giorni
+  schedeAttive: number;
+  allenamenti30: number;
+  ultimoAllenamento: string | null;
+}
+
+export interface PanoramicaTrainer {
+  totali: { trainer: number; clienti: number; clientiAttivi: number; allenamenti30: number };
+  trainer: RigaTrainer[];
+}
+
+export function getPanoramicaTrainer() {
+  return apiFetch<PanoramicaTrainer>('/admin/trainer');
+}
+
 export interface Cliente {
   id: number;
   nome: string;

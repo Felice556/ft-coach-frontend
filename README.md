@@ -103,6 +103,7 @@ src/
 ├── CalcoloPliche.tsx     # trainer: skinfold calculator window
 ├── plicometria.ts        # Jackson & Pollock / Siri formulas
 ├── Inviti.tsx            # invite codes: clients (trainer) and new trainers (admin only)
+├── PanoramicaTrainer.tsx # admin only: trainers using the app, their clients and activity
 ├── ProgressoChart.tsx    # exercise progress chart
 ├── Privacy.tsx           # privacy notice
 ├── collegamenti.ts       # supersets / jumpsets: groups, next exercise, rest
