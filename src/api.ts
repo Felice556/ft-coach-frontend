@@ -272,6 +272,14 @@ export function cambiaMiaPassword(passwordAttuale: string, nuovaPassword: string
   });
 }
 
+// Elimina il PROPRIO account (definitivo): servono la password e la parola "ELIMINA".
+export function eliminaMioAccount(password: string, conferma: string) {
+  return apiFetch<void>('/me', {
+    method: 'DELETE',
+    body: JSON.stringify({ password, conferma }),
+  });
+}
+
 // Solo trainer: imposta una password temporanea per un cliente (lui dovrà cambiarla al primo accesso).
 export function reimpostaPasswordCliente(clienteId: number, nuovaPassword: string) {
   return apiFetch<void>(`/clienti/${clienteId}/password`, {

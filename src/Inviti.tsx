@@ -120,7 +120,9 @@ function RigaInvito({
       <p className="text-xs text-muted">
         {invito.stato === 'usato' && invito.usatoDa
           ? `Usato da ${invito.usatoDa.nome} (${invito.usatoDa.email}) il ${dataBreve(invito.usatoIl!)}`
-          : invito.stato === 'annullato'
+          : invito.stato === 'usato'
+            ? `Usato il ${dataBreve(invito.usatoIl!)} (account poi eliminato)`
+            : invito.stato === 'annullato'
             ? `Annullato il ${dataBreve(invito.annullatoIl!)}`
             : invito.stato === 'scaduto'
               ? `Scaduto il ${dataBreve(invito.scadeIl)}`

@@ -3,11 +3,12 @@ import { EVENTO_CAMBIO_PASSWORD, EVENTO_SESSIONE_SCADUTA, getInfoRegistrazione, 
 import TrainerDashboard from './TrainerDashboard';
 import ClienteDashboard from './ClienteDashboard';
 import CambioPassword from './CambioPassword';
+import EliminaAccount from './EliminaAccount';
 import InformativaPrivacy from './Privacy';
 import { leggiSceltaTema, salvaSceltaTema, SceltaTema } from './tema';
 
 // Impostazioni: tema dell'app (salvato su questo telefono) e cambio password.
-function Impostazioni({ onCambiaPassword, onPrivacy, onChiudi }: { onCambiaPassword: () => void; onPrivacy: () => void; onChiudi: () => void }) {
+function Impostazioni({ onCambiaPassword, onEliminaAccount, onPrivacy, onChiudi }: { onCambiaPassword: () => void; onEliminaAccount: () => void; onPrivacy: () => void; onChiudi: () => void }) {
   const [tema, setTema] = useState<SceltaTema>(leggiSceltaTema);
   const opzioni: { valore: SceltaTema; nome: string; descrizione: string }[] = [
     { valore: 'automatico', nome: 'Automatico', descrizione: 'Come il telefono' },
@@ -50,6 +51,10 @@ function Impostazioni({ onCambiaPassword, onPrivacy, onChiudi }: { onCambiaPassw
         <button type="button" className="btn-secondary w-full" onClick={onCambiaPassword}>Cambia password</button>
         <button type="button" className="btn-link mt-3 w-full text-sm" onClick={onPrivacy}>Informativa privacy</button>
       </div>
+      {/* In fondo e separato: un'azione definitiva non deve stare vicino a quelle di tutti i giorni */}
+      <div className="border-t border-line pt-5">
+        <button type="button" className="btn-link w-full text-sm text-danger" onClick={onEliminaAccount}>Elimina account</button>
+      </div>
     </div>
   );
 }
@@ -77,6 +82,9 @@ function Brand({ compact = false, suFoto = false }: { compact?: boolean; suFoto?
     </div>
   );
 }
+
+// Messaggi della schermata di accesso che sono buone notizie (in verde), non errori.
+const messaggioPositivo = (testo: string) => testo.startsWith('Registrazione completata') || testo.startsWith('Account eliminato');
 
 function Modal({ children, titleId, onClose }: { children: ReactNode; titleId: string; onClose?: () => void }) {
   const dialog = useRef<HTMLDivElement>(null);
@@ -156,6 +164,7 @@ export default function App() {
   // Finestra "Cambia password" aperta dal bottone in alto (cambio volontario).
   const [cambioPasswordAperto, setCambioPasswordAperto] = useState(false);
   const [impostazioniAperte, setImpostazioniAperte] = useState(false);
+  const [eliminaAccountAperto, setEliminaAccountAperto] = useState(false);
 
   useEffect(() => {
     const quandoScade = () => setSessioneScaduta(true);
@@ -242,6 +251,7 @@ export default function App() {
     setDevoCambiarePassword(false);
     setCambioPasswordAperto(false);
     setImpostazioniAperte(false);
+    setEliminaAccountAperto(false);
     setErrore('');
     setPassword('');
     setMostraPassword(false);
@@ -343,7 +353,7 @@ export default function App() {
                       </label>
                     </div>
                   )}
-                  {errore && <p role={errore.startsWith('Registrazione completata') ? 'status' : 'alert'} className={errore.startsWith('Registrazione completata') ? 'alert-success' : 'alert-error'}>{errore}</p>}
+                  {errore && <p role={messaggioPositivo(errore) ? 'status' : 'alert'} className={messaggioPositivo(errore) ? 'alert-success' : 'alert-error'}>{errore}</p>}
                   <button type="submit" className="btn-primary w-full py-3 uppercase tracking-wide" disabled={inInvio}>
                     {inInvio ? 'Un momento…' : modalitaRegistrazione ? 'Crea il tuo account' : 'Accedi'}
                     {!inInvio && <span aria-hidden="true" className="ml-2">→</span>}
@@ -410,6 +420,10 @@ export default function App() {
               setImpostazioniAperte(false);
               setCambioPasswordAperto(true);
             }}
+            onEliminaAccount={() => {
+              setImpostazioniAperte(false);
+              setEliminaAccountAperto(true);
+            }}
             onPrivacy={() => {
               setImpostazioniAperte(false);
               setPrivacyAperta(true);
@@ -421,6 +435,20 @@ export default function App() {
       {privacyAperta && (
         <Modal titleId="privacy-titolo" onClose={() => setPrivacyAperta(false)}>
           <InformativaPrivacy onChiudi={() => setPrivacyAperta(false)} />
+        </Modal>
+      )}
+
+      {eliminaAccountAperto && !devoCambiarePassword && (
+        <Modal titleId="delete-account-title" onClose={() => setEliminaAccountAperto(false)}>
+          <EliminaAccount
+            ruolo={ruolo as Ruolo}
+            onAnnulla={() => setEliminaAccountAperto(false)}
+            onEliminato={() => {
+              // Account cancellato: si esce e la schermata di accesso lo conferma.
+              handleLogout();
+              setErrore('Account eliminato. Grazie per aver usato Liftio.');
+            }}
+          />
         </Modal>
       )}
 

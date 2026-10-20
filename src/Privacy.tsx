@@ -85,8 +85,9 @@ export default function InformativaPrivacy({ onChiudi }: { onChiudi: () => void 
 
         <Paragrafo titolo="Per quanto tempo">
           <p>
-            Finché il tuo account è attivo. Se chiedi la cancellazione, i dati vengono eliminati entro 30 giorni; le copie
-            di sicurezza (backup) si cancellano da sole entro 60 giorni.
+            Finché il tuo account è attivo. Puoi eliminarlo quando vuoi da Impostazioni → Elimina account: i dati vengono
+            cancellati subito. Se preferisci, puoi chiederlo scrivendo a {EMAIL_PRIVACY} e lo facciamo entro 30 giorni.
+            Le copie di sicurezza (backup) si cancellano da sole entro 60 giorni.
           </p>
         </Paragrafo>
 
