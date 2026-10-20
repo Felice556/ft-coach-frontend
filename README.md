@@ -5,7 +5,7 @@
 **A mobile-first web app for personal trainers and their clients.**
 The trainer builds training plans, clients log every set from their phone at the gym, and both follow the progress with charts.
 
-I'm a personal trainer and a junior developer: I built FT Coach for my own coaching work, and it's used by my real clients.
+I'm a junior developer and I prepare personalized training plans: I built FT Coach to manage them, and it's used by my real clients.
 
 🔗 **[Live app](https://ft-coach.pages.dev)** · **[Backend repo](https://github.com/Felice556/ft-coach-backend)**
 
@@ -33,6 +33,7 @@ I'm a personal trainer and a junior developer: I built FT Coach for my own coach
 - **Body composition** — log clients' body-fat % and see their body weight, both charted
 - **Skinfold calculator** — 3 or 7 skinfolds (Jackson & Pollock + Siri) give the body-fat %, fat and lean mass in kg; one tap saves it to the client's body fat
 - **Invites** — single-use, expiring codes shared via WhatsApp/SMS with a pre-filled sign-up link
+- **More trainers, kept apart** — the admin invites new trainers with a trainer invite; each trainer has their own area and sees only their own clients
 - **Account management** — change a client's email or set a temporary password without ever seeing their password
 - **Nothing gets lost** — plans and exercises are archived, not deleted, so the history is always kept
 
@@ -101,7 +102,7 @@ src/
 ├── FeedbackCliente.tsx   # end-of-workout feedback: effort score and notes
 ├── CalcoloPliche.tsx     # trainer: skinfold calculator window
 ├── plicometria.ts        # Jackson & Pollock / Siri formulas
-├── Inviti.tsx            # trainer: invite codes
+├── Inviti.tsx            # invite codes: clients (trainer) and new trainers (admin only)
 ├── ProgressoChart.tsx    # exercise progress chart
 ├── Privacy.tsx           # privacy notice
 ├── collegamenti.ts       # supersets / jumpsets: groups, next exercise, rest

@@ -1,8 +1,30 @@
 import { useEffect, useState } from 'react';
-import { annullaInvito, creaInvito, getInviti, Invito, linkInvito } from './api';
+import { annullaInvito, creaInvito, getInviti, Invito, linkInvito, TipoInvito } from './api';
 
-// Sezione del trainer: inviti personali per far registrare i clienti.
+// Inviti personali per far registrare qualcuno. Due tipi, stessa schermata:
+// - CLIENTE: il trainer invita i suoi clienti;
+// - TRAINER: l'amministratore invita un nuovo trainer (sezione visibile solo a lui).
 // Ogni codice vale UNA volta sola e fino alla scadenza; si può annullare finché non è usato.
+
+const TESTI: Record<TipoInvito, { id: string; eyebrow: string; titolo: string; spiega: string; esempio: string; vuoto: string }> = {
+  CLIENTE: {
+    id: 'inviti',
+    eyebrow: 'Nuovi clienti',
+    titolo: 'Inviti',
+    spiega: 'Crea un codice per ogni nuovo cliente e mandaglielo: vale una volta sola e scade da solo.',
+    esempio: 'Es. Marco Rossi',
+    vuoto: 'Nessun invito attivo.',
+  },
+  TRAINER: {
+    id: 'inviti-trainer',
+    eyebrow: 'Solo amministratore',
+    titolo: 'Inviti trainer',
+    spiega:
+      'Crea un codice per ogni trainer che vuoi far entrare. Avrà la sua area con i suoi clienti, e non vedrà mai i tuoi. Solo tu puoi creare questi inviti.',
+    esempio: 'Es. Coach Roberto',
+    vuoto: 'Nessun invito trainer attivo.',
+  },
+};
 
 const dataBreve = (iso: string) =>
   new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -14,13 +36,27 @@ const ETICHETTA_STATO: Record<Invito['stato'], { testo: string; classe: string }
   annullato: { testo: 'Annullato', classe: 'bg-danger-soft text-danger' },
 };
 
-function testoDaCondividere(inv: Invito) {
+function testoDaCondividere(inv: Invito, tipo: TipoInvito) {
   const saluto = inv.nota ? `Ciao ${inv.nota}! ` : 'Ciao! ';
-  return `${saluto}Ecco il tuo invito per FT Coach, l’app dei tuoi allenamenti. Apri il link e registrati (vale una volta sola, fino al ${dataBreve(inv.scadeIl)}): ${linkInvito(inv.codice)}\nCodice: ${inv.codice}`;
+  const app =
+    tipo === 'TRAINER'
+      ? 'Ecco il tuo invito per usare FT Coach come trainer, con i tuoi clienti e le tue schede.'
+      : 'Ecco il tuo invito per FT Coach, l’app dei tuoi allenamenti.';
+  return `${saluto}${app} Apri il link e registrati (vale una volta sola, fino al ${dataBreve(inv.scadeIl)}): ${linkInvito(inv.codice, tipo)}\nCodice: ${inv.codice}`;
 }
 
 // Riga di un invito, con le azioni: copia, condividi, annulla (con conferma).
-function RigaInvito({ invito, evidenziato, onAnnullato }: { invito: Invito; evidenziato: boolean; onAnnullato: () => void }) {
+function RigaInvito({
+  invito,
+  tipo,
+  evidenziato,
+  onAnnullato,
+}: {
+  invito: Invito;
+  tipo: TipoInvito;
+  evidenziato: boolean;
+  onAnnullato: () => void;
+}) {
   const [copiato, setCopiato] = useState<'link' | 'codice' | null>(null);
   const [conferma, setConferma] = useState(false);
   const [errore, setErrore] = useState('');
@@ -34,7 +70,7 @@ function RigaInvito({ invito, evidenziato, onAnnullato }: { invito: Invito; evid
 
   async function copia(cosa: 'link' | 'codice') {
     try {
-      await navigator.clipboard.writeText(cosa === 'link' ? linkInvito(invito.codice) : invito.codice);
+      await navigator.clipboard.writeText(cosa === 'link' ? linkInvito(invito.codice, tipo) : invito.codice);
       setCopiato(cosa);
       setTimeout(() => setCopiato(null), 2000);
     } catch {
@@ -44,7 +80,7 @@ function RigaInvito({ invito, evidenziato, onAnnullato }: { invito: Invito; evid
 
   async function condividi() {
     // Sul telefono si apre il menu di condivisione (WhatsApp, SMS…); sul computer copiamo il messaggio.
-    const testo = testoDaCondividere(invito);
+    const testo = testoDaCondividere(invito, tipo);
     try {
       if (navigator.share) await navigator.share({ text: testo });
       else {
@@ -63,7 +99,7 @@ function RigaInvito({ invito, evidenziato, onAnnullato }: { invito: Invito; evid
       return;
     }
     try {
-      await annullaInvito(invito.id);
+      await annullaInvito(invito.id, tipo);
       onAnnullato();
     } catch (err) {
       setErrore(err instanceof Error ? err.message : 'Errore, riprova');
@@ -111,7 +147,8 @@ function RigaInvito({ invito, evidenziato, onAnnullato }: { invito: Invito; evid
   );
 }
 
-export default function SezioneInviti() {
+export default function SezioneInviti({ tipo = 'CLIENTE' }: { tipo?: TipoInvito }) {
+  const t = TESTI[tipo];
   const [inviti, setInviti] = useState<Invito[]>([]);
   const [nota, setNota] = useState('');
   const [giorni, setGiorni] = useState(14);
@@ -122,7 +159,7 @@ export default function SezioneInviti() {
 
   async function carica() {
     try {
-      setInviti(await getInviti());
+      setInviti(await getInviti(tipo));
     } catch (err) {
       setErrore(err instanceof Error ? err.message : 'Errore nel caricamento degli inviti');
     }
@@ -138,7 +175,7 @@ export default function SezioneInviti() {
     setInInvio(true);
     setErrore('');
     try {
-      const nuovo = await creaInvito(nota, giorni);
+      const nuovo = await creaInvito(nota, giorni, tipo);
       setInviti((prev) => [nuovo, ...prev]);
       setAppenaCreato(nuovo.id);
       setNota('');
@@ -153,23 +190,21 @@ export default function SezioneInviti() {
   const vecchi = inviti.filter((i) => i.stato !== 'attivo');
 
   return (
-    <section id="inviti" className="card scroll-mt-24 space-y-5">
+    <section id={t.id} className="card scroll-mt-24 space-y-5">
       <div>
-        <p className="eyebrow mb-1">Nuovi clienti</p>
-        <h2 className="section-title">Inviti</h2>
-        <p className="mt-1 text-sm text-muted">
-          Crea un codice per ogni nuovo cliente e mandaglielo: vale una volta sola e scade da solo.
-        </p>
+        <p className="eyebrow mb-1">{t.eyebrow}</p>
+        <h2 className="section-title">{t.titolo}</h2>
+        <p className="mt-1 text-sm text-muted">{t.spiega}</p>
       </div>
 
       <form onSubmit={crea} className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
         <div>
-          <label htmlFor="invito-nota" className="label">Per chi è (facoltativo)</label>
-          <input id="invito-nota" className="input" maxLength={80} placeholder="Es. Marco Rossi" value={nota} onChange={(e) => setNota(e.target.value)} />
+          <label htmlFor={`${t.id}-nota`} className="label">Per chi è (facoltativo)</label>
+          <input id={`${t.id}-nota`} className="input" maxLength={80} placeholder={t.esempio} value={nota} onChange={(e) => setNota(e.target.value)} />
         </div>
         <div>
-          <label htmlFor="invito-giorni" className="label">Valido per</label>
-          <select id="invito-giorni" className="input" value={giorni} onChange={(e) => setGiorni(Number(e.target.value))}>
+          <label htmlFor={`${t.id}-giorni`} className="label">Valido per</label>
+          <select id={`${t.id}-giorni`} className="input" value={giorni} onChange={(e) => setGiorni(Number(e.target.value))}>
             <option value={3}>3 giorni</option>
             <option value={7}>7 giorni</option>
             <option value={14}>14 giorni</option>
@@ -184,11 +219,11 @@ export default function SezioneInviti() {
       {errore && <p className="alert-error">{errore}</p>}
 
       {attivi.length === 0 ? (
-        <p className="empty-state">Nessun invito attivo.</p>
+        <p className="empty-state">{t.vuoto}</p>
       ) : (
         <ul className="space-y-3">
           {attivi.map((i) => (
-            <RigaInvito key={i.id} invito={i} evidenziato={i.id === appenaCreato} onAnnullato={carica} />
+            <RigaInvito key={i.id} invito={i} tipo={tipo} evidenziato={i.id === appenaCreato} onAnnullato={carica} />
           ))}
         </ul>
       )}
@@ -201,7 +236,7 @@ export default function SezioneInviti() {
           {mostraVecchi && (
             <ul className="mt-3 space-y-3">
               {vecchi.map((i) => (
-                <RigaInvito key={i.id} invito={i} evidenziato={false} onAnnullato={carica} />
+                <RigaInvito key={i.id} invito={i} tipo={tipo} evidenziato={false} onAnnullato={carica} />
               ))}
             </ul>
           )}

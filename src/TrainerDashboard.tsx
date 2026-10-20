@@ -6,6 +6,7 @@ import FeedbackCliente, { ChipFatica } from './FeedbackCliente';
 import { gruppiCollegati, sigla, InfoGruppo } from './collegamenti';
 import { CampoNomeEsercizio, PannelloLibreria, SceltaGruppo } from './LibreriaEsercizi';
 import {
+  getMe,
   creaScheda,
   aggiornaScheda,
   archiviaScheda,
@@ -452,6 +453,13 @@ const esercizioVuoto = (): EsercizioBozza => ({
 export default function TrainerDashboard() {
   const [schede, setSchede] = useState<Scheda[]>([]);
   const [errore, setErrore] = useState('');
+  // true solo per l'amministratore (lo dice il server): vede anche "Inviti trainer".
+  const [admin, setAdmin] = useState(false);
+  useEffect(() => {
+    getMe()
+      .then((me) => setAdmin(me.admin === true))
+      .catch(() => setAdmin(false)); // in caso di errore la sezione resta nascosta
+  }, []);
 
   const [nomeScheda, setNomeScheda] = useState('');
   const [clienteId, setClienteId] = useState('');
@@ -1033,6 +1041,9 @@ export default function TrainerDashboard() {
           <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#schede-clienti">Schede</a>
           <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#gestione-clienti">Clienti</a>
           <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#inviti">Inviti</a>
+          {admin && (
+            <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#inviti-trainer">Trainer</a>
+          )}
         </nav>
         <button type="button" className="btn-primary" aria-expanded={editorAperto} aria-controls="scheda-editor" onClick={() => {
           setEditorAperto(true);
@@ -1649,6 +1660,9 @@ export default function TrainerDashboard() {
 
       {/* Accesso dei clienti: correggere l'email o dare una password temporanea a chi l'ha dimenticata */}
       <SezioneInviti />
+
+      {/* Solo l'amministratore: inviti per far entrare nuovi trainer (ognuno con i suoi clienti) */}
+      {admin && <SezioneInviti tipo="TRAINER" />}
 
       <section id="gestione-clienti" className="card scroll-mt-24">
         <button

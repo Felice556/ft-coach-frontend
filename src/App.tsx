@@ -123,9 +123,10 @@ export default function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nomeInput, setNomeInput] = useState('');
-  const [ruoloScelto, setRuoloScelto] = useState<Ruolo>('CLIENTE');
-  // Codice segreto per creare un account trainer (quello di CODICE_TRAINER nel .env del backend).
-  const [codiceTrainer, setCodiceTrainer] = useState('');
+  // Un link d'invito trainer (…&ruolo=trainer) apre la registrazione con "Sono un trainer" già scelto.
+  const [ruoloScelto, setRuoloScelto] = useState<Ruolo>(
+    new URLSearchParams(window.location.search).get('ruolo') === 'trainer' ? 'TRAINER' : 'CLIENTE',
+  );
   const [errore, setErrore] = useState('');
   const [inInvio, setInInvio] = useState(false);
   const [mostraPassword, setMostraPassword] = useState(false);
@@ -209,14 +210,7 @@ export default function App() {
     }
     setInInvio(true);
     try {
-      await register(
-        nomeInput,
-        email,
-        password,
-        ruoloScelto,
-        ruoloScelto === 'TRAINER' ? codiceTrainer : undefined,
-        ruoloScelto === 'CLIENTE' ? codiceInvito : undefined
-      );
+      await register(nomeInput, email, password, ruoloScelto, codiceInvito);
       setModalitaRegistrazione(false);
       setCodiceInvito('');
       // Il codice è stato usato: lo togliamo dall'indirizzo, così un "indietro" non lo ripropone.
@@ -304,10 +298,11 @@ export default function App() {
                     </div>
                   </div>
                   {modalitaRegistrazione && <div><label htmlFor="auth-role" className="label">Come userai FT Coach?</label><select id="auth-role" name="role" className="input" value={ruoloScelto} onChange={(e) => setRuoloScelto(e.target.value as Ruolo)}><option value="CLIENTE">Sono un cliente</option><option value="TRAINER">Sono un trainer</option></select></div>}
-                  {modalitaRegistrazione && ruoloScelto === 'CLIENTE' && (
+                  {modalitaRegistrazione && (
                     <div>
                       <label htmlFor="auth-invite" className="label">
-                        Codice invito{!invitoObbligatorio && <span className="font-normal text-muted"> (se te l’ha dato il tuo trainer)</span>}
+                        {ruoloScelto === 'TRAINER' ? 'Codice invito trainer' : 'Codice invito'}
+                        {ruoloScelto === 'CLIENTE' && !invitoObbligatorio && <span className="font-normal text-muted"> (se te l’ha dato il tuo trainer)</span>}
                       </label>
                       <input
                         id="auth-invite"
@@ -319,11 +314,11 @@ export default function App() {
                         placeholder="Es. K7M3-Q9TX"
                         value={codiceInvito}
                         onChange={(e) => setCodiceInvito(e.target.value)}
-                        required={invitoObbligatorio}
+                        required={ruoloScelto === 'TRAINER' || invitoObbligatorio}
                       />
+                      {ruoloScelto === 'TRAINER' && <p className="mt-1.5 text-xs text-muted">Per usare FT Coach come trainer serve un invito: chiedilo a chi gestisce l’app.</p>}
                     </div>
                   )}
-                  {modalitaRegistrazione && ruoloScelto === 'TRAINER' && <div><label htmlFor="auth-trainer-code" className="label">Codice trainer</label><input id="auth-trainer-code" className="input" type="password" autoComplete="off" placeholder="Il tuo codice di accesso" value={codiceTrainer} onChange={(e) => setCodiceTrainer(e.target.value)} required /></div>}
                   {modalitaRegistrazione && (
                     <div className="flex items-start gap-3 rounded-xl border border-line bg-field p-3">
                       <input

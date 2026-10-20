@@ -167,26 +167,12 @@ export function login(email: string, password: string) {
   });
 }
 
-// codiceTrainer serve solo per creare un account TRAINER (deve coincidere con CODICE_TRAINER del backend).
-// codiceInvito: l'invito personale che il trainer dà al cliente (obbligatorio se il server lo richiede).
-export function register(
-  nome: string,
-  email: string,
-  password: string,
-  ruolo: Ruolo,
-  codiceTrainer?: string,
-  codiceInvito?: string
-) {
+// codiceInvito: l'invito personale. Per un CLIENTE lo dà il suo trainer (obbligatorio se il server
+// lo richiede); per un TRAINER è l'invito trainer creato dall'amministratore (sempre obbligatorio).
+export function register(nome: string, email: string, password: string, ruolo: Ruolo, codiceInvito?: string) {
   return apiFetch<{ id: number; nome: string; ruolo: Ruolo }>('/register', {
     method: 'POST',
-    body: JSON.stringify({
-      nome,
-      email,
-      password,
-      ruolo,
-      codiceTrainer: codiceTrainer || undefined,
-      codiceInvito: codiceInvito?.trim() || undefined,
-    }),
+    body: JSON.stringify({ nome, email, password, ruolo, codiceInvito: codiceInvito?.trim() || undefined }),
   });
 }
 
@@ -195,13 +181,22 @@ export function getInfoRegistrazione() {
   return apiFetch<{ invitoObbligatorio: boolean }>('/registrazione/info');
 }
 
-// ---------- Inviti (solo trainer) ----------
+// Chi sono: serve, ad esempio, a sapere se mostrare la sezione dell'amministratore.
+export function getMe() {
+  return apiFetch<{ id: number; nome: string; ruolo: Ruolo; admin: boolean }>('/me');
+}
+
+// ---------- Inviti ----------
+// CLIENTE: ogni trainer crea gli inviti per i suoi clienti.
+// TRAINER: inviti per i nuovi trainer, li crea SOLO l'amministratore.
 export type StatoInvito = 'attivo' | 'usato' | 'scaduto' | 'annullato';
+export type TipoInvito = 'CLIENTE' | 'TRAINER';
 
 export interface Invito {
   id: number;
   codice: string;
   nota: string | null;
+  ruolo: TipoInvito;
   creatoIl: string;
   scadeIl: string;
   usatoIl: string | null;
@@ -210,24 +205,28 @@ export interface Invito {
   usatoDa: { nome: string; email: string } | null;
 }
 
-export function getInviti() {
-  return apiFetch<Invito[]>('/inviti');
+const percorsoInviti = (tipo: TipoInvito) => (tipo === 'TRAINER' ? '/admin/inviti-trainer' : '/inviti');
+
+export function getInviti(tipo: TipoInvito = 'CLIENTE') {
+  return apiFetch<Invito[]>(percorsoInviti(tipo));
 }
 
-export function creaInvito(nota: string, giorni: number) {
-  return apiFetch<Invito>('/inviti', {
+export function creaInvito(nota: string, giorni: number, tipo: TipoInvito = 'CLIENTE') {
+  return apiFetch<Invito>(percorsoInviti(tipo), {
     method: 'POST',
     body: JSON.stringify({ nota: nota.trim() || undefined, giorni }),
   });
 }
 
-export function annullaInvito(id: number) {
-  return apiFetch<void>(`/inviti/${id}/annulla`, { method: 'POST' });
+export function annullaInvito(id: number, tipo: TipoInvito = 'CLIENTE') {
+  return apiFetch<void>(`${percorsoInviti(tipo)}/${id}/annulla`, { method: 'POST' });
 }
 
-// Link di registrazione già con il codice: il cliente lo apre e trova il campo compilato.
-export function linkInvito(codice: string) {
-  return `${window.location.origin}/?invito=${encodeURIComponent(codice)}`;
+// Link di registrazione già con il codice: chi lo apre trova il campo compilato
+// (e, per un invito trainer, "Sono un trainer" già scelto).
+export function linkInvito(codice: string, tipo: TipoInvito = 'CLIENTE') {
+  const ruolo = tipo === 'TRAINER' ? '&ruolo=trainer' : '';
+  return `${window.location.origin}/?invito=${encodeURIComponent(codice)}${ruolo}`;
 }
 
 export interface Cliente {
