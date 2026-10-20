@@ -132,6 +132,15 @@ export default function App() {
 
   // Link d'invito (…/?invito=K7M3-Q9TX): si apre direttamente la registrazione con il codice già scritto.
   const invitoDalLink = new URLSearchParams(window.location.search).get('invito') || '';
+  // Arrivato dal vecchio indirizzo (ft-coach.pages.dev, vedi public/nuovo-indirizzo.js): mostriamo un avviso.
+  const [daVecchioIndirizzo] = useState(() => new URLSearchParams(window.location.search).has('nuovo-indirizzo'));
+  useEffect(() => {
+    if (!daVecchioIndirizzo) return;
+    // Togliamo il segnale dall'indirizzo (lasciando il resto, es. un invito), così non resta nei preferiti.
+    const url = new URL(window.location.href);
+    url.searchParams.delete('nuovo-indirizzo');
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+  }, [daVecchioIndirizzo]);
   const [modalitaRegistrazione, setModalitaRegistrazione] = useState(invitoDalLink !== '');
   const [codiceInvito, setCodiceInvito] = useState(invitoDalLink);
   const [invitoObbligatorio, setInvitoObbligatorio] = useState(false);
@@ -301,6 +310,12 @@ export default function App() {
                 <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-accent-strong">Il tuo allenamento</p>
                 <h2 className="text-3xl font-black uppercase leading-none tracking-[-0.045em] sm:text-4xl">{modalitaRegistrazione ? 'Crea il tuo account.' : 'Bentornato.'}</h2>
                 <p className="mt-3 mb-8 text-sm leading-6 text-muted">{modalitaRegistrazione ? 'Registra il tuo account e inizia a organizzare il tuo allenamento.' : 'Accedi alle tue schede. Registra i carichi. Tieni traccia di ogni sessione.'}</p>
+                {daVecchioIndirizzo && (
+                  <div role="status" className="mb-6 rounded-xl border border-accent-strong/30 bg-accent-soft px-4 py-3 text-sm leading-6 text-soft">
+                    <p className="font-bold text-ink">Liftio ha un nuovo indirizzo: liftio.it</p>
+                    <p className="mt-1">Accedi di nuovo con la tua email e password: serve solo questa volta. I tuoi dati sono tutti qui. Se avevi l’app sulla schermata Home, toglila e aggiungila di nuovo da questa pagina.</p>
+                  </div>
+                )}
                 <form onSubmit={modalitaRegistrazione ? handleRegister : handleLogin} className="space-y-5" aria-busy={inInvio}>
                   {modalitaRegistrazione && <div><label htmlFor="auth-name" className="label">Nome</label><input id="auth-name" name="name" className="input" autoComplete="name" placeholder="Il tuo nome" value={nomeInput} onChange={(e) => setNomeInput(e.target.value)} required /></div>}
                   <div>
