@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { EVENTO_CAMBIO_PASSWORD, EVENTO_IN_ATTESA, EVENTO_SESSIONE_SCADUTA, getInfoRegistrazione, login, register, Ruolo } from './api';
+import { EVENTO_CAMBIO_PASSWORD, EVENTO_IN_ATTESA, EVENTO_SESSIONE_SCADUTA, FASCE_CLIENTI, getInfoRegistrazione, login, register, Ruolo } from './api';
 import AttesaApprovazione from './AttesaApprovazione';
 import TrainerDashboard from './TrainerDashboard';
 import ClienteDashboard from './ClienteDashboard';
@@ -178,6 +178,8 @@ export default function App() {
   const [inAttesa, setInAttesa] = useState(localStorage.getItem('inAttesa') === '1');
   // Due righe con cui un trainer senza invito si presenta all'amministratore.
   const [presentazione, setPresentazione] = useState('');
+  // Quanti clienti segue (a fasce): obbligatorio per i trainer senza invito.
+  const [fasciaClienti, setFasciaClienti] = useState('');
   // Trainer: il campo "codice invito" si vede solo arrivando dal link d'invito o toccando "Ho un codice invito".
   // Chi trova l'app da solo vede solo i campi che gli servono e non pensa che il codice sia obbligatorio.
   const [mostraCodiceTrainer, setMostraCodiceTrainer] = useState(invitoDalLink !== '');
@@ -255,10 +257,19 @@ export default function App() {
       // Un trainer usa il codice solo se il campo è visibile (non uno scritto prima come cliente e poi nascosto).
       const codiceDaUsare = ruoloScelto === 'TRAINER' && !mostraCodiceTrainer ? '' : codiceInvito;
       const senzaInvito = ruoloScelto === 'TRAINER' && !codiceDaUsare.trim();
-      const esito = await register(nomeInput, email, password, ruoloScelto, codiceDaUsare, senzaInvito ? presentazione : undefined);
+      const esito = await register(
+        nomeInput,
+        email,
+        password,
+        ruoloScelto,
+        codiceDaUsare,
+        senzaInvito ? presentazione : undefined,
+        senzaInvito ? fasciaClienti : undefined,
+      );
       setModalitaRegistrazione(false);
       setCodiceInvito('');
       setPresentazione('');
+      setFasciaClienti('');
       // Il codice è stato usato: lo togliamo dall'indirizzo, così un "indietro" non lo ripropone.
       if (invitoDalLink) window.history.replaceState(null, '', window.location.pathname);
       setErrore(
@@ -360,8 +371,8 @@ export default function App() {
                   {modalitaRegistrazione && ruoloScelto === 'TRAINER' && !mostraCodiceTrainer && (
                     <div className="rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm leading-6 text-soft">
                       <p>
-                        <strong className="text-ink">Non hai un codice invito? Nessun problema.</strong> Registrati comunque e presentati qui sotto:
-                        il tuo account sarà attivo appena l’amministratore di Liftio lo approva.
+                        <strong className="text-ink">Non hai un codice invito? Nessun problema.</strong> Registrati comunque: il tuo account sarà attivo
+                        appena l’amministratore di Liftio lo approva.
                       </p>
                       <button type="button" className="btn-link mt-1 text-sm" onClick={() => setMostraCodiceTrainer(true)}>
                         Ho un codice invito →
@@ -391,20 +402,27 @@ export default function App() {
                     </div>
                   )}
                   {modalitaRegistrazione && ruoloScelto === 'TRAINER' && !(mostraCodiceTrainer && codiceInvito.trim()) && (
+                    <>
+                    <div>
+                      <label htmlFor="auth-clienti" className="label">Quanti clienti segui?</label>
+                      <select id="auth-clienti" className="input" value={fasciaClienti} onChange={(e) => setFasciaClienti(e.target.value)} required>
+                        <option value="" disabled>Scegli</option>
+                        {FASCE_CLIENTI.map((f) => (
+                          <option key={f.valore} value={f.valore}>{f.testo}</option>
+                        ))}
+                      </select>
+                    </div>
                     <div>
                       <label htmlFor="auth-presentazione" className="label">Presentati</label>
                       <textarea
                         id="auth-presentazione"
                         className="input min-h-24"
                         maxLength={500}
-                        minLength={10}
-                        placeholder="Es. Personal trainer a Napoli, seguo circa 20 clienti in palestra."
                         value={presentazione}
                         onChange={(e) => setPresentazione(e.target.value)}
-                        required
                       />
-                      <p className="mt-1.5 text-xs text-muted">Due righe per l’amministratore: dove lavori e quanti clienti segui.</p>
                     </div>
+                    </>
                   )}
                   {modalitaRegistrazione && (
                     <div className="flex items-start gap-3 rounded-xl border border-line bg-field p-3">

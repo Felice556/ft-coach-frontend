@@ -177,7 +177,23 @@ export function login(email: string, password: string) {
 // codiceInvito: l'invito personale. Per un CLIENTE lo dà il suo trainer (obbligatorio se il server
 // lo richiede); per un TRAINER è l'invito trainer creato dall'amministratore. Un TRAINER senza invito
 // si presenta in due righe (presentazione) e resta in attesa finché l'amministratore non lo approva.
-export function register(nome: string, email: string, password: string, ruolo: Ruolo, codiceInvito?: string, presentazione?: string) {
+// Fasce di clienti seguiti: le chiediamo ai trainer che si registrano senza invito.
+export const FASCE_CLIENTI = [
+  { valore: '1-10', testo: 'Da 1 a 10' },
+  { valore: '11-30', testo: 'Da 11 a 30' },
+  { valore: '31-50', testo: 'Da 31 a 50' },
+  { valore: '50+', testo: 'Più di 50' },
+] as const;
+
+export function register(
+  nome: string,
+  email: string,
+  password: string,
+  ruolo: Ruolo,
+  codiceInvito?: string,
+  presentazione?: string,
+  fasciaClienti?: string,
+) {
   return apiFetch<{ id: number; nome: string; ruolo: Ruolo; inAttesa?: boolean }>('/register', {
     method: 'POST',
     body: JSON.stringify({
@@ -187,6 +203,7 @@ export function register(nome: string, email: string, password: string, ruolo: R
       ruolo,
       codiceInvito: codiceInvito?.trim() || undefined,
       presentazione: presentazione?.trim() || undefined,
+      fasciaClienti: fasciaClienti || undefined,
     }),
   });
 }
@@ -274,6 +291,7 @@ export interface TrainerInAttesa {
   nome: string;
   email: string;
   presentazione: string | null;
+  fasciaClienti: string | null;
   richiestaIl: string | null;
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { approvaTrainer, getTrainerInAttesa, rifiutaTrainer, TrainerInAttesa as Richiesta } from './api';
+import { approvaTrainer, FASCE_CLIENTI, getTrainerInAttesa, rifiutaTrainer, TrainerInAttesa as Richiesta } from './api';
 
 // Solo per l'amministratore: i trainer che si sono registrati da soli (senza invito)
 // e aspettano di essere approvati. Finché non li approvi non possono fare niente.
@@ -33,6 +33,12 @@ function RigaRichiesta({ r, onFatto }: { r: Richiesta; onFatto: (approvato: bool
         <p className="truncate text-sm text-muted">{r.email}</p>
         {r.richiestaIl && <p className="mt-0.5 text-xs text-muted">Richiesta del {dataOra(r.richiestaIl)}</p>}
       </div>
+      {r.fasciaClienti && (
+        <p className="text-sm">
+          <span className="text-muted">Clienti seguiti: </span>
+          <span className="font-semibold">{FASCE_CLIENTI.find((f) => f.valore === r.fasciaClienti)?.testo.toLowerCase() ?? r.fasciaClienti}</span>
+        </p>
+      )}
       {r.presentazione && (
         <p className="whitespace-pre-line rounded-lg bg-surface-2 px-3 py-2 text-sm leading-6 text-soft">“{r.presentazione}”</p>
       )}
