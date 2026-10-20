@@ -20,7 +20,7 @@ I'm a junior developer and I prepare personalized training plans: I built FT Coa
 ### For clients
 - **Workout mode** — one card per exercise with weight/reps steppers, the target of the next set (rep ranges like `6-8`, "Max reps", drop sets) and what was lifted last time
 - **Rest timer** — starts automatically after each set, `−15s / −10s / +10s / +15s`, countdown beeps, mute button and volume slider, keeps the screen awake so the sound always plays
-- **Progress charts** — best set of each day for every exercise
+- **Load history ("Storico carichi")** — on every exercise card: trend since the first workout, personal record and a mini chart; tap for the full chart, summary tiles and sets grouped by day
 - **Body weight tracking** — log your weight with a chart and the change since the first entry; see the body-fat % measured by the trainer
 - **Notes for the trainer** on any set (e.g. "shoulder pain"), editable later together with weight and reps; past notes are shown again before the next set and listed per exercise
 - **Supersets and jumpsets** — linked exercises are grouped (A1, A2…): in a superset the app moves you straight to the next exercise, in a jumpset it starts the rest in between and tells you what comes next
@@ -83,6 +83,7 @@ Unit tests with **Vitest** (in a simulated browser with jsdom), run on every pus
 - **Skinfolds** — Jackson & Pollock formulas (3 and 7 sites, men and women) checked against reference values
 - **Exercise library** — search with a few letters (accents and case ignored), grouping by muscle group
 - **Supersets and jumpsets** — groups (A1, A2…), which exercise comes next and how long to rest, skipping an exercise that has finished its sets
+- **Progress** — best set of each day, personal record, trend in kg or reps ("+5 kg since 28/09"), sets grouped by day
 - **Numbers and dates** — `72,5` and `72.5` both accepted, dates that don't shift with the time zone
 - **Timer sound settings** — mute and volume saved on the phone, volume always between 0 and 100
 - **API client** — token sent on every call, renewed token saved *only* if the user hasn't logged out in the meantime, expired session handled without reloading the page, readable error messages
@@ -104,7 +105,8 @@ src/
 ├── plicometria.ts        # Jackson & Pollock / Siri formulas
 ├── Inviti.tsx            # invite codes: clients (trainer) and new trainers (admin only)
 ├── PanoramicaTrainer.tsx # admin only: trainers using the app, their clients and activity
-├── ProgressoChart.tsx    # exercise progress chart
+├── ProgressoChart.tsx    # exercise progress: summary strip, tiles and chart
+├── calcoloProgressi.ts   # progress maths: best set per day, record, trend
 ├── Privacy.tsx           # privacy notice
 ├── collegamenti.ts       # supersets / jumpsets: groups, next exercise, rest
 ├── LibreriaEsercizi.tsx  # trainer: exercise autocomplete and library by muscle group

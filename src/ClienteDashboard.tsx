@@ -13,7 +13,8 @@ import {
   Esercizio,
   RegistroAllenamento,
 } from './api';
-import ProgressoChart from './ProgressoChart';
+import ProgressoChart, { StrisciaProgressi } from './ProgressoChart';
+import { seriePerGiorno } from './calcoloProgressi';
 import MisureCorporee from './MisureCorporee';
 import { SceltaFatica } from './FeedbackCliente';
 import { gruppiCollegati, prossimoPasso, sigla } from './collegamenti';
@@ -1103,6 +1104,13 @@ export default function ClienteDashboard() {
                         </p>
                       )}
 
+                      {/* Storico carichi sempre a vista: andamento e record; toccando si apre il dettaglio */}
+                      <StrisciaProgressi
+                        storico={storico}
+                        aperta={progressiAperti === es.id}
+                        onApri={() => setProgressiAperti(progressiAperti === es.id ? null : es.id)}
+                      />
+
                       {/* L'ultima nota che il cliente ha scritto le volte scorse: utile da rileggere prima di iniziare */}
                       {ultimaNotaPassata && (
                         <p className="rounded-xl border-l-4 border-line bg-surface-2 px-4 py-3 text-sm text-muted">
@@ -1185,7 +1193,14 @@ export default function ClienteDashboard() {
                       aria-expanded={progressiAperti === es.id}
                       onClick={() => setProgressiAperti(progressiAperti === es.id ? null : es.id)}
                     >
-                      Progressi
+                      <span className="inline-flex items-center justify-center gap-1.5">
+                        {/* icona grafico */}
+                        <svg className="shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M3 3v18h18" />
+                          <path d="m7 15 4-4 3 3 5-6" />
+                        </svg>
+                        Storico carichi
+                      </span>
                     </button>
                   </div>
 
@@ -1210,25 +1225,33 @@ export default function ClienteDashboard() {
                   {progressiAperti === es.id && (
                     <div className="space-y-3 border-t border-line pt-4">
                       <ProgressoChart storico={storico} />
+                      {/* Le serie raggruppate per giorno, dal più recente (ultimi 5 giorni): si possono correggere */}
                       {storico.length > 0 && (
-                        <ul className="divide-y divide-line rounded-xl bg-surface-2 text-sm">
-                          {/* Dal più recente, massimo 10 righe: sul telefono lo spazio conta */}
-                          {[...storico]
-                            .reverse()
-                            .slice(0, 10)
-                            .map((r) => (
-                              <SerieRiga
-                                key={r.id}
-                                serie={r}
-                                etichetta={new Date(r.data).toLocaleDateString('it-IT', {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                })}
-                                onModificata={(nuova) => sostituisciSerie(es.id, nuova)}
-                                onEliminata={(id) => rimuoviSerie(es.id, id)}
-                              />
+                        <div className="space-y-3">
+                          <p className="label">Le tue serie, giorno per giorno</p>
+                          {seriePerGiorno(storico)
+                            .slice(0, 5)
+                            .map((giorno) => (
+                              <div key={giorno.chiave}>
+                                <p className="mb-1 px-1 text-xs font-bold text-soft">
+                                  {eOggi(giorno.data)
+                                    ? 'Oggi'
+                                    : new Date(giorno.data).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                </p>
+                                <ul className="divide-y divide-line rounded-xl bg-surface-2 text-sm">
+                                  {giorno.serie.map((r, i) => (
+                                    <SerieRiga
+                                      key={r.id}
+                                      serie={r}
+                                      etichetta={`Serie ${i + 1}`}
+                                      onModificata={(nuova) => sostituisciSerie(es.id, nuova)}
+                                      onEliminata={(id) => rimuoviSerie(es.id, id)}
+                                    />
+                                  ))}
+                                </ul>
+                              </div>
                             ))}
-                        </ul>
+                        </div>
                       )}
                     </div>
                   )}

@@ -57,6 +57,8 @@ function leggiColori() {
   const v = (nome: string) => stile.getPropertyValue(nome).trim();
   return {
     linea: v('--t-accent-strong'),
+    principale: v('--t-accent'),
+    successo: v('--t-success'),
     sfondo: v('--t-surface'),
     griglia: v('--t-line'),
     testo: v('--t-muted'),
