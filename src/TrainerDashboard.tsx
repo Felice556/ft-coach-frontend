@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import SezioneInviti from './Inviti';
 import PanoramicaTrainer from './PanoramicaTrainer';
+import TrainerInAttesa from './TrainerInAttesa';
 import StoricoCliente from './StoricoCliente';
 import MisureCorporee from './MisureCorporee';
 import FeedbackCliente, { ChipFatica } from './FeedbackCliente';
@@ -461,6 +462,10 @@ export default function TrainerDashboard() {
       .then((me) => setAdmin(me.admin === true))
       .catch(() => setAdmin(false)); // in caso di errore la sezione resta nascosta
   }, []);
+  // Solo amministratore: quanti trainer aspettano l'approvazione (avviso in alto e numero nel menu).
+  const [trainerInAttesa, setTrainerInAttesa] = useState(0);
+  // Cambia dopo un'approvazione: la panoramica dei trainer si ricarica e mostra il nuovo arrivato.
+  const [chiavePanoramica, setChiavePanoramica] = useState(0);
 
   const [nomeScheda, setNomeScheda] = useState('');
   const [clienteId, setClienteId] = useState('');
@@ -1015,6 +1020,17 @@ export default function TrainerDashboard() {
 
   return (
     <div className="space-y-8">
+      {admin && trainerInAttesa > 0 && (
+        <a
+          href="#trainer-in-attesa"
+          className="flex items-center justify-between gap-3 rounded-2xl border border-accent-strong/40 bg-accent-soft px-5 py-4 text-sm font-semibold text-ink transition-colors hover:border-accent-strong"
+        >
+          <span>
+            {trainerInAttesa === 1 ? '1 trainer aspetta' : `${trainerInAttesa} trainer aspettano`} la tua approvazione
+          </span>
+          <span className="shrink-0 text-accent-strong">Vedi →</span>
+        </a>
+      )}
       <div className="grid gap-3 sm:grid-cols-3 sm:gap-4" aria-label="Riepilogo attività">
         <div className="metric-card">
           <span className="metric-icon bg-surface-2 text-accent-strong" aria-hidden="true">
@@ -1043,7 +1059,14 @@ export default function TrainerDashboard() {
           <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#gestione-clienti">Clienti</a>
           <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#inviti">Inviti</a>
           {admin && (
-            <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#trainer-app">Trainer</a>
+            <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href={trainerInAttesa > 0 ? '#trainer-in-attesa' : '#trainer-app'}>
+              Trainer
+              {trainerInAttesa > 0 && (
+                <span className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-xs text-accent-ink" aria-label={`${trainerInAttesa} in attesa`}>
+                  {trainerInAttesa}
+                </span>
+              )}
+            </a>
           )}
         </nav>
         <button type="button" className="btn-primary" aria-expanded={editorAperto} aria-controls="scheda-editor" onClick={() => {
@@ -1663,7 +1686,15 @@ export default function TrainerDashboard() {
       <SezioneInviti />
 
       {/* Solo l'amministratore: inviti per far entrare nuovi trainer (ognuno con i suoi clienti) */}
-      {admin && <PanoramicaTrainer />}
+      {admin && (
+        <TrainerInAttesa
+          onCambio={(quanti, approvato) => {
+            setTrainerInAttesa(quanti);
+            if (approvato) setChiavePanoramica((k) => k + 1);
+          }}
+        />
+      )}
+      {admin && <PanoramicaTrainer key={chiavePanoramica} />}
       {admin && <SezioneInviti tipo="TRAINER" />}
 
       <section id="gestione-clienti" className="card scroll-mt-24">

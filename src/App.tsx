@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { EVENTO_CAMBIO_PASSWORD, EVENTO_SESSIONE_SCADUTA, getInfoRegistrazione, login, register, Ruolo } from './api';
+import { EVENTO_CAMBIO_PASSWORD, EVENTO_IN_ATTESA, EVENTO_SESSIONE_SCADUTA, getInfoRegistrazione, login, register, Ruolo } from './api';
+import AttesaApprovazione from './AttesaApprovazione';
 import TrainerDashboard from './TrainerDashboard';
 import ClienteDashboard from './ClienteDashboard';
 import CambioPassword from './CambioPassword';
@@ -173,6 +174,10 @@ export default function App() {
   // Finestra "Cambia password" aperta dal bottone in alto (cambio volontario).
   const [cambioPasswordAperto, setCambioPasswordAperto] = useState(false);
   const [impostazioniAperte, setImpostazioniAperte] = useState(false);
+  // Trainer registrato da solo e non ancora approvato: al posto della dashboard c'è la schermata d'attesa.
+  const [inAttesa, setInAttesa] = useState(localStorage.getItem('inAttesa') === '1');
+  // Due righe con cui un trainer senza invito si presenta all'amministratore.
+  const [presentazione, setPresentazione] = useState('');
   const [eliminaAccountAperto, setEliminaAccountAperto] = useState(false);
 
   useEffect(() => {
@@ -181,11 +186,17 @@ export default function App() {
       localStorage.setItem('passwordTemporanea', '1');
       setDevoCambiarePassword(true);
     };
+    const quandoInAttesa = () => {
+      localStorage.setItem('inAttesa', '1');
+      setInAttesa(true);
+    };
     window.addEventListener(EVENTO_SESSIONE_SCADUTA, quandoScade);
     window.addEventListener(EVENTO_CAMBIO_PASSWORD, quandoServeCambio);
+    window.addEventListener(EVENTO_IN_ATTESA, quandoInAttesa);
     return () => {
       window.removeEventListener(EVENTO_SESSIONE_SCADUTA, quandoScade);
       window.removeEventListener(EVENTO_CAMBIO_PASSWORD, quandoServeCambio);
+      window.removeEventListener(EVENTO_IN_ATTESA, quandoInAttesa);
     };
   }, []);
 
@@ -210,6 +221,9 @@ export default function App() {
         localStorage.setItem('passwordTemporanea', '1');
         setDevoCambiarePassword(true);
       }
+      if (dati.inAttesa) localStorage.setItem('inAttesa', '1');
+      else localStorage.removeItem('inAttesa');
+      setInAttesa(dati.inAttesa === true);
     } catch (err) {
       setErrore(err instanceof Error ? err.message : 'Errore di login');
     } finally {
@@ -235,12 +249,18 @@ export default function App() {
     }
     setInInvio(true);
     try {
-      await register(nomeInput, email, password, ruoloScelto, codiceInvito);
+      const senzaInvito = ruoloScelto === 'TRAINER' && !codiceInvito.trim();
+      const esito = await register(nomeInput, email, password, ruoloScelto, codiceInvito, senzaInvito ? presentazione : undefined);
       setModalitaRegistrazione(false);
       setCodiceInvito('');
+      setPresentazione('');
       // Il codice è stato usato: lo togliamo dall'indirizzo, così un "indietro" non lo ripropone.
       if (invitoDalLink) window.history.replaceState(null, '', window.location.pathname);
-      setErrore('Registrazione completata, ora accedi');
+      setErrore(
+        esito.inAttesa
+          ? 'Registrazione completata: la tua richiesta è stata inviata all’amministratore. Accedi per vedere quando viene approvata.'
+          : 'Registrazione completata, ora accedi',
+      );
     } catch (err) {
       setErrore(err instanceof Error ? err.message : 'Errore di registrazione');
     } finally {
@@ -253,6 +273,8 @@ export default function App() {
     localStorage.removeItem('ruolo');
     localStorage.removeItem('nome');
     localStorage.removeItem('passwordTemporanea');
+    localStorage.removeItem('inAttesa');
+    setInAttesa(false);
     setToken('');
     setRuolo('');
     setNome('');
@@ -335,6 +357,7 @@ export default function App() {
                       <label htmlFor="auth-invite" className="label">
                         {ruoloScelto === 'TRAINER' ? 'Codice invito trainer' : 'Codice invito'}
                         {ruoloScelto === 'CLIENTE' && !invitoObbligatorio && <span className="font-normal text-muted"> (se te l’ha dato il tuo trainer)</span>}
+                        {ruoloScelto === 'TRAINER' && <span className="font-normal text-muted"> (se ce l’hai)</span>}
                       </label>
                       <input
                         id="auth-invite"
@@ -346,9 +369,25 @@ export default function App() {
                         placeholder="Es. K7M3-Q9TX"
                         value={codiceInvito}
                         onChange={(e) => setCodiceInvito(e.target.value)}
-                        required={ruoloScelto === 'TRAINER' || invitoObbligatorio}
+                        required={ruoloScelto === 'CLIENTE' && invitoObbligatorio}
                       />
-                      {ruoloScelto === 'TRAINER' && <p className="mt-1.5 text-xs text-muted">Per usare Liftio come trainer serve un invito: chiedilo a chi gestisce l’app.</p>}
+                      {ruoloScelto === 'TRAINER' && <p className="mt-1.5 text-xs text-muted">Con un codice invito entri subito. Senza, la tua richiesta viene approvata dall’amministratore di Liftio.</p>}
+                    </div>
+                  )}
+                  {modalitaRegistrazione && ruoloScelto === 'TRAINER' && !codiceInvito.trim() && (
+                    <div>
+                      <label htmlFor="auth-presentazione" className="label">Presentati</label>
+                      <textarea
+                        id="auth-presentazione"
+                        className="input min-h-24"
+                        maxLength={500}
+                        minLength={10}
+                        placeholder="Es. Personal trainer a Napoli, seguo circa 20 clienti in palestra."
+                        value={presentazione}
+                        onChange={(e) => setPresentazione(e.target.value)}
+                        required
+                      />
+                      <p className="mt-1.5 text-xs text-muted">Due righe per l’amministratore: dove lavori e quanti clienti segui.</p>
                     </div>
                   )}
                   {modalitaRegistrazione && (
@@ -424,6 +463,15 @@ export default function App() {
         {devoCambiarePassword ? (
           // Dopo un reset del trainer: prima la nuova password, poi l'app.
           <div className="flex justify-center"><CambioPassword obbligatorio onFatto={passwordTemporaneaCambiata} /></div>
+        ) : ruolo === 'TRAINER' && inAttesa ? (
+          // Trainer registrato da solo: aspetta l'approvazione dell'amministratore.
+          <AttesaApprovazione
+            onApprovato={() => {
+              localStorage.removeItem('inAttesa');
+              setInAttesa(false);
+              setChiaveUtente((k) => k + 1);
+            }}
+          />
         ) : ruolo === 'TRAINER' ? <TrainerDashboard key={chiaveUtente} /> : <ClienteDashboard key={chiaveUtente} />}
       </main>
 

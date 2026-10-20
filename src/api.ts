@@ -71,6 +71,8 @@ export interface RegistroAllenamento {
 export const EVENTO_SESSIONE_SCADUTA = 'palestra:sessione-scaduta';
 // Evento lanciato quando il server chiede di scegliere una nuova password (dopo un reset del trainer).
 export const EVENTO_CAMBIO_PASSWORD = 'palestra:cambio-password';
+// Evento lanciato quando il server dice che il trainer è ancora in attesa di approvazione.
+export const EVENTO_IN_ATTESA = 'palestra:in-attesa';
 
 // Nomi leggibili dei campi, per i messaggi di errore.
 const NOMI_CAMPI: Record<string, string> = {
@@ -144,6 +146,10 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     if (risposta.status === 403 && corpo.codice === 'CAMBIO_PASSWORD') {
       window.dispatchEvent(new Event(EVENTO_CAMBIO_PASSWORD));
     }
+    // Trainer non ancora approvato dall'amministratore: App mostra la schermata d'attesa.
+    if (risposta.status === 403 && corpo.codice === 'IN_ATTESA') {
+      window.dispatchEvent(new Event(EVENTO_IN_ATTESA));
+    }
     if (corpo.errore) throw new Error(corpo.errore);
     // Errori di validazione (zod): il backend manda un elenco "errori" con il percorso del campo.
     // Li traduciamo in qualcosa di leggibile, es. "Esercizio 2 → video: link non valido".
@@ -161,18 +167,27 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 
 export function login(email: string, password: string) {
   // passwordTemporanea = true: il trainer ha reimpostato la password, va scelta una nuova.
-  return apiFetch<{ token: string; ruolo: Ruolo; nome: string; passwordTemporanea?: boolean }>('/login', {
+  // inAttesa = true: trainer registrato da solo, non ancora approvato dall'amministratore.
+  return apiFetch<{ token: string; ruolo: Ruolo; nome: string; passwordTemporanea?: boolean; inAttesa?: boolean }>('/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
 }
 
 // codiceInvito: l'invito personale. Per un CLIENTE lo dà il suo trainer (obbligatorio se il server
-// lo richiede); per un TRAINER è l'invito trainer creato dall'amministratore (sempre obbligatorio).
-export function register(nome: string, email: string, password: string, ruolo: Ruolo, codiceInvito?: string) {
-  return apiFetch<{ id: number; nome: string; ruolo: Ruolo }>('/register', {
+// lo richiede); per un TRAINER è l'invito trainer creato dall'amministratore. Un TRAINER senza invito
+// si presenta in due righe (presentazione) e resta in attesa finché l'amministratore non lo approva.
+export function register(nome: string, email: string, password: string, ruolo: Ruolo, codiceInvito?: string, presentazione?: string) {
+  return apiFetch<{ id: number; nome: string; ruolo: Ruolo; inAttesa?: boolean }>('/register', {
     method: 'POST',
-    body: JSON.stringify({ nome, email, password, ruolo, codiceInvito: codiceInvito?.trim() || undefined }),
+    body: JSON.stringify({
+      nome,
+      email,
+      password,
+      ruolo,
+      codiceInvito: codiceInvito?.trim() || undefined,
+      presentazione: presentazione?.trim() || undefined,
+    }),
   });
 }
 
@@ -183,7 +198,7 @@ export function getInfoRegistrazione() {
 
 // Chi sono: serve, ad esempio, a sapere se mostrare la sezione dell'amministratore.
 export function getMe() {
-  return apiFetch<{ id: number; nome: string; ruolo: Ruolo; admin: boolean }>('/me');
+  return apiFetch<{ id: number; nome: string; ruolo: Ruolo; admin: boolean; inAttesa?: boolean }>('/me');
 }
 
 // ---------- Inviti ----------
@@ -251,6 +266,27 @@ export interface PanoramicaTrainer {
 
 export function getPanoramicaTrainer() {
   return apiFetch<PanoramicaTrainer>('/admin/trainer');
+}
+
+// Solo amministratore: trainer registrati da soli, in attesa di approvazione.
+export interface TrainerInAttesa {
+  id: number;
+  nome: string;
+  email: string;
+  presentazione: string | null;
+  richiestaIl: string | null;
+}
+
+export function getTrainerInAttesa() {
+  return apiFetch<TrainerInAttesa[]>('/admin/trainer-in-attesa');
+}
+
+export function approvaTrainer(id: number) {
+  return apiFetch<void>(`/admin/trainer/${id}/approva`, { method: 'POST' });
+}
+
+export function rifiutaTrainer(id: number) {
+  return apiFetch<void>(`/admin/trainer/${id}/rifiuta`, { method: 'POST' });
 }
 
 export interface Cliente {
