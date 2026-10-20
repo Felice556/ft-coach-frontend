@@ -1,17 +1,17 @@
-# FT Coach — Frontend
+# Liftio — Frontend
 
 [![Tests](https://github.com/Felice556/ft-coach-frontend/actions/workflows/test.yml/badge.svg)](https://github.com/Felice556/ft-coach-frontend/actions/workflows/test.yml)
 
 **A mobile-first web app for personal trainers and their clients.**
 The trainer builds training plans, clients log every set from their phone at the gym, and both follow the progress with charts.
 
-I'm a junior developer and I prepare personalized training plans: I built FT Coach to manage them, and it's used by my real clients.
+I'm a junior developer and I prepare personalized training plans: I built Liftio (formerly FT Coach) to manage them, and it's used by my real clients.
 
 🔗 **[Live app](https://ft-coach.pages.dev)** · **[Backend repo](https://github.com/Felice556/ft-coach-backend)**
 
 > Sign-up is invite-only (clients join with a code from their trainer), so the screenshots below show the app with demo data.
 
-![FT Coach screenshots](docs/screenshots/hero.webp)
+![Liftio screenshots](docs/screenshots/hero.webp)
 
 ---
 

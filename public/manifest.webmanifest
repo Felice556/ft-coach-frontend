@@ -1,7 +1,7 @@
 {
-  "name": "FT Coach",
-  "short_name": "FT Coach",
-  "description": "Le tue schede di allenamento con Felice: serie, pesi e progressi.",
+  "name": "Liftio",
+  "short_name": "Liftio",
+  "description": "Schede di allenamento per trainer e clienti: serie, carichi e progressi.",
   "lang": "it",
   "start_url": "/",
   "scope": "/",

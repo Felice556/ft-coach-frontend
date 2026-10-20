@@ -21,7 +21,7 @@ export default function InformativaPrivacy({ onChiudi }: { onChiudi: () => void 
     <div className="card flex max-h-[85vh] w-full flex-col p-0">
       <div className="flex items-start justify-between gap-4 border-b border-line p-5 sm:p-6">
         <div>
-          <p className="eyebrow mb-1">FT Coach</p>
+          <p className="eyebrow mb-1">Liftio</p>
           <h2 id="privacy-titolo" className="text-2xl font-bold tracking-tight">Informativa privacy</h2>
           <p className="mt-1 text-xs text-muted">Aggiornata il {AGGIORNATA_IL}</p>
         </div>
@@ -32,7 +32,7 @@ export default function InformativaPrivacy({ onChiudi }: { onChiudi: () => void 
 
       <div className="space-y-5 overflow-y-auto p-5 sm:p-6">
         <p className="text-sm leading-relaxed text-soft">
-          Qui trovi, in parole semplici, quali dati raccoglie FT Coach, perché e chi può vederli
+          Qui trovi, in parole semplici, quali dati raccoglie Liftio, perché e chi può vederli
           (Regolamento UE 2016/679, “GDPR”).
         </p>
 

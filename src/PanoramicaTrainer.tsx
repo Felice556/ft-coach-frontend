@@ -80,7 +80,7 @@ export default function PanoramicaTrainer() {
           <p className="eyebrow mb-1">Solo amministratore</p>
           <h2 className="section-title">Trainer dell’app</h2>
           <p className="mt-1 text-sm text-muted">
-            Chi usa FT Coach e quanto la usano i suoi clienti. Solo numeri: i dati dei clienti restano privati.
+            Chi usa Liftio e quanto la usano i suoi clienti. Solo numeri: i dati dei clienti restano privati.
           </p>
         </div>
         <button type="button" className="btn-secondary shrink-0" onClick={carica} aria-label="Aggiorna la panoramica">

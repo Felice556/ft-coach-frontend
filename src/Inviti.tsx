@@ -40,8 +40,8 @@ function testoDaCondividere(inv: Invito, tipo: TipoInvito) {
   const saluto = inv.nota ? `Ciao ${inv.nota}! ` : 'Ciao! ';
   const app =
     tipo === 'TRAINER'
-      ? 'Ecco il tuo invito per usare FT Coach come trainer, con i tuoi clienti e le tue schede.'
-      : 'Ecco il tuo invito per FT Coach, l’app dei tuoi allenamenti.';
+      ? 'Ecco il tuo invito per usare Liftio come trainer, con i tuoi clienti e le tue schede.'
+      : 'Ecco il tuo invito per Liftio, l’app dei tuoi allenamenti.';
   return `${saluto}${app} Apri il link e registrati (vale una volta sola, fino al ${dataBreve(inv.scadeIl)}): ${linkInvito(inv.codice, tipo)}\nCodice: ${inv.codice}`;
 }
 

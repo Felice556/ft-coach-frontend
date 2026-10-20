@@ -59,13 +59,20 @@ function Brand({ compact = false, suFoto = false }: { compact?: boolean; suFoto?
   return (
     <div className={compact ? "flex items-center gap-2 sm:gap-3" : "flex items-center gap-3"}>
       <span className={`flex shrink-0 items-center justify-center rounded-xl ${suFoto ? 'bg-oro text-oro-ink' : 'bg-accent text-accent-ink'} ${compact ? "h-7 w-7 sm:h-10 sm:w-10" : "h-10 w-10"}`} aria-hidden="true">
-        <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M7 9v6m10-6v6M4 10v4m16-4v4M7 12h10M7 8H5v8h2m10-8h2v8h-2" />
+        {/* Logo di Liftio: un manubrio inclinato */}
+        <svg width="26" height="26" viewBox="0 0 100 100" fill="currentColor">
+          <g transform="rotate(-35 50 50)">
+            <rect x="30" y="46" width="40" height="8" rx="3" />
+            <rect x="18" y="30" width="10" height="40" rx="3" />
+            <rect x="8" y="37" width="8" height="26" rx="3" />
+            <rect x="72" y="30" width="10" height="40" rx="3" />
+            <rect x="84" y="37" width="8" height="26" rx="3" />
+          </g>
         </svg>
       </span>
       <div>
-        <span className={`block whitespace-nowrap font-black uppercase tracking-[-0.05em] ${suFoto ? 'text-white' : 'text-ink'} ${compact ? "text-base sm:text-xl" : "text-xl"}`}>FT COACH<span className={suFoto ? 'text-oro' : 'text-accent-strong'}>.</span></span>
-        {!compact && <span className={`block text-[10px] font-bold uppercase tracking-[0.15em] ${suFoto ? 'text-white/70' : 'text-muted'}`}>Forza. Metodo. Progressi.</span>}
+        <span className={`block whitespace-nowrap font-black uppercase tracking-[-0.05em] ${suFoto ? 'text-white' : 'text-ink'} ${compact ? "text-base sm:text-xl" : "text-xl"}`}>LIFTIO<span className={suFoto ? 'text-oro' : 'text-accent-strong'}>.</span></span>
+        {!compact && <span className={`block text-[10px] font-bold uppercase tracking-[0.15em] ${suFoto ? 'text-white/70' : 'text-muted'}`}>Solleva, segna, migliora.</span>}
       </div>
     </div>
   );
@@ -297,7 +304,7 @@ export default function App() {
                       <button type="button" className="absolute inset-y-0 right-1 rounded-lg px-3 text-xs font-semibold text-muted hover:text-accent-strong focus-visible:outline-accent-strong" aria-label={mostraPassword ? 'Nascondi password' : 'Mostra password'} aria-pressed={mostraPassword} onClick={() => setMostraPassword(!mostraPassword)}>{mostraPassword ? 'Nascondi' : 'Mostra'}</button>
                     </div>
                   </div>
-                  {modalitaRegistrazione && <div><label htmlFor="auth-role" className="label">Come userai FT Coach?</label><select id="auth-role" name="role" className="input" value={ruoloScelto} onChange={(e) => setRuoloScelto(e.target.value as Ruolo)}><option value="CLIENTE">Sono un cliente</option><option value="TRAINER">Sono un trainer</option></select></div>}
+                  {modalitaRegistrazione && <div><label htmlFor="auth-role" className="label">Come userai Liftio?</label><select id="auth-role" name="role" className="input" value={ruoloScelto} onChange={(e) => setRuoloScelto(e.target.value as Ruolo)}><option value="CLIENTE">Sono un cliente</option><option value="TRAINER">Sono un trainer</option></select></div>}
                   {modalitaRegistrazione && (
                     <div>
                       <label htmlFor="auth-invite" className="label">
@@ -316,7 +323,7 @@ export default function App() {
                         onChange={(e) => setCodiceInvito(e.target.value)}
                         required={ruoloScelto === 'TRAINER' || invitoObbligatorio}
                       />
-                      {ruoloScelto === 'TRAINER' && <p className="mt-1.5 text-xs text-muted">Per usare FT Coach come trainer serve un invito: chiedilo a chi gestisce l’app.</p>}
+                      {ruoloScelto === 'TRAINER' && <p className="mt-1.5 text-xs text-muted">Per usare Liftio come trainer serve un invito: chiedilo a chi gestisce l’app.</p>}
                     </div>
                   )}
                   {modalitaRegistrazione && (
@@ -347,7 +354,7 @@ export default function App() {
               </div>
             </section>
           </div>
-          <p className="mt-6 text-center text-xs text-muted">FT COACH · TRAIN WITH PURPOSE</p>
+          <p className="mt-6 text-center text-xs text-muted">LIFTIO · SOLLEVA, SEGNA, MIGLIORA</p>
         </div>
         {privacyAperta && (
           <Modal titleId="privacy-titolo" onClose={() => setPrivacyAperta(false)}>
