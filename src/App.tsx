@@ -178,6 +178,9 @@ export default function App() {
   const [inAttesa, setInAttesa] = useState(localStorage.getItem('inAttesa') === '1');
   // Due righe con cui un trainer senza invito si presenta all'amministratore.
   const [presentazione, setPresentazione] = useState('');
+  // Trainer: il campo "codice invito" si vede solo arrivando dal link d'invito o toccando "Ho un codice invito".
+  // Chi trova l'app da solo vede solo i campi che gli servono e non pensa che il codice sia obbligatorio.
+  const [mostraCodiceTrainer, setMostraCodiceTrainer] = useState(invitoDalLink !== '');
   const [eliminaAccountAperto, setEliminaAccountAperto] = useState(false);
 
   useEffect(() => {
@@ -249,8 +252,10 @@ export default function App() {
     }
     setInInvio(true);
     try {
-      const senzaInvito = ruoloScelto === 'TRAINER' && !codiceInvito.trim();
-      const esito = await register(nomeInput, email, password, ruoloScelto, codiceInvito, senzaInvito ? presentazione : undefined);
+      // Un trainer usa il codice solo se il campo è visibile (non uno scritto prima come cliente e poi nascosto).
+      const codiceDaUsare = ruoloScelto === 'TRAINER' && !mostraCodiceTrainer ? '' : codiceInvito;
+      const senzaInvito = ruoloScelto === 'TRAINER' && !codiceDaUsare.trim();
+      const esito = await register(nomeInput, email, password, ruoloScelto, codiceDaUsare, senzaInvito ? presentazione : undefined);
       setModalitaRegistrazione(false);
       setCodiceInvito('');
       setPresentazione('');
@@ -352,7 +357,18 @@ export default function App() {
                     </div>
                   </div>
                   {modalitaRegistrazione && <div><label htmlFor="auth-role" className="label">Come userai Liftio?</label><select id="auth-role" name="role" className="input" value={ruoloScelto} onChange={(e) => setRuoloScelto(e.target.value as Ruolo)}><option value="CLIENTE">Sono un cliente</option><option value="TRAINER">Sono un trainer</option></select></div>}
-                  {modalitaRegistrazione && (
+                  {modalitaRegistrazione && ruoloScelto === 'TRAINER' && !mostraCodiceTrainer && (
+                    <div className="rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm leading-6 text-soft">
+                      <p>
+                        <strong className="text-ink">Non hai un codice invito? Nessun problema.</strong> Registrati comunque e presentati qui sotto:
+                        il tuo account sarà attivo appena l’amministratore di Liftio lo approva.
+                      </p>
+                      <button type="button" className="btn-link mt-1 text-sm" onClick={() => setMostraCodiceTrainer(true)}>
+                        Ho un codice invito →
+                      </button>
+                    </div>
+                  )}
+                  {modalitaRegistrazione && (ruoloScelto === 'CLIENTE' || mostraCodiceTrainer) && (
                     <div>
                       <label htmlFor="auth-invite" className="label">
                         {ruoloScelto === 'TRAINER' ? 'Codice invito trainer' : 'Codice invito'}
@@ -371,10 +387,10 @@ export default function App() {
                         onChange={(e) => setCodiceInvito(e.target.value)}
                         required={ruoloScelto === 'CLIENTE' && invitoObbligatorio}
                       />
-                      {ruoloScelto === 'TRAINER' && <p className="mt-1.5 text-xs text-muted">Con un codice invito entri subito. Senza, la tua richiesta viene approvata dall’amministratore di Liftio.</p>}
+                      {ruoloScelto === 'TRAINER' && <p className="mt-1.5 text-xs text-muted">Con un codice invito entri subito. Senza, scrivi due righe su di te e la tua richiesta viene approvata dall’amministratore di Liftio.</p>}
                     </div>
                   )}
-                  {modalitaRegistrazione && ruoloScelto === 'TRAINER' && !codiceInvito.trim() && (
+                  {modalitaRegistrazione && ruoloScelto === 'TRAINER' && !(mostraCodiceTrainer && codiceInvito.trim()) && (
                     <div>
                       <label htmlFor="auth-presentazione" className="label">Presentati</label>
                       <textarea
