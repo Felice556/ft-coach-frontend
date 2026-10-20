@@ -1,5 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { EVENTO_CAMBIO_PASSWORD, EVENTO_IN_ATTESA, EVENTO_SESSIONE_SCADUTA, FASCE_CLIENTI, getInfoRegistrazione, login, register, Ruolo } from './api';
+import { EVENTO_CAMBIO_PASSWORD, EVENTO_IN_ATTESA, EVENTO_SESSIONE_SCADUTA, EVENTO_SOSPESO, FASCE_CLIENTI, getInfoRegistrazione, login, register, Ruolo } from './api';
 import AttesaApprovazione from './AttesaApprovazione';
 import TrainerDashboard from './TrainerDashboard';
 import ClienteDashboard from './ClienteDashboard';
@@ -198,7 +198,14 @@ export default function App() {
     window.addEventListener(EVENTO_SESSIONE_SCADUTA, quandoScade);
     window.addEventListener(EVENTO_CAMBIO_PASSWORD, quandoServeCambio);
     window.addEventListener(EVENTO_IN_ATTESA, quandoInAttesa);
+    // Account sospeso mentre era dentro: si esce e la schermata di accesso spiega il motivo.
+    const quandoSospeso = (e: Event) => {
+      handleLogout();
+      setErrore((e as CustomEvent<string>).detail || 'Il tuo account è sospeso.');
+    };
+    window.addEventListener(EVENTO_SOSPESO, quandoSospeso);
     return () => {
+      window.removeEventListener(EVENTO_SOSPESO, quandoSospeso);
       window.removeEventListener(EVENTO_SESSIONE_SCADUTA, quandoScade);
       window.removeEventListener(EVENTO_CAMBIO_PASSWORD, quandoServeCambio);
       window.removeEventListener(EVENTO_IN_ATTESA, quandoInAttesa);

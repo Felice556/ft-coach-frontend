@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getPanoramicaTrainer, PanoramicaTrainer as Dati, RigaTrainer } from './api';
+import { getPanoramicaTrainer, PanoramicaTrainer as Dati, riattivaTrainer, RigaTrainer, sospendiTrainer } from './api';
 
 // Solo per l'amministratore: quanti trainer usano l'app e quanto la usano i loro clienti.
 // Mostra solo numeri: i nomi dei clienti degli altri trainer non arrivano mai qui.
@@ -32,7 +32,55 @@ function Numero({ valore, etichetta }: { valore: number | string; etichetta: str
   );
 }
 
-function SchedaTrainer({ t }: { t: RigaTrainer }) {
+// Sospendere un trainer: lui e i suoi clienti non possono più accedere, ma nessun dato viene
+// cancellato. Riattivandolo torna tutto come prima. Non vale per l'amministratore (sé stesso).
+function SospensioneTrainer({ t, onCambiato }: { t: RigaTrainer; onCambiato: () => void }) {
+  const [conferma, setConferma] = useState(false);
+  const [inInvio, setInInvio] = useState(false);
+  const [errore, setErrore] = useState('');
+
+  async function esegui() {
+    setInInvio(true);
+    setErrore('');
+    try {
+      if (t.sospeso) await riattivaTrainer(t.id);
+      else await sospendiTrainer(t.id);
+      setConferma(false);
+      onCambiato();
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : 'Operazione non riuscita');
+    } finally {
+      setInInvio(false);
+    }
+  }
+
+  return (
+    <div className="border-t border-line pt-3">
+      {t.sospeso ? (
+        <button type="button" className="btn-primary w-full text-sm" disabled={inInvio} onClick={esegui}>
+          {inInvio ? 'Un momento…' : `Riattiva ${t.nome}`}
+        </button>
+      ) : conferma ? (
+        <div className="space-y-2 text-sm">
+          <p className="text-soft">
+            Sospendi {t.nome}? Né lui né i suoi {t.clienti} clienti potranno accedere finché non lo riattivi. Non viene cancellato niente.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" className="btn-secondary" disabled={inInvio} onClick={() => setConferma(false)}>Annulla</button>
+            <button type="button" className="btn-danger" disabled={inInvio} onClick={esegui}>{inInvio ? 'Un momento…' : 'Sì, sospendi'}</button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" className="btn-ghost w-full text-sm" onClick={() => setConferma(true)}>
+          Sospendi trainer
+        </button>
+      )}
+      {errore && <p role="alert" className="alert-error mt-2">{errore}</p>}
+    </div>
+  );
+}
+
+function SchedaTrainer({ t, onCambiato }: { t: RigaTrainer; onCambiato: () => void }) {
   return (
     <li className="space-y-3 rounded-xl border border-line bg-field p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -40,6 +88,7 @@ function SchedaTrainer({ t }: { t: RigaTrainer }) {
           <p className="flex items-center gap-2 font-semibold">
             <span className="truncate">{t.nome}</span>
             {t.admin && <span className="rounded-md bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent-strong">Tu · admin</span>}
+            {t.sospeso && <span className="rounded-md bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning">Sospeso</span>}
           </p>
           <p className="truncate text-sm text-muted">{t.email}</p>
         </div>
@@ -52,6 +101,7 @@ function SchedaTrainer({ t }: { t: RigaTrainer }) {
         <Numero valore={t.allenamenti30} etichetta="Allenamenti (30 giorni)" />
         <Numero valore={t.ultimoAllenamento ? giorniFa(t.ultimoAllenamento) : '—'} etichetta="Ultimo allenamento" />
       </div>
+      {!t.admin && <SospensioneTrainer t={t} onCambiato={onCambiato} />}
     </li>
   );
 }
@@ -100,7 +150,7 @@ export default function PanoramicaTrainer() {
           </div>
           <ul className="space-y-3">
             {dati.trainer.map((t) => (
-              <SchedaTrainer key={t.id} t={t} />
+              <SchedaTrainer key={t.id} t={t} onCambiato={carica} />
             ))}
           </ul>
         </>

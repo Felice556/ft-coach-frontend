@@ -73,6 +73,8 @@ export const EVENTO_SESSIONE_SCADUTA = 'palestra:sessione-scaduta';
 export const EVENTO_CAMBIO_PASSWORD = 'palestra:cambio-password';
 // Evento lanciato quando il server dice che il trainer è ancora in attesa di approvazione.
 export const EVENTO_IN_ATTESA = 'palestra:in-attesa';
+// Evento lanciato quando l'account (o il suo trainer) è stato sospeso: App esce e mostra il motivo.
+export const EVENTO_SOSPESO = 'palestra:sospeso';
 
 // Nomi leggibili dei campi, per i messaggi di errore.
 const NOMI_CAMPI: Record<string, string> = {
@@ -149,6 +151,11 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     // Trainer non ancora approvato dall'amministratore: App mostra la schermata d'attesa.
     if (risposta.status === 403 && corpo.codice === 'IN_ATTESA') {
       window.dispatchEvent(new Event(EVENTO_IN_ATTESA));
+    }
+    // Account sospeso mentre era dentro: App esce e mostra il motivo nella schermata di accesso.
+    // (Al login il motivo arriva già come messaggio d'errore normale.)
+    if (risposta.status === 403 && corpo.codice === 'SOSPESO' && path !== '/login') {
+      window.dispatchEvent(new CustomEvent(EVENTO_SOSPESO, { detail: corpo.errore }));
     }
     if (corpo.errore) throw new Error(corpo.errore);
     // Errori di validazione (zod): il backend manda un elenco "errori" con il percorso del campo.
@@ -268,6 +275,7 @@ export interface RigaTrainer {
   nome: string;
   email: string;
   admin: boolean;
+  sospeso: boolean;
   registratoIl: string | null;
   clienti: number;
   clientiAttivi: number; // con almeno un allenamento negli ultimi 30 giorni
@@ -283,6 +291,14 @@ export interface PanoramicaTrainer {
 
 export function getPanoramicaTrainer() {
   return apiFetch<PanoramicaTrainer>('/admin/trainer');
+}
+
+// Solo amministratore: sospendere o riattivare un trainer (anche i suoi clienti restano fuori).
+export function sospendiTrainer(id: number) {
+  return apiFetch<void>(`/admin/trainer/${id}/sospendi`, { method: 'POST' });
+}
+export function riattivaTrainer(id: number) {
+  return apiFetch<void>(`/admin/trainer/${id}/riattiva`, { method: 'POST' });
 }
 
 // Solo amministratore: trainer registrati da soli, in attesa di approvazione.
@@ -311,6 +327,15 @@ export interface Cliente {
   id: number;
   nome: string;
   email: string;
+  sospeso?: boolean; // sospeso dal trainer: non può accedere, i dati restano
+}
+
+// Il trainer sospende o riattiva l'accesso di un suo cliente (nessun dato viene cancellato).
+export function sospendiCliente(clienteId: number) {
+  return apiFetch<Cliente>(`/clienti/${clienteId}/sospendi`, { method: 'POST' });
+}
+export function riattivaCliente(clienteId: number) {
+  return apiFetch<Cliente>(`/clienti/${clienteId}/riattiva`, { method: 'POST' });
 }
 
 // Elenco clienti per il menu a tendina del trainer.

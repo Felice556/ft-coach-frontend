@@ -34,6 +34,8 @@ import {
   getClienti,
   Cliente,
   cambiaEmailCliente,
+  sospendiCliente,
+  riattivaCliente,
   reimpostaPasswordCliente,
   getEserciziArchiviati,
   ripristinaEsercizio,
@@ -208,7 +210,63 @@ function AccessoCliente({ cliente, onEmailCambiata }: { cliente: Cliente; onEmai
         )}
       </div>
 
+      <SospensioneCliente cliente={cliente} onCambiato={onEmailCambiata} />
+
       {messaggio && <p className={messaggio.ok ? 'alert-success' : 'alert-error'}>{messaggio.testo}</p>}
+    </div>
+  );
+}
+
+// Sospendere l'accesso di un cliente (es. ha smesso di venire o non paga): non può più entrare
+// nell'app, ma NESSUN dato viene cancellato. Si riattiva con un tocco e ritrova tutto.
+function SospensioneCliente({ cliente, onCambiato }: { cliente: Cliente; onCambiato: (c: Cliente) => void }) {
+  const [conferma, setConferma] = useState(false);
+  const [inInvio, setInInvio] = useState(false);
+  const [errore, setErrore] = useState('');
+
+  async function esegui() {
+    setInInvio(true);
+    setErrore('');
+    try {
+      onCambiato(cliente.sospeso ? await riattivaCliente(cliente.id) : await sospendiCliente(cliente.id));
+      setConferma(false);
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : 'Operazione non riuscita');
+    } finally {
+      setInInvio(false);
+    }
+  }
+
+  return (
+    <div>
+      <p className="label">Accesso all’app</p>
+      {cliente.sospeso ? (
+        <div className="space-y-2 rounded-xl border border-warning/40 bg-warning-soft p-3 text-sm">
+          <p className="text-soft">
+            <strong className="text-warning">Sospeso.</strong> {cliente.nome} non può accedere. Schede, serie e misure sono tutte al loro posto.
+          </p>
+          <button type="button" className="btn-primary w-full text-xs" disabled={inInvio} onClick={esegui}>
+            {inInvio ? 'Un momento…' : 'Riattiva l’accesso'}
+          </button>
+        </div>
+      ) : conferma ? (
+        <div className="space-y-2 rounded-xl border border-line bg-surface-2 p-3 text-sm">
+          <p className="text-soft">
+            Sospendi {cliente.nome}? Non potrà più accedere finché non lo riattivi. Non viene cancellato niente.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" className="btn-secondary text-xs" disabled={inInvio} onClick={() => setConferma(false)}>Annulla</button>
+            <button type="button" className="btn-danger text-xs" disabled={inInvio} onClick={esegui}>
+              {inInvio ? 'Un momento…' : 'Sì, sospendi'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" className="btn-ghost w-full text-xs" onClick={() => setConferma(true)}>
+          Sospendi l’accesso
+        </button>
+      )}
+      {errore && <p role="alert" className="alert-error mt-2">{errore}</p>}
     </div>
   );
 }
@@ -1718,7 +1776,10 @@ export default function TrainerDashboard() {
               <div key={c.id} className="card space-y-3 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate font-semibold">{c.nome}</p>
+                    <p className="flex items-center gap-2 font-semibold">
+                      <span className="truncate">{c.nome}</span>
+                      {c.sospeso && <span className="shrink-0 rounded-md bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning">Sospeso</span>}
+                    </p>
                     <p className="truncate text-xs text-muted">{c.email}</p>
                   </div>
                   <button
