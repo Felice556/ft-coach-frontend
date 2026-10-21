@@ -73,14 +73,15 @@ function TestoItaliano() {
         <ul className="list-disc space-y-1 pl-5">
           <li>Di tutti: nome, email e password, salvata solo in forma cifrata (nessuno può leggerla).</li>
           <li>
-            Dei clienti: schede, serie, carichi, ripetizioni, date degli allenamenti, note e voto di fatica che scrivi.
+            Dei clienti: schede, serie, carichi, ripetizioni, date degli allenamenti, note e voto di fatica che scrivi,
+            cardio fatto (attività, minuti, distanza) e passi giornalieri.
           </li>
           <li>
             Dei clienti, solo con il loro consenso esplicito: <strong>peso corporeo</strong> e{' '}
             <strong>percentuale di massa grassa</strong>, che sono dati relativi alla salute.
           </li>
           <li>
-            Dei trainer: le schede e la libreria di esercizi e note che creano; chi si registra senza codice invito indica
+            Dei trainer: le schede, il piano cardio e la libreria di esercizi e note che creano; chi si registra senza codice invito indica
             anche quanti clienti segue e, se vuole, due righe di presentazione.
           </li>
         </ul>
@@ -199,13 +200,16 @@ function TestoInglese() {
       <Paragrafo titolo="What data we collect">
         <ul className="list-disc space-y-1 pl-5">
           <li>From everyone: name, email and password, stored only in encrypted form (nobody can read it).</li>
-          <li>From clients: programmes, sets, loads, reps, workout dates, and the notes and effort ratings you write.</li>
+          <li>
+            From clients: programmes, sets, loads, reps, workout dates, the notes and effort ratings you write, cardio done
+            (activity, minutes, distance) and daily steps.
+          </li>
           <li>
             From clients, only with their explicit consent: <strong>body weight</strong> and{' '}
             <strong>body fat percentage</strong>, which are health-related data.
           </li>
           <li>
-            From trainers: the programmes and the exercise and notes library they create; those who sign up without an
+            From trainers: the programmes, the cardio plan and the exercise and notes library they create; those who sign up without an
             invite code also tell us how many clients they train and, if they like, a short introduction.
           </li>
         </ul>

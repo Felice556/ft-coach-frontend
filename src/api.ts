@@ -601,3 +601,84 @@ export function salvaMisura(tipo: TipoMisura, valore: number, data: string, clie
 export function eliminaMisura(id: number) {
   return apiFetch<void>(`/misure/${id}`, { method: 'DELETE' });
 }
+
+// ---------- Cardio e passi ----------
+// Il trainer decide il piano cardio e l'obiettivo di passi; il cliente segna cardio fatto e passi.
+
+export interface ObiettivoCardio {
+  id: number;
+  attivita: string;
+  minuti: number;
+  volteSettimana: number;
+  nota: string | null;
+}
+
+export interface CardioFatto {
+  id: number;
+  attivita: string;
+  minuti: number;
+  distanzaKm: number | null;
+  nota: string | null;
+  data: string; // "2026-10-21T00:00:00.000Z": conta solo il giorno
+  obiettivoId: number | null;
+}
+
+export interface PassiGiorno {
+  id: number;
+  passi: number;
+  data: string;
+}
+
+export interface DatiCardio {
+  obiettivoPassi: number | null;
+  obiettivi: ObiettivoCardio[];
+  sessioni: CardioFatto[]; // dalla più recente
+  passi: PassiGiorno[]; // dal giorno più vecchio
+}
+
+export type NuovoObiettivoCardio = { attivita: string; minuti: number; volteSettimana: number; nota?: string };
+
+// Cliente: i propri. Trainer: quelli del cliente indicato.
+export function getCardio(clienteId?: number) {
+  return apiFetch<DatiCardio>(`/cardio${clienteId ? `?clienteId=${clienteId}` : ''}`);
+}
+
+export function creaObiettivoCardio(clienteId: number, dati: NuovoObiettivoCardio) {
+  return apiFetch<ObiettivoCardio>('/cardio/obiettivi', { method: 'POST', body: JSON.stringify({ clienteId, ...dati }) });
+}
+
+export function modificaObiettivoCardio(id: number, dati: NuovoObiettivoCardio) {
+  return apiFetch<ObiettivoCardio>(`/cardio/obiettivi/${id}`, { method: 'PUT', body: JSON.stringify(dati) });
+}
+
+export function eliminaObiettivoCardio(id: number) {
+  return apiFetch<void>(`/cardio/obiettivi/${id}`, { method: 'DELETE' });
+}
+
+// passi = null toglie l'obiettivo.
+export function salvaObiettivoPassi(clienteId: number, passi: number | null) {
+  return apiFetch<{ obiettivoPassi: number | null }>('/cardio/obiettivo-passi', {
+    method: 'PUT',
+    body: JSON.stringify({ clienteId, passi }),
+  });
+}
+
+export function segnaCardio(dati: {
+  attivita: string;
+  minuti: number;
+  data: string; // "AAAA-MM-GG"
+  distanzaKm?: number | null;
+  nota?: string;
+  obiettivoId?: number | null;
+}) {
+  return apiFetch<CardioFatto>('/cardio/sessioni', { method: 'POST', body: JSON.stringify(dati) });
+}
+
+export function eliminaCardio(id: number) {
+  return apiFetch<void>(`/cardio/sessioni/${id}`, { method: 'DELETE' });
+}
+
+// Salva o corregge (se quel giorno ci sono già) i passi di un giorno.
+export function salvaPassi(data: string, passi: number) {
+  return apiFetch<PassiGiorno>('/cardio/passi', { method: 'PUT', body: JSON.stringify({ data, passi }) });
+}

@@ -4,6 +4,7 @@ import PanoramicaTrainer from './PanoramicaTrainer';
 import TrainerInAttesa from './TrainerInAttesa';
 import StoricoCliente from './StoricoCliente';
 import MisureCorporee from './MisureCorporee';
+import CardioPassi from './CardioPassi';
 import FeedbackCliente, { ChipFatica } from './FeedbackCliente';
 import { gruppiCollegati, sigla, InfoGruppo } from './collegamenti';
 import { CampoNomeEsercizio, PannelloLibreria, SceltaGruppo } from './LibreriaEsercizi';
@@ -560,8 +561,12 @@ export default function TrainerDashboard() {
 
   // Cambia ogni volta che il form si svuota o carica un'altra scheda: azzera il testo digitato nel campo cliente.
   const [versioneForm, setVersioneForm] = useState(0);
+  // Nome dell'ultimo giorno appena creato: l'editor resta aperto sullo stesso cliente
+  // per creare subito il giorno successivo, finché non si tocca "Ho finito".
+  const [giornoSalvato, setGiornoSalvato] = useState<string | null>(null);
 
   function resetForm() {
+    setGiornoSalvato(null);
     setEditorAperto(false);
     setVersioneForm((v) => v + 1);
     setSchedaInModifica(null);
@@ -575,6 +580,7 @@ export default function TrainerDashboard() {
 
   // Carica una scheda esistente nel form (gli input usano stringhe, i dati numeri).
   function avviaModifica(scheda: Scheda) {
+    setGiornoSalvato(null);
     setEditorAperto(true);
     setVersioneForm((v) => v + 1);
     setErrore('');
@@ -1021,7 +1027,8 @@ export default function TrainerDashboard() {
         };
       });
 
-      if (schedaInModifica !== null) {
+      const eraNuova = schedaInModifica === null;
+      if (!eraNuova) {
         // Rimettiamo gli id sugli esercizi già esistenti, così il backend li aggiorna.
         const conId = eserciziValidati.map((dati, i) => ({ ...dati, id: esercizi[i].id }));
         await aggiornaScheda(schedaInModifica, nomeScheda, Number(clienteId), conId);
@@ -1031,8 +1038,20 @@ export default function TrainerDashboard() {
 
       // Dopo il salvataggio apriamo l'elenco di quel cliente: la scheda si vede subito.
       setClienteVisto(Number(clienteId));
-      // Reset form e ricarica la lista, così le modifiche appaiono subito.
-      resetForm();
+      if (eraNuova) {
+        // Scheda nuova: l'editor resta aperto con lo STESSO cliente già scelto, pronto per il
+        // giorno successivo (Giorno A, poi B, poi C…). Si svuotano solo nome ed esercizi.
+        setGiornoSalvato(nomeScheda.trim());
+        setNomeScheda('');
+        setEsercizi([esercizioVuoto()]);
+        setNoteAperte(null);
+        setConfermaRimuovi(null);
+        setGruppoPer(null);
+        formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        // Modifica di una scheda esistente: finita la modifica, l'editor si chiude.
+        resetForm();
+      }
       await caricaSchede();
     } catch (err) {
       setErrore(err instanceof Error ? err.message : tr('Errore nel salvataggio della scheda', 'Error saving the programme'));
@@ -1164,6 +1183,8 @@ export default function TrainerDashboard() {
           )}
         </nav>
         <button type="button" className="btn-primary" aria-expanded={editorAperto} aria-controls="scheda-editor" onClick={() => {
+          // Se stai guardando le schede di un cliente, la nuova scheda parte già con lui scelto.
+          if (!editorAperto && schedaInModifica === null && !clienteId && clienteVisto !== null) setClienteId(String(clienteVisto));
           setEditorAperto(true);
           if (editorAperto) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }}>
@@ -1290,6 +1311,20 @@ export default function TrainerDashboard() {
               'You’re editing an existing programme. If you remove an exercise it leaves the programme, but every set the client already logged stays saved and you can put it back any time from the list below the exercises.',
             )}
           </p>
+        )}
+        {giornoSalvato !== null && schedaInModifica === null && (
+          <div role="status" className="mb-5 flex flex-col gap-3 rounded-xl border border-success/40 bg-success-soft px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-soft">
+              <strong className="text-success">
+                {tr(`“${giornoSalvato}” salvata`, `“${giornoSalvato}” saved`)}
+                {clienteId ? ` · ${nomeCliente(Number(clienteId))}` : ''}.
+              </strong>{' '}
+              {tr('Il cliente resta scelto: crea subito il prossimo giorno.', 'The client stays selected: create the next day straight away.')}
+            </p>
+            <button type="button" className="btn-secondary shrink-0" onClick={resetForm}>
+              {tr('Ho finito', 'I’m done')}
+            </button>
+          </div>
         )}
         <form
           onSubmit={handleSalvaScheda}
@@ -1693,6 +1728,9 @@ export default function TrainerDashboard() {
           <div className="mb-6">
             <MisureCorporee key={clienteVisto} ruolo="TRAINER" clienteId={clienteVisto} nomeCliente={nomeCliente(clienteVisto)} />
             <FeedbackCliente key={`f${clienteVisto}`} clienteId={clienteVisto} nomeCliente={nomeCliente(clienteVisto)} />
+            <div className="mt-4">
+              <CardioPassi key={`c${clienteVisto}`} ruolo="TRAINER" clienteId={clienteVisto} nomeCliente={nomeCliente(clienteVisto)} />
+            </div>
           </div>
         )}
         {clienteVisto !== null && !schede.some((sc) => sc.clienteId === clienteVisto) && (
