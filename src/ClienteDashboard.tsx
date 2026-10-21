@@ -14,7 +14,7 @@ import {
   RegistroAllenamento,
 } from './api';
 import ProgressoChart, { StrisciaProgressi } from './ProgressoChart';
-import { seriePerGiorno } from './calcoloProgressi';
+import { seriePerGiorno, ultimaVoltaMigliore } from './calcoloProgressi';
 import MisureCorporee from './MisureCorporee';
 import { SceltaFatica } from './FeedbackCliente';
 import { gruppiCollegati, prossimoPasso, sigla } from './collegamenti';
@@ -393,9 +393,12 @@ export default function ClienteDashboard() {
           }
           const storico = esito.value;
           nuoviStorici[es.id] = storico;
-          const ultimo = storico[storico.length - 1];
-          // Peso: quello dell'ultima volta. Reps: l'obiettivo della scheda.
-          pesiIniziali[es.id] = ultimo ? scriviNumero(ultimo.pesoUsato) : '';
+          // Peso: se oggi ha già fatto serie, quello dell'ultima serie di oggi; altrimenti quello
+          // della serie migliore dell'ultima volta (non di un'eventuale serie extra più leggera).
+          const oggiUltima = [...storico].reverse().find((x) => eOggi(x.data));
+          const riferimento = oggiUltima ?? ultimaVoltaMigliore(storico);
+          pesiIniziali[es.id] = riferimento ? scriviNumero(riferimento.pesoUsato) : '';
+          // Reps: l'obiettivo della scheda.
           const fatteOggi = storico.filter((x) => eOggi(x.data)).length;
           const prossima = pianoSerie(es)[fatteOggi];
           // Reps fisse → precompilate; "Max" o intervallo (6-9) → campo vuoto.
@@ -956,7 +959,8 @@ export default function ClienteDashboard() {
               const piano = pianoSerie(es);
               const completato = oggi >= piano.length;
               const prossima = piano[oggi]; // undefined se l'esercizio è finito
-              const ultimaVolta = [...storico].reverse().find((x) => !eOggi(x.data));
+              // La serie migliore dell'ultimo allenamento (non l'ultima serie, che può essere una extra più leggera).
+              const ultimaVolta = ultimaVoltaMigliore(storico);
               // Tutte le note scritte su questo esercizio, dalla più recente.
               const leMieNote = [...storico].reverse().filter((x) => x.nota && x.nota.trim());
               const ultimaNotaPassata = leMieNote.find((x) => !eOggi(x.data));

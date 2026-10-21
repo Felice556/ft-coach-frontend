@@ -79,3 +79,20 @@ export function seriePerGiorno(storico: RegistroAllenamento[]) {
   }
   return [...gruppi.values()].reverse();
 }
+
+// "Ultima volta": la serie migliore (più peso, a parità più ripetizioni) dell'ultimo giorno
+// di allenamento PRIMA di oggi. Non l'ultima serie registrata: se l'ultima era una serie extra
+// più leggera (es. a cedimento), mostrarla farebbe sembrare che il cliente sia andato peggio.
+export function ultimaVoltaMigliore(storico: RegistroAllenamento[], oggi = new Date()): RegistroAllenamento | null {
+  const chiaveOggi = oggi.toDateString();
+  const passate = storico.filter((r) => new Date(r.data).toDateString() !== chiaveOggi);
+  if (passate.length === 0) return null;
+  const ultimoGiorno = passate.reduce((a, r) => (new Date(r.data) > new Date(a.data) ? r : a)).data;
+  const chiave = new Date(ultimoGiorno).toDateString();
+  let migliore: RegistroAllenamento | null = null;
+  for (const r of passate) {
+    if (new Date(r.data).toDateString() !== chiave) continue;
+    if (!migliore || meglio({ peso: r.pesoUsato, reps: r.repsFatte }, { peso: migliore.pesoUsato, reps: migliore.repsFatte })) migliore = r;
+  }
+  return migliore;
+}

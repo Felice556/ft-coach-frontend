@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RegistroAllenamento } from '../src/api';
-import { migliorePerGiorno, record, seriePerGiorno, testoSerie, testoVariazione, variazione } from '../src/calcoloProgressi';
+import { migliorePerGiorno, record, seriePerGiorno, testoSerie, testoVariazione, ultimaVoltaMigliore, variazione } from '../src/calcoloProgressi';
 
 let id = 0;
 const serie = (data: string, peso: number, reps: number): RegistroAllenamento => ({
@@ -53,6 +53,19 @@ describe('Progressi di un esercizio', () => {
   it('con un solo giorno non c’è variazione', () => {
     expect(variazione(migliorePerGiorno([serie('2026-10-01', 60, 8)]))).toBeNull();
     expect(record([])).toBeNull();
+  });
+
+  it("'ultima volta': la serie migliore dell'ultimo giorno prima di oggi, non l'ultima serie (extra più leggera)", () => {
+    const conExtra = [
+      serie('2026-10-14', 75, 8),
+      serie('2026-10-17', 77.5, 7),
+      serie('2026-10-17', 77.5, 8),
+      serie('2026-10-17', 65, 11), // serie extra a cedimento, registrata per ultima
+      serie('2026-10-21', 80, 5), // oggi: non conta
+    ];
+    const u = ultimaVoltaMigliore(conExtra, new Date('2026-10-21T12:00:00'))!;
+    expect([u.pesoUsato, u.repsFatte]).toEqual([77.5, 8]);
+    expect(ultimaVoltaMigliore([serie('2026-10-21', 80, 5)], new Date('2026-10-21T12:00:00'))).toBeNull();
   });
 
   it('serie raggruppate per giorno, dal più recente, in ordine di esecuzione', () => {
