@@ -685,6 +685,8 @@ export default function TrainerDashboard() {
   // Allenamenti conclusi dai clienti (il più recente in cima).
   const [sessioni, setSessioni] = useState<SessioneAllenamento[]>([]);
   const [mostraTutte, setMostraTutte] = useState(false);
+  // Allenamenti completati: si guardano un cliente alla volta (null = il cliente che si è allenato per ultimo).
+  const [clienteSessioni, setClienteSessioni] = useState<number | null>(null);
 
   async function caricaSessioni() {
     try {
@@ -1073,7 +1075,16 @@ export default function TrainerDashboard() {
     }
   }
 
-  const sessioniVisibili = mostraTutte ? sessioni : sessioni.slice(0, 5);
+  // Clienti che hanno almeno un allenamento concluso, in ordine alfabetico, con quanti ne hanno fatti.
+  const clientiConSessioni = [...sessioni.reduce((m, s) => {
+    const c = m.get(s.clienteId);
+    m.set(s.clienteId, { id: s.clienteId, nome: s.cliente.nome, quanti: (c?.quanti ?? 0) + 1 });
+    return m;
+  }, new Map<number, { id: number; nome: string; quanti: number }>()).values()].sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+  // Le sessioni arrivano dalla più recente: di base si apre il cliente che si è allenato per ultimo.
+  const clienteScelto = clientiConSessioni.some((c) => c.id === clienteSessioni) ? clienteSessioni : (sessioni[0]?.clienteId ?? null);
+  const sessioniCliente = sessioni.filter((s) => s.clienteId === clienteScelto);
+  const sessioniVisibili = mostraTutte ? sessioniCliente : sessioniCliente.slice(0, 5);
   const gruppiBozza = gruppiCollegati(esercizi);
 
   return (
@@ -1144,7 +1155,7 @@ export default function TrainerDashboard() {
           <div>
             <p className="eyebrow mb-1">Attività recente</p>
             <h2 className="section-title">Allenamenti completati</h2>
-            <p className="mt-1 text-sm text-muted">I progressi dei tuoi clienti, a colpo d’occhio.</p>
+            <p className="mt-1 text-sm text-muted">Scegli un cliente e guarda come sono andati i suoi allenamenti.</p>
           </div>
           <button
             aria-label="Aggiorna allenamenti completati"
@@ -1159,6 +1170,22 @@ export default function TrainerDashboard() {
             Nessun cliente ha ancora concluso un allenamento.
           </p>
         ) : (
+          <>
+          <div className="mb-2">
+            <label className="label" htmlFor="cliente-sessioni">Cliente</label>
+            <select
+              id="cliente-sessioni"
+              className="input"
+              value={clienteScelto ?? ''}
+              onChange={(e) => { setClienteSessioni(Number(e.target.value)); setMostraTutte(false); }}
+            >
+              {clientiConSessioni.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome} · {c.quanti === 1 ? '1 allenamento' : `${c.quanti} allenamenti`}
+                </option>
+              ))}
+            </select>
+          </div>
           <ul className="divide-y divide-line overflow-hidden">
             {sessioniVisibili.map((s) => {
               const completa = s.serieFatte >= s.serieTotali;
@@ -1171,19 +1198,20 @@ export default function TrainerDashboard() {
                     onClick={() => setProgressiScheda({ schedaId: s.schedaId, giorno: s.completataIl })}
                     aria-label={`Dettaglio allenamento di ${s.cliente.nome}, ${s.scheda.nome}`}
                   >
+                  {/* Il cliente è già scelto sopra: nel quadratino c'è il giorno dell'allenamento */}
                   <span
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${
+                    className={`flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl leading-none ${
                       completa ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'
                     }`}
                     aria-hidden
                   >
-                    {s.cliente.nome.split(' ').filter(Boolean).slice(0, 2).map((parte) => parte[0]).join('')}
+                    <span className="text-base font-bold tabular-nums">{new Date(s.completataIl).getDate()}</span>
+                    <span className="mt-0.5 text-[10px] font-semibold uppercase">
+                      {new Date(s.completataIl).toLocaleDateString('it-IT', { month: 'short' }).replace('.', '')}
+                    </span>
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold leading-snug break-words">
-                      {s.cliente.nome}
-                    </p>
-                    <p className="mt-0.5 text-sm text-soft break-words">{s.scheda.nome}</p>
+                    <p className="font-semibold leading-snug break-words">{s.scheda.nome}</p>
                     <p className="mt-0.5 text-xs text-muted">{quando(s.completataIl)}</p>
                     {/* Feedback del cliente a fine allenamento */}
                     {(s.fatica != null || s.nota) && (
@@ -1207,10 +1235,11 @@ export default function TrainerDashboard() {
               );
             })}
           </ul>
+          </>
         )}
-        {sessioni.length > 5 && (
+        {sessioniCliente.length > 5 && (
           <button className="btn-link mt-3 text-sm" onClick={() => setMostraTutte(!mostraTutte)}>
-            {mostraTutte ? 'Mostra meno' : `Mostra tutti (${sessioni.length})`}
+            {mostraTutte ? 'Mostra meno' : `Mostra tutti (${sessioniCliente.length})`}
           </button>
         )}
       </section>

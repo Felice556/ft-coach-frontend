@@ -24,7 +24,7 @@ function coloreFatica(n: number): string {
 
 export function ChipFatica({ fatica }: { fatica: number }) {
   return (
-    <span className={`chip shrink-0 tabular-nums ${coloreFatica(fatica)}`}>
+    <span className={`chip max-w-full tabular-nums ${coloreFatica(fatica)}`}>
       Fatica {fatica}/10 · {testoFatica(fatica)}
     </span>
   );
