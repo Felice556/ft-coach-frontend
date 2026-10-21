@@ -48,7 +48,27 @@ export function ricordaSezione(chiave: string, valore?: string): string | null {
   }
 }
 
+// true mentre la pagina scorre (e per un attimo dopo): la barra in basso diventa trasparente.
+function useScorrendo() {
+  const [scorrendo, setScorrendo] = useState(false);
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const suScroll = () => {
+      setScorrendo(true);
+      clearTimeout(t);
+      t = setTimeout(() => setScorrendo(false), 600);
+    };
+    window.addEventListener('scroll', suScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', suScroll);
+      clearTimeout(t);
+    };
+  }, []);
+  return scorrendo;
+}
+
 export function BarraSezioni<T extends string>({ voci, attiva, onCambia, etichetta }: { voci: VoceSezione<T>[]; attiva: T; onCambia: (id: T) => void; etichetta: string }) {
+  const scorrendo = useScorrendo();
   const voce = (v: VoceSezione<T>, mobile: boolean) => {
     const sel = v.id === attiva;
     return (
@@ -59,7 +79,7 @@ export function BarraSezioni<T extends string>({ voci, attiva, onCambia, etichet
         onClick={() => onCambia(v.id)}
         className={
           mobile
-            ? `relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-bold transition-colors ${sel ? 'text-accent-strong' : 'text-muted hover:text-ink'}`
+            ? `relative flex min-h-12 flex-1 flex-col items-center justify-center gap-0.5 pt-1 text-[10.5px] leading-none font-bold transition-colors ${sel ? 'text-accent-strong' : 'text-muted hover:text-ink'}`
             : `relative inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 text-sm font-semibold transition-colors ${
                 sel ? 'border-accent-strong bg-accent text-accent-ink' : 'border-line bg-surface text-ink hover:border-accent-strong'
               }`
@@ -82,7 +102,11 @@ export function BarraSezioni<T extends string>({ voci, attiva, onCambia, etichet
       </nav>
       {/* Telefono: barra fissa in basso */}
       <nav
-        className="fixed inset-x-0 bottom-0 z-20 flex border-t border-line bg-surface/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden"
+        // Più in basso possibile: sotto resta solo lo spazio della "barretta" di iPhone/Android.
+        // Mentre si scorre diventa trasparente e lascia vedere la pagina; appena ci si ferma torna piena.
+        className={`fixed inset-x-0 bottom-0 z-20 m-0 flex border-t px-1 pb-[max(0.25rem,calc(env(safe-area-inset-bottom)-0.5rem))] transition-[background-color,border-color,opacity] duration-300 sm:hidden ${
+          scorrendo ? 'border-transparent bg-surface/35 opacity-80 backdrop-blur-sm' : 'border-line bg-surface/95 opacity-100 backdrop-blur'
+        }`}
         aria-label={etichetta}
       >
         {voci.map((v) => voce(v, true))}

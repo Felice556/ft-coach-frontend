@@ -1751,7 +1751,7 @@ export default function TrainerDashboard() {
               {mostraEditor && !libreriaAperta && !scrivendo && (
                 <button
                   type="button"
-                  className="btn-primary fixed right-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] sm:bottom-4 z-30 min-h-12 px-4 shadow-lg lg:hidden"
+                  className="btn-primary fixed right-4 bottom-[calc(4rem+env(safe-area-inset-bottom))] sm:bottom-4 z-30 min-h-12 px-4 shadow-lg lg:hidden"
                   onClick={() => setLibreriaAperta(true)}
                 >
                   {tr('+ Libreria', '+ Library')}
