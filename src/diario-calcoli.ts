@@ -3,9 +3,20 @@ import type { TipoPasto } from './api';
 import { aggiungiGiorni } from './cardio-calcoli';
 import { tr } from './lingua';
 
-export const TIPI_PASTO: TipoPasto[] = ['COLAZIONE', 'SPUNTINO_MATTINA', 'PRANZO', 'SPUNTINO_POMERIGGIO', 'CENA'];
+export type PastoFisso = Exclude<TipoPasto, 'EXTRA'>;
+export const TIPI_PASTO: PastoFisso[] = ['COLAZIONE', 'SPUNTINO_MATTINA', 'PRANZO', 'SPUNTINO_POMERIGGIO', 'CENA'];
+export const MAX_VOCI_EXTRA = 6;
 
-export const nomePasto = (t: TipoPasto) =>
+// Suggerimenti per il nome di una voce in più (il cliente può scrivere quello che vuole).
+export const NOMI_VOCI_EXTRA = () => [
+  tr('Spuntino', 'Snack'),
+  tr('Post cena', 'After dinner'),
+  tr('Pre allenamento', 'Pre-workout'),
+  tr('Post allenamento', 'Post-workout'),
+  tr('Notte', 'Night'),
+];
+
+export const nomePasto = (t: PastoFisso) =>
   ({
     COLAZIONE: tr('Colazione', 'Breakfast'),
     SPUNTINO_MATTINA: tr('Spuntino', 'Snack'),

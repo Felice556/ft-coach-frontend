@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from 'react';
-import { commentaGiornataDiario, DatiDiario, getDiario, GiornoDiario, salvaConsensoDiario, salvaGiornataDiario, TipoPasto } from './api';
+import { commentaGiornataDiario, DatiDiario, getDiario, GiornoDiario, salvaConsensoDiario, salvaGiornataDiario } from './api';
 import { aggiungiGiorni } from './cardio-calcoli';
-import { cambiaQuantita, nomePasto, settimanaFinoA, TIPI_PASTO } from './diario-calcoli';
+import { cambiaQuantita, MAX_VOCI_EXTRA, NOMI_VOCI_EXTRA, nomePasto, PastoFisso, settimanaFinoA, TIPI_PASTO } from './diario-calcoli';
 import { giornoDi, oggi } from './misure-formati';
 import { locale, tr } from './lingua';
 
@@ -95,20 +95,31 @@ function Consenso({ onDato }: { onDato: () => void }) {
 
 // ---------- Cliente: una giornata ----------
 
+type VoceExtra = { chiave: number; nome: string; testo: string; ora: string };
 type Bozza = {
-  pasti: Record<TipoPasto, { testo: string; ora: string }>;
+  pasti: Record<PastoFisso, { testo: string; ora: string }>;
+  // Voci in più scelte dal cliente ("Post cena", "Pre allenamento"…), nel loro ordine.
+  extra: VoceExtra[];
   olio: number | null;
   acqua: number | null;
   sensazioni: string;
 };
 
+let prossimaChiave = 1;
+
 function bozzaDa(g: GiornoDiario | undefined): Bozza {
   const pasti = Object.fromEntries(TIPI_PASTO.map((t) => [t, { testo: '', ora: '' }])) as Bozza['pasti'];
-  for (const p of g?.pasti ?? []) pasti[p.tipo] = { testo: p.testo, ora: p.ora ?? '' };
-  return { pasti, olio: g?.olioCucchiai ?? null, acqua: g?.acquaLitri ?? null, sensazioni: g?.sensazioni ?? '' };
+  const extra: VoceExtra[] = [];
+  for (const p of g?.pasti ?? []) {
+    if (p.tipo === 'EXTRA') extra.push({ chiave: prossimaChiave++, nome: p.nome ?? '', testo: p.testo, ora: p.ora ?? '' });
+    else pasti[p.tipo] = { testo: p.testo, ora: p.ora ?? '' };
+  }
+  return { pasti, extra, olio: g?.olioCucchiai ?? null, acqua: g?.acquaLitri ?? null, sensazioni: g?.sensazioni ?? '' };
 }
 
-const stessaBozza = (a: Bozza, b: Bozza) => JSON.stringify(a) === JSON.stringify(b);
+// Uguali a parte le chiavi interne delle voci in più (servono solo a React).
+const senzaChiavi = (b: Bozza) => ({ ...b, extra: b.extra.map(({ nome, testo, ora }) => ({ nome, testo, ora })) });
+const stessaBozza = (a: Bozza, b: Bozza) => JSON.stringify(senzaChiavi(a)) === JSON.stringify(senzaChiavi(b));
 
 function Contatore({ etichetta, valore, unita, passo, massimo, onChange }: { etichetta: string; valore: number | null; unita: string; passo: number; massimo: number; onChange: (v: number | null) => void }) {
   return (
@@ -131,7 +142,8 @@ function DiarioCliente({ dati, onCambiati }: { dati: DatiDiario; onCambiati: (d:
   const [giorno, setGiorno] = useState(oggiStr);
   const salvata = dati.giorni.find((g) => giornoDi(g.data) === giorno);
   const [bozza, setBozza] = useState<Bozza>(() => bozzaDa(salvata));
-  const [aperto, setAperto] = useState<TipoPasto | null>(null);
+  // Pasto aperto per scriverlo: uno dei 5 fissi, oppure "extra-<chiave>" per una voce in più.
+  const [aperto, setAperto] = useState<string | null>(null);
   const [inInvio, setInInvio] = useState(false);
   const [errore, setErrore] = useState('');
   const [fatto, setFatto] = useState(false);
@@ -149,13 +161,19 @@ function DiarioCliente({ dati, onCambiati }: { dati: DatiDiario; onCambiati: (d:
 
   async function salva() {
     if (inInvio) return;
+    const extraPiene = bozza.extra.filter((x) => x.testo.trim());
+    if (extraPiene.some((x) => !x.nome.trim())) {
+      setErrore(tr('Dai un nome a ogni voce in più (es. “Post cena”)', 'Give every extra entry a name (e.g. “After dinner”)'));
+      return;
+    }
     setInInvio(true);
     setErrore('');
     try {
       const pasti = Object.fromEntries(
         TIPI_PASTO.filter((t) => bozza.pasti[t].testo.trim()).map((t) => [t, { testo: bozza.pasti[t].testo.trim(), ora: bozza.pasti[t].ora || null }]),
       );
-      const risposta = await salvaGiornataDiario(giorno, { pasti, olioCucchiai: bozza.olio, acquaLitri: bozza.acqua, sensazioni: bozza.sensazioni.trim() });
+      const extra = extraPiene.map((x) => ({ nome: x.nome.trim(), testo: x.testo.trim(), ora: x.ora || null }));
+      const risposta = await salvaGiornataDiario(giorno, { pasti, extra, olioCucchiai: bozza.olio, acquaLitri: bozza.acqua, sensazioni: bozza.sensazioni.trim() });
       const altri = dati.giorni.filter((g) => giornoDi(g.data) !== giorno);
       onCambiati({ ...dati, giorni: (risposta ? [...altri, risposta] : altri).sort((a, b) => b.data.localeCompare(a.data)) });
       setBozza(bozzaDa(risposta ?? undefined));
@@ -180,8 +198,19 @@ function DiarioCliente({ dati, onCambiati }: { dati: DatiDiario; onCambiati: (d:
     }
   }
 
-  const pasto = (t: TipoPasto) => bozza.pasti[t];
-  const cambiaPasto = (t: TipoPasto, campo: 'testo' | 'ora', valore: string) =>
+  const pasto = (t: PastoFisso) => bozza.pasti[t];
+  const cambiaExtra = (chiave: number, campo: 'nome' | 'testo' | 'ora', valore: string) =>
+    setBozza((b) => ({ ...b, extra: b.extra.map((x) => (x.chiave === chiave ? { ...x, [campo]: valore } : x)) }));
+  function aggiungiExtra() {
+    const chiave = prossimaChiave++;
+    setBozza((b) => ({ ...b, extra: [...b.extra, { chiave, nome: '', testo: '', ora: '' }] }));
+    setAperto(`extra-${chiave}`);
+  }
+  const togliExtra = (chiave: number) => {
+    setBozza((b) => ({ ...b, extra: b.extra.filter((x) => x.chiave !== chiave) }));
+    setAperto(null);
+  };
+  const cambiaPasto = (t: PastoFisso, campo: 'testo' | 'ora', valore: string) =>
     setBozza((b) => ({ ...b, pasti: { ...b.pasti, [t]: { ...b.pasti[t], [campo]: valore } } }));
 
   return (
@@ -235,7 +264,65 @@ function DiarioCliente({ dati, onCambiati }: { dati: DatiDiario; onCambiati: (d:
             </li>
           );
         })}
+        {/* Voci in più, con il nome scelto dal cliente */}
+        {bozza.extra.map((x) => {
+          const inModifica = aperto === `extra-${x.chiave}`;
+          return (
+            <li key={x.chiave} className="px-3 py-3">
+              {inModifica ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      className="input h-10 min-w-0 flex-1 px-3 text-sm font-bold"
+                      list={`${id}-nomi-extra`}
+                      maxLength={40}
+                      aria-label={tr('Nome della voce', 'Entry name')}
+                      placeholder={tr('Nome, es. Post cena', 'Name, e.g. After dinner')}
+                      value={x.nome}
+                      onChange={(e) => cambiaExtra(x.chiave, 'nome', e.target.value)}
+                    />
+                    <input type="time" className="input h-10 w-28 px-2 text-sm" aria-label={tr(`Ora: ${x.nome || 'voce in più'}`, `Time: ${x.nome || 'extra entry'}`)} value={x.ora} onChange={(e) => cambiaExtra(x.chiave, 'ora', e.target.value)} />
+                  </div>
+                  <textarea
+                    className="input min-h-20 resize-y"
+                    maxLength={500}
+                    aria-label={tr(`Cosa hai mangiato: ${x.nome || 'voce in più'}`, `What you ate: ${x.nome || 'extra entry'}`)}
+                    placeholder={tr('es. Una tisana e due biscotti', 'e.g. A herbal tea and two biscuits')}
+                    value={x.testo}
+                    onChange={(e) => cambiaExtra(x.chiave, 'testo', e.target.value)}
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <button type="button" className="btn-ghost min-h-10 text-sm text-danger" onClick={() => togliExtra(x.chiave)}>{tr('Togli voce', 'Remove entry')}</button>
+                    <button type="button" className="btn-secondary min-h-10 text-sm" onClick={() => setAperto(null)}>{tr('Fatto', 'Done')}</button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" className="block w-full text-left" onClick={() => setAperto(`extra-${x.chiave}`)} aria-label={tr(`Scrivi ${x.nome || 'voce in più'}`, `Write ${x.nome || 'extra entry'}`)}>
+                  <span className="flex items-baseline justify-between gap-3">
+                    <span className="font-bold">{x.nome || tr('Voce senza nome', 'Unnamed entry')}</span>
+                    {x.ora && <span className="text-sm text-muted tabular-nums">{x.ora}</span>}
+                  </span>
+                  {x.testo.trim() ? (
+                    <span className="mt-0.5 block text-sm leading-relaxed text-soft break-words whitespace-pre-line">{x.testo}</span>
+                  ) : (
+                    <span className="mt-0.5 block text-sm font-semibold text-accent-strong">{tr('+ Aggiungi', '+ Add')}</span>
+                  )}
+                </button>
+              )}
+            </li>
+          );
+        })}
+        {bozza.extra.length < MAX_VOCI_EXTRA && (
+          <li className="px-3 py-2">
+            <button type="button" className="btn-link min-h-10 text-sm" onClick={aggiungiExtra}>
+              {tr('+ Aggiungi un’altra voce (es. post cena)', '+ Add another entry (e.g. after dinner)')}
+            </button>
+          </li>
+        )}
       </ul>
+      <datalist id={`${id}-nomi-extra`}>
+        {NOMI_VOCI_EXTRA().map((n) => <option key={n} value={n} />)}
+      </datalist>
 
       <div className="grid grid-cols-2 gap-3">
         <Contatore etichetta={tr('Olio', 'Oil')} unita={tr('cucchiai', 'tbsp')} valore={bozza.olio} passo={0.5} massimo={20} onChange={(v) => setBozza((b) => ({ ...b, olio: v }))} />
@@ -347,18 +434,18 @@ function DiarioTrainer({ clienteId, nomeCliente, dati, onCambiati }: { clienteId
       ) : (
         <>
           <ul className="divide-y divide-line rounded-xl border border-line bg-surface-2">
-            {TIPI_PASTO.filter((t) => g.pasti.some((p) => p.tipo === t)).map((t) => {
-              const p = g.pasti.find((x) => x.tipo === t)!;
-              return (
-                <li key={t} className="px-3 py-2.5">
-                  <p className="flex items-baseline justify-between gap-3">
-                    <span className="font-bold">{nomePasto(t)}</span>
-                    {p.ora && <span className="text-sm text-muted tabular-nums">{p.ora}</span>}
-                  </p>
-                  <p className="mt-0.5 text-sm leading-relaxed text-soft break-words whitespace-pre-line">{p.testo}</p>
-                </li>
-              );
-            })}
+            {[
+              ...TIPI_PASTO.flatMap((t) => g.pasti.filter((p) => p.tipo === t)),
+              ...g.pasti.filter((p) => p.tipo === 'EXTRA'), // voci in più del cliente, dopo i pasti fissi
+            ].map((p, i) => (
+              <li key={`${p.tipo}-${i}`} className="px-3 py-2.5">
+                <p className="flex items-baseline justify-between gap-3">
+                  <span className="font-bold">{p.tipo === 'EXTRA' ? p.nome : nomePasto(p.tipo)}</span>
+                  {p.ora && <span className="text-sm text-muted tabular-nums">{p.ora}</span>}
+                </p>
+                <p className="mt-0.5 text-sm leading-relaxed text-soft break-words whitespace-pre-line">{p.testo}</p>
+              </li>
+            ))}
             {(g.olioCucchiai != null || g.acquaLitri != null) && (
               <li className="px-3 py-2.5 text-sm">
                 <span className="font-bold">{tr('Olio · Acqua', 'Oil · Water')}</span>

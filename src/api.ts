@@ -686,10 +686,12 @@ export function salvaPassi(data: string, passi: number) {
 // ---------- Diario alimentare ----------
 // Il cliente scrive i pasti di ogni giorno (con il suo consenso); il trainer legge e commenta.
 
-export type TipoPasto = 'COLAZIONE' | 'SPUNTINO_MATTINA' | 'PRANZO' | 'SPUNTINO_POMERIGGIO' | 'CENA';
+// I 5 pasti fissi, più EXTRA: voce aggiunta dal cliente con un nome suo ("Post cena"…).
+export type TipoPasto = 'COLAZIONE' | 'SPUNTINO_MATTINA' | 'PRANZO' | 'SPUNTINO_POMERIGGIO' | 'CENA' | 'EXTRA';
 
 export interface PastoDiario {
   tipo: TipoPasto;
+  nome: string | null; // solo per EXTRA
   testo: string;
   ora: string | null; // "13:15"
 }
@@ -711,7 +713,8 @@ export interface DatiDiario {
 }
 
 export type GiornataDaSalvare = {
-  pasti: Partial<Record<TipoPasto, { testo: string; ora?: string | null }>>;
+  pasti: Partial<Record<Exclude<TipoPasto, 'EXTRA'>, { testo: string; ora?: string | null }>>;
+  extra: { nome: string; testo: string; ora?: string | null }[];
   olioCucchiai: number | null;
   acquaLitri: number | null;
   sensazioni: string;
