@@ -30,6 +30,7 @@ import {
   suonoFine,
   tieniSchermoAcceso,
 } from './suono';
+import { locale, tr } from './lingua';
 
 // Valore di partenza del campo reps per una serie: il numero se è fisso,
 // vuoto se è "Max" o un intervallo (6-9): lì il cliente scrive quante ne ha fatte davvero.
@@ -40,14 +41,14 @@ function repsDiPartenza(serie: SerieDaFare | undefined): string {
 
 // ---------- Piccole utility ----------
 
-// Sulla tastiera italiana del telefono il decimale è la virgola: "62,5".
+// Sulla tastiera italiana del telefono il decimale è la virgola: "62,5" (in inglese il punto: "62.5").
 // Number("62,5") darebbe NaN, quindi normalizziamo prima di convertire.
 function leggiNumero(testo: string): number {
   return Number(testo.replace(',', '.'));
 }
 
 function scriviNumero(n: number): string {
-  return n.toLocaleString('it-IT', { maximumFractionDigits: 2, useGrouping: false });
+  return n.toLocaleString(locale, { maximumFractionDigits: 2, useGrouping: false });
 }
 
 // Controllo comune per peso e ripetizioni: il peso può essere 0 (corpo libero)
@@ -106,7 +107,7 @@ function Stepper({
       <div className="flex items-stretch overflow-hidden rounded-xl border border-line bg-field transition focus-within:border-accent-strong focus-within:ring-2 focus-within:ring-accent-strong/15">
         <button
           type="button"
-          aria-label={`Diminuisci ${etichetta}`}
+          aria-label={tr(`Diminuisci ${etichetta}`, `Decrease ${etichetta}`)}
           className={`${larghezzaBottone} shrink-0 text-2xl font-medium text-soft transition hover:bg-surface-2 active:bg-accent-soft`}
           onClick={() => cambia(-passo)}
         >
@@ -124,7 +125,7 @@ function Stepper({
         />
         <button
           type="button"
-          aria-label={`Aumenta ${etichetta}`}
+          aria-label={tr(`Aumenta ${etichetta}`, `Increase ${etichetta}`)}
           className={`${larghezzaBottone} shrink-0 text-2xl font-medium text-soft transition hover:bg-surface-2 active:bg-accent-soft`}
           onClick={() => cambia(passo)}
         >
@@ -172,7 +173,7 @@ function SerieRiga({ serie, etichetta, onModificata, onEliminata }: SerieRigaPro
 
   async function salva() {
     if (!valoriValidi(kg, reps)) {
-      setErrore('Inserisci peso (anche 0) e ripetizioni');
+      setErrore(tr('Inserisci peso (anche 0) e ripetizioni', 'Enter weight (even 0) and reps'));
       return;
     }
     const nuovoKg = leggiNumero(kg);
@@ -184,7 +185,7 @@ function SerieRiga({ serie, etichetta, onModificata, onEliminata }: SerieRigaPro
       onModificata(aggiornata);
       setModalita('vista');
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nel salvataggio');
+      setErrore(err instanceof Error ? err.message : tr('Errore nel salvataggio', 'Error saving'));
     } finally {
       setInInvio(false);
     }
@@ -196,7 +197,7 @@ function SerieRiga({ serie, etichetta, onModificata, onEliminata }: SerieRigaPro
       await eliminaSerie(serie.id);
       onEliminata(serie.id);
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nella cancellazione');
+      setErrore(err instanceof Error ? err.message : tr('Errore nella cancellazione', 'Error deleting'));
       setModalita('vista');
       setInInvio(false);
     }
@@ -205,15 +206,15 @@ function SerieRiga({ serie, etichetta, onModificata, onEliminata }: SerieRigaPro
   if (modalita === 'modifica') {
     return (
       <li className="space-y-3 bg-surface-2 px-3 py-3">
-        <p className="text-xs font-semibold tracking-wide text-accent-strong uppercase">Modifica · {etichetta}</p>
+        <p className="text-xs font-semibold tracking-wide text-accent-strong uppercase">{tr('Modifica', 'Edit')} · {etichetta}</p>
         <div className="grid grid-cols-2 gap-3">
           <Stepper etichetta="Kg" valore={kg} passo={2.5} minimo={0} decimali compatto onChange={setKg} />
           <Stepper etichetta="Reps" valore={reps} passo={1} minimo={1} decimali={false} compatto onChange={setReps} />
         </div>
         <input
           className="input"
-          aria-label="Nota per il trainer"
-          placeholder='Nota per il trainer, es. "fastidio alla spalla"'
+          aria-label={tr('Nota per il trainer', 'Note for your trainer')}
+          placeholder={tr('Nota per il trainer, es. "fastidio alla spalla"', 'Note for your trainer, e.g. "shoulder discomfort"')}
           maxLength={500}
           value={testoNota}
           onChange={(e) => setTestoNota(e.target.value)}
@@ -221,10 +222,10 @@ function SerieRiga({ serie, etichetta, onModificata, onEliminata }: SerieRigaPro
         {errore && <p className="alert-error">{errore}</p>}
         <div className="grid grid-cols-2 gap-2">
           <button className="btn-secondary" onClick={() => setModalita('vista')} disabled={inInvio}>
-            Annulla
+            {tr('Annulla', 'Cancel')}
           </button>
           <button className="btn-primary" onClick={salva} disabled={inInvio}>
-            {inInvio ? 'Salvo…' : 'Salva'}
+            {inInvio ? tr('Salvo…', 'Saving…') : tr('Salva', 'Save')}
           </button>
         </div>
       </li>
@@ -242,23 +243,23 @@ function SerieRiga({ serie, etichetta, onModificata, onEliminata }: SerieRigaPro
         {modalita === 'conferma' ? (
           <>
             <button className="btn-ghost min-h-9 px-3 text-xs" onClick={() => setModalita('vista')} disabled={inInvio}>
-              No
+              {tr('No', 'No')}
             </button>
             <button className="btn-danger min-h-9 px-3 text-xs" onClick={elimina} disabled={inInvio}>
-              {inInvio ? '…' : 'Elimina?'}
+              {inInvio ? '…' : tr('Elimina?', 'Delete?')}
             </button>
           </>
         ) : (
           <>
             <button
-              aria-label={`Correggi ${etichetta}`}
+              aria-label={tr(`Correggi ${etichetta}`, `Edit ${etichetta}`)}
               className="btn-ghost min-h-9 w-9 px-0 text-sm"
               onClick={apriModifica}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-4 w-4" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15l-1 5Z" /></svg>
             </button>
             <button
-              aria-label={`Elimina ${etichetta}`}
+              aria-label={tr(`Elimina ${etichetta}`, `Delete ${etichetta}`)}
               className="btn-ghost min-h-9 w-9 px-0 text-sm text-muted hover:text-danger"
               onClick={() => setModalita('conferma')}
             >
@@ -349,7 +350,7 @@ export default function ClienteDashboard() {
       setRiepilogo(aggiornata);
       setStatoFeedback('salvato');
     } catch (err) {
-      setErroreFeedback(err instanceof Error ? err.message : 'Feedback non salvato, riprova');
+      setErroreFeedback(err instanceof Error ? err.message : tr('Feedback non salvato, riprova', 'Feedback not saved, try again'));
       setStatoFeedback('modifica');
     }
   }
@@ -409,7 +410,7 @@ export default function ClienteDashboard() {
         setPeso(pesiIniziali);
         setReps(repsIniziali);
       } catch (err) {
-        setErrore(err instanceof Error ? err.message : 'Errore nel caricamento della scheda');
+        setErrore(err instanceof Error ? err.message : tr('Errore nel caricamento della scheda', 'Error loading the programme'));
       } finally {
         setCaricamento(false);
       }
@@ -536,7 +537,7 @@ export default function ClienteDashboard() {
       const prossima = pianoSerie(es)[storico.filter((x) => eOggi(x.data)).length];
       setReps((prev) => ({ ...prev, [es.id]: prev[es.id] || repsDiPartenza(prossima) }));
     } catch (err) {
-      setErroreEsercizio({ id: es.id, testo: err instanceof Error ? err.message : 'Ancora nessuna connessione, riprova' });
+      setErroreEsercizio({ id: es.id, testo: err instanceof Error ? err.message : tr('Ancora nessuna connessione, riprova', 'Still no connection, try again') });
     }
   }
 
@@ -578,11 +579,14 @@ export default function ClienteDashboard() {
     sbloccaAudio(); // dentro il tocco: così a fine recupero il telefono può suonare
     setErroreEsercizio(null);
     if (storiciFalliti.has(es.id)) {
-      setErroreEsercizio({ id: es.id, testo: 'Prima tocca "Riprova a caricare": serve lo storico per contare le serie' });
+      setErroreEsercizio({
+        id: es.id,
+        testo: tr('Prima tocca "Riprova a caricare": serve lo storico per contare le serie', 'First tap "Try loading again": the history is needed to count your sets'),
+      });
       return;
     }
     if (!valoriValidi(peso[es.id] || '', reps[es.id] || '')) {
-      setErroreEsercizio({ id: es.id, testo: 'Inserisci peso (anche 0 per il corpo libero) e ripetizioni' });
+      setErroreEsercizio({ id: es.id, testo: tr('Inserisci peso (anche 0 per il corpo libero) e ripetizioni', 'Enter weight (even 0 for bodyweight) and reps') });
       return;
     }
     const kg = leggiNumero(peso[es.id] || '');
@@ -631,7 +635,7 @@ export default function ClienteDashboard() {
         vaiAEsercizio(successivo.id);
       }
     } catch (err) {
-      setErroreEsercizio({ id: es.id, testo: err instanceof Error ? err.message : 'Errore nella registrazione' });
+      setErroreEsercizio({ id: es.id, testo: err instanceof Error ? err.message : tr('Errore nella registrazione', 'Error logging the set') });
     } finally {
       setInInvio((prev) => {
         const nuovo = new Set(prev);
@@ -699,7 +703,7 @@ export default function ClienteDashboard() {
       setRiepilogo(sessione);
       tornaAllaHome();
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nel salvataggio dell’allenamento');
+      setErrore(err instanceof Error ? err.message : tr('Errore nel salvataggio dell’allenamento', 'Error saving the workout'));
     } finally {
       setInChiusura(false);
     }
@@ -714,7 +718,7 @@ export default function ClienteDashboard() {
   }
 
   if (caricamento) {
-    return <p className="card py-16 text-center text-muted" role="status">Carico la tua scheda…</p>;
+    return <p className="card py-16 text-center text-muted" role="status">{tr('Carico la tua scheda…', 'Loading your programme…')}</p>;
   }
 
   if (schede.length === 0) {
@@ -725,8 +729,8 @@ export default function ClienteDashboard() {
           <span className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-accent-strong" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-7 w-7"><rect x="6" y="4" width="12" height="17" rx="2" /><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3" /></svg>
           </span>
-          <h2 className="text-2xl font-black uppercase tracking-tight">Il tuo percorso inizia qui</h2>
-          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">Il tuo trainer non ti ha ancora assegnato una scheda. Quando sarà pronta, la troverai in questa pagina.</p>
+          <h2 className="text-2xl font-black uppercase tracking-tight">{tr('Il tuo percorso inizia qui', 'Your journey starts here')}</h2>
+          <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">{tr('Il tuo trainer non ti ha ancora assegnato una scheda. Quando sarà pronta, la troverai in questa pagina.', 'Your trainer hasn’t assigned you a programme yet. When it’s ready, you’ll find it on this page.')}</p>
         </div>
         <MisureCorporee ruolo="CLIENTE" />
       </div>
@@ -739,26 +743,26 @@ export default function ClienteDashboard() {
       <div className="space-y-7">
         {errore && <p className="alert-error">{errore}</p>}
 
-        <p className="text-sm capitalize text-muted">{new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+        <p className="text-sm capitalize text-muted">{new Date().toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
 
         <div className="grid grid-cols-3 gap-3 sm:gap-4">
           <div className="card !p-4 sm:!p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted">Le tue schede</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">{tr('Le tue schede', 'Your programmes')}</p>
             <p className="mt-2 text-4xl font-black tabular-nums tracking-tight">{schede.length}</p>
           </div>
           <div className="card border-accent-strong bg-accent !p-4 text-accent-ink sm:!p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide">Serie oggi</p>
+            <p className="text-xs font-semibold uppercase tracking-wide">{tr('Serie oggi', 'Sets today')}</p>
             <p className="mt-2 text-4xl font-black tabular-nums tracking-tight">{schede.reduce((totale, scheda) => totale + statoScheda(scheda).serieFatte, 0)}</p>
           </div>
           <div className="card !p-4 sm:!p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted">Sessioni concluse</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">{tr('Sessioni concluse', 'Sessions done')}</p>
             <p className="mt-2 text-4xl font-black tabular-nums tracking-tight">{sessioni.length}</p>
           </div>
         </div>
 
         {riepilogo && (
           <div className="card border-success/40 bg-success-soft">
-            <p className="text-xs font-semibold tracking-wide text-success uppercase">Allenamento completato</p>
+            <p className="text-xs font-semibold tracking-wide text-success uppercase">{tr('Allenamento completato', 'Workout complete')}</p>
             <p className="mt-1 text-2xl font-black uppercase tracking-tight">{riepilogo.scheda.nome}</p>
             <div className="mt-3 grid grid-cols-2 gap-3">
               <div className="rounded-xl bg-bg/40 px-3 py-2">
@@ -766,47 +770,47 @@ export default function ClienteDashboard() {
                   {riepilogo.serieFatte}
                   <span className="text-base font-semibold text-muted">/{riepilogo.serieTotali}</span>
                 </p>
-                <p className="text-xs text-muted">serie</p>
+                <p className="text-xs text-muted">{tr('serie', 'sets')}</p>
               </div>
               <div className="rounded-xl bg-bg/40 px-3 py-2">
                 <p className="text-2xl font-extrabold tabular-nums">
-                  {Math.round(riepilogo.volume).toLocaleString('it-IT')}
+                  {Math.round(riepilogo.volume).toLocaleString(locale)}
                   <span className="text-base font-semibold text-muted"> kg</span>
                 </p>
-                <p className="text-xs text-muted">sollevati in totale</p>
+                <p className="text-xs text-muted">{tr('sollevati in totale', 'lifted in total')}</p>
               </div>
             </div>
-            <p className="mt-3 text-sm text-soft">Il tuo trainer vedrà che hai concluso l’allenamento.</p>
+            <p className="mt-3 text-sm text-soft">{tr('Il tuo trainer vedrà che hai concluso l’allenamento.', 'Your trainer will see that you finished the workout.')}</p>
 
             {/* Feedback per il trainer: com'è andata oggi */}
             <div className="mt-4 space-y-3 rounded-xl bg-bg/40 p-3">
-              <p className="font-bold">Com’è andato l’allenamento?</p>
+              <p className="font-bold">{tr('Com’è andato l’allenamento?', 'How did the workout go?')}</p>
               {statoFeedback === 'salvato' ? (
                 <div className="space-y-2">
-                  <p className="text-sm text-success">✓ Inviato al tuo trainer</p>
+                  <p className="text-sm text-success">{tr('✓ Inviato al tuo trainer', '✓ Sent to your trainer')}</p>
                   {riepilogo.fatica != null && (
                     <p className="text-sm">
-                      Fatica: <span className="font-bold">{riepilogo.fatica}/10</span>
+                      {tr('Fatica', 'Effort')}: <span className="font-bold">{riepilogo.fatica}/10</span>
                     </p>
                   )}
                   {riepilogo.nota && <p className="text-sm italic text-soft break-words">“{riepilogo.nota}”</p>}
                   <button className="btn-ghost min-h-10 px-3 text-sm" onClick={() => setStatoFeedback('modifica')}>
-                    Modifica
+                    {tr('Modifica', 'Edit')}
                   </button>
                 </div>
               ) : (
                 <>
                   <div>
-                    <p className="label">Quanto è stato faticoso?</p>
+                    <p className="label">{tr('Quanto è stato faticoso?', 'How hard was it?')}</p>
                     <SceltaFatica valore={fatica} onChange={setFatica} />
                   </div>
                   <div>
-                    <label className="label" htmlFor="nota-finale">Nota per il trainer (facoltativa)</label>
+                    <label className="label" htmlFor="nota-finale">{tr('Nota per il trainer (facoltativa)', 'Note for your trainer (optional)')}</label>
                     <textarea
                       id="nota-finale"
                       className="input min-h-[72px] resize-y"
                       maxLength={1000}
-                      placeholder='Es. "Oggi stanco, la panca è andata bene"'
+                      placeholder={tr('Es. "Oggi stanco, la panca è andata bene"', 'E.g. "Tired today, bench press went well"')}
                       value={notaFinale}
                       onChange={(e) => setNotaFinale(e.target.value)}
                     />
@@ -817,7 +821,7 @@ export default function ClienteDashboard() {
                     disabled={statoFeedback === 'salvo' || (fatica === null && !notaFinale.trim() && riepilogo.fatica == null && !riepilogo.nota)}
                     onClick={inviaFeedback}
                   >
-                    {statoFeedback === 'salvo' ? 'Invio…' : 'Invia al trainer'}
+                    {statoFeedback === 'salvo' ? tr('Invio…', 'Sending…') : tr('Invia al trainer', 'Send to trainer')}
                   </button>
                 </>
               )}
@@ -825,7 +829,7 @@ export default function ClienteDashboard() {
 
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button className="btn-ghost" onClick={() => riprendiAllenamento(riepilogo.schedaId)}>
-                Riprendi
+                {tr('Riprendi', 'Resume')}
               </button>
               <button className="btn-secondary" onClick={() => setRiepilogo(null)}>
                 Ok
@@ -836,8 +840,8 @@ export default function ClienteDashboard() {
 
         <div className="space-y-4">
           <div>
-            <h2 className="text-2xl font-black uppercase tracking-tight sm:text-3xl">Il tuo programma</h2>
-            <p className="mt-1 text-sm text-muted">Le schede preparate dal tuo trainer.</p>
+            <h2 className="text-2xl font-black uppercase tracking-tight sm:text-3xl">{tr('Il tuo programma', 'Your plan')}</h2>
+            <p className="mt-1 text-sm text-muted">{tr('Le schede preparate dal tuo trainer.', 'The programmes your trainer prepared.')}</p>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
           {schede.map((scheda) => {
@@ -851,15 +855,15 @@ export default function ClienteDashboard() {
                   <div className="min-w-0 flex-1">
                     <h3 className="text-2xl font-black uppercase tracking-tight">{scheda.nome}</h3>
                     <p className="mt-1 text-sm text-muted">
-                      {scheda.esercizi.length} esercizi · {serieTotali} serie
+                      {tr(`${scheda.esercizi.length} esercizi · ${serieTotali} serie`, `${scheda.esercizi.length} exercises · ${serieTotali} sets`)}
                     </p>
                   </div>
                   {chiusaOggi ? (
-                    <span className="chip shrink-0 bg-success-soft text-success">Completata oggi</span>
+                    <span className="chip shrink-0 bg-success-soft text-success">{tr('Completata oggi', 'Done today')}</span>
                   ) : (
                     iniziataOggi && (
                       <span className="chip shrink-0 bg-accent-soft text-accent-strong">
-                        {serieFatte}/{serieTotali} oggi
+                        {serieFatte}/{serieTotali} {tr('oggi', 'today')}
                       </span>
                     )
                   )}
@@ -867,18 +871,18 @@ export default function ClienteDashboard() {
 
                 <div className="rounded-xl bg-surface-2 px-4 py-3">
                   <div className="mb-2 flex items-center justify-between gap-3 text-xs font-medium text-muted">
-                    <span>Avanzamento di oggi</span>
-                    <span className="tabular-nums text-ink">{serieFatte} / {serieTotali} serie</span>
+                    <span>{tr('Avanzamento di oggi', 'Today’s progress')}</span>
+                    <span className="tabular-nums text-ink">{serieFatte} / {serieTotali} {tr('serie', 'sets')}</span>
                   </div>
-                  <div className="h-1.5 overflow-hidden rounded-full bg-line" role="progressbar" aria-label={`Avanzamento ${scheda.nome}`} aria-valuenow={serieFatte} aria-valuemin={0} aria-valuemax={serieTotali}>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-line" role="progressbar" aria-label={tr(`Avanzamento ${scheda.nome}`, `Progress ${scheda.nome}`)} aria-valuenow={serieFatte} aria-valuemin={0} aria-valuemax={serieTotali}>
                     <div className="h-full rounded-full bg-accent" style={{ width: `${serieTotali ? (serieFatte / serieTotali) * 100 : 0}%` }} />
                   </div>
                 </div>
 
                 <p className="mt-auto text-sm text-muted">
                   {ultimaData
-                    ? `Ultimo allenamento: ${ultimaData.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}`
-                    : 'Non ancora iniziata'}
+                    ? `${tr('Ultimo allenamento', 'Last workout')}: ${ultimaData.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}`
+                    : tr('Non ancora iniziata', 'Not started yet')}
                 </p>
 
                 {/* Già chiusa oggi → "Riprendi" riapre la scheda (senza cancellare nulla);
@@ -889,7 +893,7 @@ export default function ClienteDashboard() {
                       className="btn-secondary min-h-14 w-full text-base"
                       onClick={() => riprendiAllenamento(scheda.id)}
                     >
-                      Riprendi allenamento
+                      {tr('Riprendi allenamento', 'Resume workout')}
                     </button>
                     {/* Il feedback si può lasciare (o correggere) anche dopo aver chiuso il riepilogo */}
                     {riepilogo?.id !== sessioneOggi.id && (
@@ -900,13 +904,13 @@ export default function ClienteDashboard() {
                           vaiInCima();
                         }}
                       >
-                        {sessioneOggi.fatica != null || sessioneOggi.nota ? 'Vedi il tuo feedback' : 'Com’è andata? Lascia un feedback'}
+                        {sessioneOggi.fatica != null || sessioneOggi.nota ? tr('Vedi il tuo feedback', 'See your feedback') : tr('Com’è andata? Lascia un feedback', 'How did it go? Leave feedback')}
                       </button>
                     )}
                   </div>
                 ) : (
                   <button className="btn-primary min-h-14 w-full text-base" onClick={() => apriScheda(scheda.id)}>
-                    {iniziataOggi ? 'Continua allenamento' : 'Inizia allenamento'}
+                    {iniziataOggi ? tr('Continua allenamento', 'Continue workout') : tr('Inizia allenamento', 'Start workout')}
                   </button>
                 )}
               </article>
@@ -928,7 +932,7 @@ export default function ClienteDashboard() {
       {errore && <p className="alert-error">{errore}</p>}
 
       <button className="btn-ghost -mt-2" onClick={tornaAllaHome}>
-        ← Le mie schede
+        {tr('← Le mie schede', '← My programmes')}
       </button>
 
       {schede.filter((s) => s.id === schedaAperta).map((scheda) => {
@@ -938,14 +942,14 @@ export default function ClienteDashboard() {
           <section key={scheda.id} className="space-y-5">
             {/* Intestazione scheda con avanzamento della giornata */}
             <div className="rounded-2xl border border-line border-l-4 border-l-accent bg-surface p-5 sm:p-6">
-              <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-accent-strong">Il tuo allenamento</p>
+              <p className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-accent-strong">{tr('Il tuo allenamento', 'Your workout')}</p>
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <h2 className="text-3xl font-black uppercase tracking-tight sm:text-4xl">{scheda.nome}</h2>
                 <span className="shrink-0 text-sm text-soft">
-                  <span className="font-bold text-ink">{serieFatte}</span>/{serieTotali} serie oggi
+                  <span className="font-bold text-ink">{serieFatte}</span>/{serieTotali} {tr('serie oggi', 'sets today')}
                 </span>
               </div>
-              <div className="mt-4 h-2 overflow-hidden rounded-full bg-accent/10" role="progressbar" aria-label="Serie completate oggi" aria-valuenow={serieFatte} aria-valuemin={0} aria-valuemax={serieTotali}>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-accent/10" role="progressbar" aria-label={tr('Serie completate oggi', 'Sets completed today')} aria-valuenow={serieFatte} aria-valuemin={0} aria-valuemax={serieTotali}>
                 <div
                   className="h-full rounded-full bg-accent transition-all duration-500"
                   style={{ width: `${serieTotali ? (serieFatte / serieTotali) * 100 : 0}%` }}
@@ -973,8 +977,10 @@ export default function ClienteDashboard() {
               const testoDopo = !g
                 ? testoRecupero(es.recuperoSecondi)
                 : superset
-                  ? `poi subito ${dopo}`
-                  : `${testoRecupero(es.recuperoSecondi)}, poi ${nelMezzo ? '' : 'di nuovo '}${dopo}`;
+                  ? tr(`poi subito ${dopo}`, `then straight to ${dopo}`)
+                  : nelMezzo
+                    ? tr(`${testoRecupero(es.recuperoSecondi)}, poi ${dopo}`, `${testoRecupero(es.recuperoSecondi)}, then ${dopo}`)
+                    : tr(`${testoRecupero(es.recuperoSecondi)}, poi di nuovo ${dopo}`, `${testoRecupero(es.recuperoSecondi)}, then ${dopo} again`);
 
               return (
                 <Fragment key={es.id}>
@@ -991,10 +997,10 @@ export default function ClienteDashboard() {
                         .join(' + ')}
                       .{' '}
                       {g.nome === 'Jumpset'
-                        ? 'Alterna gli esercizi, con il recupero tra uno e l’altro.'
-                        : g.nome === 'Circuito'
-                          ? 'Alterna gli esercizi nell’ordine: l’app ti dice quando recuperare.'
-                          : 'Alterna gli esercizi senza recupero; recuperi a fine giro.'}
+                        ? tr('Alterna gli esercizi, con il recupero tra uno e l’altro.', 'Alternate the exercises, resting between each one.')
+                        : g.nome === tr('Circuito', 'Circuit')
+                          ? tr('Alterna gli esercizi nell’ordine: l’app ti dice quando recuperare.', 'Alternate the exercises in order: the app tells you when to rest.')
+                          : tr('Alterna gli esercizi senza recupero; recuperi a fine giro.', 'Alternate the exercises without resting; rest at the end of each round.')}
                     </p>
                   </div>
                 )}
@@ -1024,7 +1030,7 @@ export default function ClienteDashboard() {
 
                   {/* Serie di oggi come pallini: si capisce a colpo d'occhio a che punto sei */}
                   {/* Le serie aggiunte ancora da fare hanno il bordo tratteggiato: si vede che sono diverse */}
-                  <div className="flex items-center gap-1.5" aria-label={`${oggi} serie su ${piano.length} fatte oggi`}>
+                  <div className="flex items-center gap-1.5" aria-label={tr(`${oggi} serie su ${piano.length} fatte oggi`, `${oggi} of ${piano.length} sets done today`)}>
                     {piano.map((serie, i) => (
                       <span
                         key={i}
@@ -1043,7 +1049,7 @@ export default function ClienteDashboard() {
 
                   {es.descrizione && (
                     <div className="rounded-xl border-l-4 border-accent-strong bg-accent-soft px-3 py-2.5">
-                      <p className="text-xs font-semibold tracking-wide text-accent-strong uppercase">Dal tuo trainer</p>
+                      <p className="text-xs font-semibold tracking-wide text-accent-strong uppercase">{tr('Dal tuo trainer', 'From your trainer')}</p>
                       <p className="mt-1 text-sm leading-relaxed text-soft">{es.descrizione}</p>
                     </div>
                   )}
@@ -1051,8 +1057,8 @@ export default function ClienteDashboard() {
                   {/* Serie già fatte oggi: si possono correggere o eliminare se c'è stato un errore */}
                   {oggi > 0 && (
                     <div>
-                      <p className="label">Serie di oggi</p>
-                      <p className="-mt-1 mb-2 text-xs text-muted">Tocca la matita per correggere peso, ripetizioni o nota.</p>
+                      <p className="label">{tr('Serie di oggi', 'Today’s sets')}</p>
+                      <p className="-mt-1 mb-2 text-xs text-muted">{tr('Tocca la matita per correggere peso, ripetizioni o nota.', 'Tap the pencil to correct weight, reps or note.')}</p>
                       <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line">
                         {storico
                           .filter((x) => eOggi(x.data))
@@ -1060,7 +1066,7 @@ export default function ClienteDashboard() {
                             <SerieRiga
                               key={s.id}
                               serie={s}
-                              etichetta={`Serie ${i + 1}`}
+                              etichetta={tr(`Serie ${i + 1}`, `Set ${i + 1}`)}
                               onModificata={(nuova) => sostituisciSerie(es.id, nuova)}
                               onEliminata={(id) => rimuoviSerie(es.id, id)}
                             />
@@ -1071,14 +1077,14 @@ export default function ClienteDashboard() {
 
                   {storiciFalliti.has(es.id) ? (
                     <div className="space-y-2">
-                      <p className="alert-error">Non sono riuscito a caricare le tue serie di questo esercizio.</p>
+                      <p className="alert-error">{tr('Non sono riuscito a caricare le tue serie di questo esercizio.', 'I couldn’t load your sets for this exercise.')}</p>
                       {erroreEsercizio?.id === es.id && <p className="alert-error">{erroreEsercizio.testo}</p>}
                       <button className="btn-secondary min-h-12 w-full" onClick={() => ricaricaStorico(es)}>
-                        Riprova a caricare
+                        {tr('Riprova a caricare', 'Try loading again')}
                       </button>
                     </div>
                   ) : completato ? (
-                    <p className="alert-success">Esercizio completato per oggi. Ottimo lavoro!</p>
+                    <p className="alert-success">{tr('Esercizio completato per oggi. Ottimo lavoro!', 'Exercise done for today. Great work!')}</p>
                   ) : (
                     <>
                       {/* Se la prossima serie ha valori propri (aggiunta dal trainer) o è "Max",
@@ -1086,11 +1092,11 @@ export default function ClienteDashboard() {
                       {prossima && (prossima.aggiunta || prossima.reps == null) && (
                         <div className="rounded-xl border border-dashed border-accent-strong/70 bg-accent-soft px-3 py-2.5">
                           <p className="text-xs font-semibold tracking-wide text-accent-strong uppercase">
-                            Serie {prossima.numero}
+                            {tr('Serie', 'Set')} {prossima.numero}
                           </p>
                           <p className="mt-0.5 text-sm text-ink">
                             <span className="font-bold">
-                              {prossima.reps == null ? 'Max ripetizioni' : `${testoReps(prossima.reps, prossima.repsMax)} reps`}
+                              {prossima.reps == null ? tr('Max ripetizioni', 'Max reps') : `${testoReps(prossima.reps, prossima.repsMax)} reps`}
                             </span>
                             {!superset && <span className="text-soft"> · {testoRecupero(prossima.recuperoSecondi)}</span>}
                             {prossima.nota && <span className="text-soft"> · {prossima.nota}</span>}
@@ -1100,11 +1106,11 @@ export default function ClienteDashboard() {
 
                       {ultimaVolta && (
                         <p className="rounded-xl bg-surface-2 px-4 py-3 text-sm text-muted">
-                          Ultima volta:{' '}
+                          {tr('Ultima volta', 'Last time')}:{' '}
                           <span className="font-semibold text-soft">
                             {scriviNumero(ultimaVolta.pesoUsato)} kg × {ultimaVolta.repsFatte}
                           </span>{' '}
-                          · {new Date(ultimaVolta.data).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })}
+                          · {new Date(ultimaVolta.data).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })}
                         </p>
                       )}
 
@@ -1118,14 +1124,14 @@ export default function ClienteDashboard() {
                       {/* L'ultima nota che il cliente ha scritto le volte scorse: utile da rileggere prima di iniziare */}
                       {ultimaNotaPassata && (
                         <p className="rounded-xl border-l-4 border-line bg-surface-2 px-4 py-3 text-sm text-muted">
-                          La tua nota del {new Date(ultimaNotaPassata.data).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })}:{' '}
+                          {tr('La tua nota del', 'Your note from')} {new Date(ultimaNotaPassata.data).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })}:{' '}
                           <span className="italic text-soft">“{ultimaNotaPassata.nota}”</span>
                         </p>
                       )}
 
                       <div className="grid grid-cols-2 gap-3">
                         <Stepper
-                          etichetta="Peso (kg)"
+                          etichetta={tr('Peso (kg)', 'Weight (kg)')}
                           valore={peso[es.id] || ''}
                           passo={2.5}
                           minimo={0}
@@ -1133,7 +1139,7 @@ export default function ClienteDashboard() {
                           onChange={(v) => setPeso((prev) => ({ ...prev, [es.id]: v }))}
                         />
                         <Stepper
-                          etichetta="Ripetizioni"
+                          etichetta={tr('Ripetizioni', 'Reps')}
                           valore={reps[es.id] || ''}
                           passo={1}
                           minimo={1}
@@ -1147,8 +1153,8 @@ export default function ClienteDashboard() {
                         <input
                           className="input"
                           autoFocus
-                          aria-label="Nota per il trainer"
-                          placeholder='Per il trainer, es. "fastidio alla spalla"'
+                          aria-label={tr('Nota per il trainer', 'Note for your trainer')}
+                          placeholder={tr('Per il trainer, es. "fastidio alla spalla"', 'For your trainer, e.g. "shoulder discomfort"')}
                           value={nota[es.id] || ''}
                           maxLength={500}
                           onChange={(e) => setNota({ ...nota, [es.id]: e.target.value })}
@@ -1162,7 +1168,7 @@ export default function ClienteDashboard() {
                         disabled={inInvio.has(es.id)}
                         onClick={() => handleRegistra(es)}
                       >
-                        {inInvio.has(es.id) ? 'Salvo…' : `Registra serie ${oggi + 1} di ${piano.length}`}
+                        {inInvio.has(es.id) ? tr('Salvo…', 'Saving…') : tr(`Registra serie ${oggi + 1} di ${piano.length}`, `Log set ${oggi + 1} of ${piano.length}`)}
                       </button>
                     </>
                   )}
@@ -1172,7 +1178,7 @@ export default function ClienteDashboard() {
                     {/* Solo link web normali: un link "javascript:" non viene mai reso cliccabile */}
                     {es.videoUrl && /^https?:\/\//i.test(es.videoUrl) && (
                       <a href={es.videoUrl} target="_blank" rel="noreferrer" className="btn-ghost flex-1">
-                        Video esercizio
+                        {tr('Video esercizio', 'Exercise video')}
                       </a>
                     )}
                     {!completato && (
@@ -1180,7 +1186,7 @@ export default function ClienteDashboard() {
                         className={`btn-ghost flex-1 ${nota[es.id] ? 'text-accent-strong' : ''}`}
                         onClick={() => setNotaAperta(notaAperta === es.id ? null : es.id)}
                       >
-                        {nota[es.id] ? 'Nota pronta' : 'Aggiungi nota'}
+                        {nota[es.id] ? tr('Nota pronta', 'Note ready') : tr('Aggiungi nota', 'Add note')}
                       </button>
                     )}
                     {leMieNote.length > 0 && (
@@ -1189,7 +1195,7 @@ export default function ClienteDashboard() {
                         aria-expanded={noteAperte === es.id}
                         onClick={() => setNoteAperte(noteAperte === es.id ? null : es.id)}
                       >
-                        Le tue note ({leMieNote.length})
+                        {tr('Le tue note', 'Your notes')} ({leMieNote.length})
                       </button>
                     )}
                     <button
@@ -1203,7 +1209,7 @@ export default function ClienteDashboard() {
                           <path d="M3 3v18h18" />
                           <path d="m7 15 4-4 3 3 5-6" />
                         </svg>
-                        Storico carichi
+                        {tr('Storico carichi', 'Load history')}
                       </span>
                     </button>
                   </div>
@@ -1211,13 +1217,13 @@ export default function ClienteDashboard() {
                   {/* Tutte le note scritte su questo esercizio, con data e serie: si possono anche correggere */}
                   {noteAperte === es.id && leMieNote.length > 0 && (
                     <div className="space-y-2 border-t border-line pt-4">
-                      <p className="label">Le tue note su {es.nome}</p>
+                      <p className="label">{tr(`Le tue note su ${es.nome}`, `Your notes on ${es.nome}`)}</p>
                       <ul className="divide-y divide-line rounded-xl bg-surface-2 text-sm">
                         {leMieNote.map((r) => (
                           <SerieRiga
                             key={r.id}
                             serie={r}
-                            etichetta={new Date(r.data).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })}
+                            etichetta={new Date(r.data).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })}
                             onModificata={(nuova) => sostituisciSerie(es.id, nuova)}
                             onEliminata={(id) => rimuoviSerie(es.id, id)}
                           />
@@ -1232,22 +1238,22 @@ export default function ClienteDashboard() {
                       {/* Le serie raggruppate per giorno, dal più recente (ultimi 5 giorni): si possono correggere */}
                       {storico.length > 0 && (
                         <div className="space-y-3">
-                          <p className="label">Le tue serie, giorno per giorno</p>
+                          <p className="label">{tr('Le tue serie, giorno per giorno', 'Your sets, day by day')}</p>
                           {seriePerGiorno(storico)
                             .slice(0, 5)
                             .map((giorno) => (
                               <div key={giorno.chiave}>
                                 <p className="mb-1 px-1 text-xs font-bold text-soft">
                                   {eOggi(giorno.data)
-                                    ? 'Oggi'
-                                    : new Date(giorno.data).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                    ? tr('Oggi', 'Today')
+                                    : new Date(giorno.data).toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}
                                 </p>
                                 <ul className="divide-y divide-line rounded-xl bg-surface-2 text-sm">
                                   {giorno.serie.map((r, i) => (
                                     <SerieRiga
                                       key={r.id}
                                       serie={r}
-                                      etichetta={`Serie ${i + 1}`}
+                                      etichetta={tr(`Serie ${i + 1}`, `Set ${i + 1}`)}
                                       onModificata={(nuova) => sostituisciSerie(es.id, nuova)}
                                       onEliminata={(id) => rimuoviSerie(es.id, id)}
                                     />
@@ -1266,12 +1272,12 @@ export default function ClienteDashboard() {
 
             {/* Fine allenamento: salva il riepilogo e torna alla home */}
             <div className="rounded-2xl border border-line bg-surface p-5 sm:p-6">
-              <h3 className="mb-2 text-xl font-black uppercase tracking-tight">Hai concluso per oggi?</h3>
-              <p className="mb-4 text-sm leading-relaxed text-muted">Salva il riepilogo dell’allenamento per condividerlo con il tuo trainer.</p>
+              <h3 className="mb-2 text-xl font-black uppercase tracking-tight">{tr('Hai concluso per oggi?', 'Done for today?')}</h3>
+              <p className="mb-4 text-sm leading-relaxed text-muted">{tr('Salva il riepilogo dell’allenamento per condividerlo con il tuo trainer.', 'Save the workout summary to share it with your trainer.')}</p>
               {errore && <p className="alert-error">{errore}</p>}
               {serieFatte < serieTotali && (
                 <p className="mb-3 text-sm text-muted">
-                  Mancano {serieTotali - serieFatte} serie: puoi chiudere lo stesso.
+                  {tr(`Mancano ${serieTotali - serieFatte} serie: puoi chiudere lo stesso.`, `${serieTotali - serieFatte} sets left: you can finish anyway.`)}
                 </p>
               )}
               <button
@@ -1281,7 +1287,7 @@ export default function ClienteDashboard() {
                 disabled={inChiusura}
                 onClick={() => handleCompleta(scheda)}
               >
-                {inChiusura ? 'Salvo…' : 'Allenamento completato'}
+                {inChiusura ? tr('Salvo…', 'Saving…') : tr('Allenamento completato', 'Workout complete')}
               </button>
             </div>
           </section>
@@ -1296,7 +1302,7 @@ export default function ClienteDashboard() {
         >
           <div className="mx-auto flex max-w-3xl items-center gap-3">
             <div className="min-w-0 flex-1">
-              <p className="text-xs text-muted">Niente recupero · tocca a</p>
+              <p className="text-xs text-muted">{tr('Niente recupero · tocca a', 'No rest · up next')}</p>
               <p className="truncate text-xl font-black text-accent-strong">{avviso}</p>
             </div>
             <button className="btn-secondary" onClick={() => setAvviso(null)}>
@@ -1312,12 +1318,12 @@ export default function ClienteDashboard() {
           {/* Riga del suono: altoparlante per silenziare e slider del volume */}
           <div className="mx-auto flex max-w-3xl items-center gap-2">
             <p className="min-w-0 flex-1 truncate text-xs text-muted">
-              {recuperoFinito ? 'Recupero finito' : 'Recupero'} · {timer.nome}
+              {recuperoFinito ? tr('Recupero finito', 'Rest over') : tr('Recupero', 'Rest')} · {timer.nome}
             </p>
             <button
               type="button"
               onClick={cambiaMuto}
-              aria-label={muto ? 'Riattiva il suono del timer' : 'Silenzia il timer'}
+              aria-label={muto ? tr('Riattiva il suono del timer', 'Turn the timer sound back on') : tr('Silenzia il timer', 'Mute the timer')}
               aria-pressed={muto}
               className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors ${
                 muto ? 'bg-surface-2 text-muted' : 'bg-accent-soft text-accent-strong'
@@ -1331,8 +1337,8 @@ export default function ClienteDashboard() {
               max={100}
               step={5}
               value={muto ? 0 : volume}
-              aria-label="Volume del timer"
-              aria-valuetext={muto ? 'silenziato' : `${volume}%`}
+              aria-label={tr('Volume del timer', 'Timer volume')}
+              aria-valuetext={muto ? tr('silenziato', 'muted') : `${volume}%`}
               onChange={(e) => cambiaVolume(Number(e.target.value))}
               // anteprima del suono quando si lascia lo slider
               onPointerUp={provaSuono}
@@ -1343,16 +1349,16 @@ export default function ClienteDashboard() {
           <div className="mx-auto flex max-w-3xl items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className={`text-4xl font-black tabular-nums ${recuperoFinito ? 'text-success' : 'text-accent-strong'}`}>
-                {recuperoFinito ? 'Via!' : formattaTempo(secondiRimasti)}
+                {recuperoFinito ? tr('Via!', 'Go!') : formattaTempo(secondiRimasti)}
               </p>
               {timer.poi && (
                 <p className="truncate text-sm text-soft">
-                  Poi: <span className="font-bold text-ink">{timer.poi}</span>
+                  {tr('Poi', 'Next')}: <span className="font-bold text-ink">{timer.poi}</span>
                 </p>
               )}
             </div>
             <button className="btn-secondary" onClick={() => setTimer(null)}>
-              {recuperoFinito ? 'Chiudi' : 'Salta'}
+              {recuperoFinito ? tr('Chiudi', 'Close') : tr('Salta', 'Skip')}
             </button>
           </div>
           {!recuperoFinito && (
@@ -1362,7 +1368,7 @@ export default function ClienteDashboard() {
                   key={s}
                   type="button"
                   className="btn-ghost px-0 tabular-nums"
-                  aria-label={s > 0 ? `Aggiungi ${s} secondi` : `Togli ${-s} secondi`}
+                  aria-label={s > 0 ? tr(`Aggiungi ${s} secondi`, `Add ${s} seconds`) : tr(`Togli ${-s} secondi`, `Remove ${-s} seconds`)}
                   onClick={() => cambiaTempo(s)}
                 >
                   {s > 0 ? `+${s}s` : `−${-s}s`}

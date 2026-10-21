@@ -5,6 +5,7 @@ import { migliorePerGiorno, record, testoSerie, testoVariazione, variazione, Var
 
 // I colori del grafico mantengono il contrasto sulle superfici scure dell'interfaccia.
 import { useColoriTema } from './tema';
+import { locale, tr } from './lingua';
 
 interface Props {
   storico: RegistroAllenamento[];
@@ -55,14 +56,14 @@ export function StrisciaProgressi({ storico, aperta, onApri }: { storico: Regist
       className="flex w-full items-center gap-3 rounded-xl border border-line bg-surface-2 px-4 py-3 text-left transition-colors hover:border-accent"
     >
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-extrabold uppercase tracking-wide text-ink">Storico carichi</p>
+        <p className="text-xs font-extrabold uppercase tracking-wide text-ink">{tr('Storico carichi', 'Load history')}</p>
         <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
           <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-bold ${coloreTendenza(v.tendenza)}`}>
             <Freccia tendenza={v.tendenza} />
             {testoVariazione(v)}
           </span>
           <span className="text-muted">
-            Record <span className="font-semibold text-soft">{testoSerie(rec)}</span>
+            {tr('Record', 'Best')} <span className="font-semibold text-soft">{testoSerie(rec)}</span>
           </span>
         </p>
       </div>
@@ -82,9 +83,9 @@ function Dato({ etichetta, valore, sotto }: { etichetta: string; valore: ReactNo
   );
 }
 
-const kg = (n: number) => `${n.toLocaleString('it-IT', { maximumFractionDigits: 2 })} kg`;
+const kg = (n: number) => `${n.toLocaleString(locale, { maximumFractionDigits: 2 })} kg`;
 
-export default function ProgressoChart({ storico, titolo = 'Storico carichi' }: Props) {
+export default function ProgressoChart({ storico, titolo = tr('Storico carichi', 'Load history') }: Props) {
   // Colori letti dal tema attuale: il grafico cambia insieme a chiaro/scuro.
   const COLORI = useColoriTema();
   // Il cliente registra ogni serie: in un giorno ci sono più righe.
@@ -98,7 +99,7 @@ export default function ProgressoChart({ storico, titolo = 'Storico carichi' }: 
     // Con un solo giorno non c'è una "progressione" da disegnare.
     return (
       <p className="rounded-xl border border-line bg-surface-2 px-4 py-4 text-sm leading-relaxed text-muted">
-        Lo storico carichi compare dopo almeno due giorni di allenamento su questo esercizio.
+        {tr('Lo storico carichi compare dopo almeno due giorni di allenamento su questo esercizio.', 'The load history appears after at least two training days on this exercise.')}
       </p>
     );
   }
@@ -118,27 +119,27 @@ export default function ProgressoChart({ storico, titolo = 'Storico carichi' }: 
   const iRecord = dati.indexOf(rec);
   const idGradiente = `area-progressi-${titolo.replace(/\W/g, '')}`;
   const testoAndamento =
-    v.kg !== 0 ? `${v.kg > 0 ? '+' : '−'}${kg(Math.abs(v.kg))}` : v.reps !== 0 ? `${v.reps > 0 ? '+' : '−'}${Math.abs(v.reps)} rip.` : 'Stabile';
+    v.kg !== 0 ? `${v.kg > 0 ? '+' : '−'}${kg(Math.abs(v.kg))}` : v.reps !== 0 ? `${v.reps > 0 ? '+' : '−'}${Math.abs(v.reps)} ${tr('rip.', 'reps')}` : tr('Stabile', 'Steady');
 
   return (
     <div className="space-y-4 rounded-xl border border-line bg-surface px-3 py-4 sm:px-4">
       <div className="px-1">
         <p className="text-sm font-extrabold uppercase tracking-wide text-ink">{titolo}</p>
-        <p className="mt-1 text-xs text-muted">Ogni punto è la serie più pesante di quel giorno.</p>
+        <p className="mt-1 text-xs text-muted">{tr('Ogni punto è la serie più pesante di quel giorno.', 'Each point is the heaviest set of that day.')}</p>
       </div>
 
       {/* I tre numeri che contano, prima del grafico */}
       <div className="grid grid-cols-3 gap-2">
-        <Dato etichetta="Record" valore={kg(rec.peso)} sotto={`× ${rec.reps} · ${rec.etichetta}`} />
-        <Dato etichetta="Ultima volta" valore={kg(ultimo.peso)} sotto={`× ${ultimo.reps} · ${ultimo.etichetta}`} />
+        <Dato etichetta={tr('Record', 'Best')} valore={kg(rec.peso)} sotto={`× ${rec.reps} · ${rec.etichetta}`} />
+        <Dato etichetta={tr('Ultima volta', 'Last time')} valore={kg(ultimo.peso)} sotto={`× ${ultimo.reps} · ${ultimo.etichetta}`} />
         <Dato
-          etichetta="Andamento"
+          etichetta={tr('Andamento', 'Trend')}
           valore={
             <span className={`inline-flex items-center gap-1 ${v.tendenza === 'su' ? 'text-success' : v.tendenza === 'giu' ? 'text-warning' : ''}`}>
               {testoAndamento}
             </span>
           }
-          sotto={`dal ${v.dal}`}
+          sotto={tr(`dal ${v.dal}`, `since ${v.dal}`)}
         />
       </div>
 
@@ -165,7 +166,7 @@ export default function ProgressoChart({ storico, titolo = 'Storico carichi' }: 
           <Tooltip
             cursor={{ stroke: COLORI.testo, strokeDasharray: '3 3' }}
             separator=": "
-            formatter={(value: number, _name, item) => [`${value.toLocaleString('it-IT')} kg × ${item.payload.reps}`, 'Serie migliore']}
+            formatter={(value: number, _name, item) => [`${value.toLocaleString(locale)} kg × ${item.payload.reps}`, tr('Serie migliore', 'Best set')]}
             contentStyle={{
               background: COLORI.tooltip,
               border: `1px solid ${COLORI.griglia}`,
@@ -204,7 +205,7 @@ export default function ProgressoChart({ storico, titolo = 'Storico carichi' }: 
                 dataKey="peso"
                 position="top"
                 offset={12}
-                formatter={(val: number) => val.toLocaleString('it-IT')}
+                formatter={(val: number) => val.toLocaleString(locale)}
                 style={{ fontSize: 12, fontWeight: 700, fill: COLORI.inchiostro }}
               />
             )}
@@ -213,7 +214,7 @@ export default function ProgressoChart({ storico, titolo = 'Storico carichi' }: 
       </ResponsiveContainer>
       <p className="flex items-center gap-2 px-1 text-xs text-muted">
         <span className="inline-block h-3 w-3 rounded-full" style={{ background: COLORI.successo }} />
-        Il punto verde è il tuo record.
+        {tr('Il punto verde è il tuo record.', 'The green dot is your best.')}
       </p>
     </div>
   );

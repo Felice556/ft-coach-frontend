@@ -1,3 +1,5 @@
+import { lingua, tr } from './lingua';
+
 // Indirizzo del backend, dalla variabile VITE_API_URL (file .env o impostazioni di Cloudflare Pages).
 function risolviApiUrl(): string {
   const daEnv = import.meta.env.VITE_API_URL as string | undefined;
@@ -78,16 +80,16 @@ export const EVENTO_SOSPESO = 'palestra:sospeso';
 
 // Nomi leggibili dei campi, per i messaggi di errore.
 const NOMI_CAMPI: Record<string, string> = {
-  nome: 'nome',
-  clienteId: 'cliente',
+  nome: tr('nome', 'name'),
+  clienteId: tr('cliente', 'client'),
   videoUrl: 'video',
-  descrizione: 'note',
-  serieTarget: 'serie',
+  descrizione: tr('note', 'notes'),
+  serieTarget: tr('serie', 'sets'),
   repsTarget: 'reps',
   repsMax: 'reps',
   reps: 'reps',
-  recuperoSecondi: 'recupero',
-  nota: 'nota',
+  recuperoSecondi: tr('recupero', 'rest'),
+  nota: tr('nota', 'note'),
 };
 
 // Da { path: ['esercizi', 1, 'videoUrl'], message: '...' } a "Esercizio 2 → video: ..."
@@ -97,17 +99,17 @@ function descriviErrore(e: { path?: (string | number)[]; message?: string }): st
   for (let i = 0; i < path.length; i++) {
     const p = path[i];
     if (p === 'esercizi' && typeof path[i + 1] === 'number') {
-      parti.push(`Esercizio ${(path[i + 1] as number) + 1}`);
+      parti.push(tr(`Esercizio ${(path[i + 1] as number) + 1}`, `Exercise ${(path[i + 1] as number) + 1}`));
       i++;
     } else if (p === 'serieExtra' && typeof path[i + 1] === 'number') {
-      parti.push(`serie aggiunta ${(path[i + 1] as number) + 1}`);
+      parti.push(tr(`serie aggiunta ${(path[i + 1] as number) + 1}`, `extra set ${(path[i + 1] as number) + 1}`));
       i++;
     } else if (typeof p === 'string') {
       parti.push(NOMI_CAMPI[p] || p);
     }
   }
   const dove = parti.length ? `${parti.join(' → ')}: ` : '';
-  return `${dove}${e.message || 'valore non valido'}`;
+  return `${dove}${e.message || tr('valore non valido', 'invalid value')}`;
 }
 
 // Wrapper unico per fetch: aggiunge automaticamente il token (se presente)
@@ -120,6 +122,8 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      // Il server risponde con i messaggi (errori compresi) nella lingua dell'app.
+      'Accept-Language': lingua,
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
@@ -139,7 +143,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   // (/login escluso: lì un 401 vuol dire solo "email o password sbagliate".)
   if (risposta.status === 401 && token && path !== '/login') {
     window.dispatchEvent(new Event(EVENTO_SESSIONE_SCADUTA));
-    throw new Error('Sessione scaduta: accedi di nuovo qui sopra, poi riprova');
+    throw new Error(tr('Sessione scaduta: accedi di nuovo qui sopra, poi riprova', 'Session expired: sign in again above, then try again'));
   }
 
   if (!risposta.ok) {
@@ -163,7 +167,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     if (Array.isArray(corpo.errori) && corpo.errori.length > 0) {
       throw new Error(corpo.errori.map(descriviErrore).join(' · '));
     }
-    throw new Error(`Errore ${risposta.status}`);
+    throw new Error(tr(`Errore ${risposta.status}`, `Error ${risposta.status}`));
   }
 
   if (risposta.status === 204) {
@@ -186,10 +190,10 @@ export function login(email: string, password: string) {
 // si presenta in due righe (presentazione) e resta in attesa finché l'amministratore non lo approva.
 // Fasce di clienti seguiti: le chiediamo ai trainer che si registrano senza invito.
 export const FASCE_CLIENTI = [
-  { valore: '1-10', testo: 'Da 1 a 10' },
-  { valore: '11-30', testo: 'Da 11 a 30' },
-  { valore: '31-50', testo: 'Da 31 a 50' },
-  { valore: '50+', testo: 'Più di 50' },
+  { valore: '1-10', testo: tr('Da 1 a 10', '1 to 10') },
+  { valore: '11-30', testo: tr('Da 11 a 30', '11 to 30') },
+  { valore: '31-50', testo: tr('Da 31 a 50', '31 to 50') },
+  { valore: '50+', testo: tr('Più di 50', 'More than 50') },
 ] as const;
 
 export function register(

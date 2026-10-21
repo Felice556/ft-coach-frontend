@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getStoricoScheda, RegistroAllenamento, StoricoScheda } from './api';
 import ProgressoChart from './ProgressoChart';
 import { riassuntoSerie } from './serie';
+import { locale, tr } from './lingua';
 
 // Pannello del trainer: tutti i dati che il cliente ha registrato su una scheda.
 // Due viste: "Per esercizio" (grafico + storico, come lo vede il cliente) e
@@ -18,10 +19,10 @@ interface Props {
 
 const chiaveGiorno = (iso: string) => new Date(iso).toDateString();
 const dataLunga = (iso: string) =>
-  new Date(iso).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  new Date(iso).toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 const dataCorta = (iso: string) =>
-  new Date(iso).toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' });
-const kg = (n: number) => n.toLocaleString('it-IT', { maximumFractionDigits: 2 });
+  new Date(iso).toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: '2-digit' });
+const kg = (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 2 });
 
 // Serie di un giorno come "60 kg × 8 · 62,5 kg × 6"
 function Serie({ serie }: { serie: RegistroAllenamento[] }) {
@@ -54,7 +55,7 @@ export default function StoricoCliente({ schedaId, vistaIniziale = 'esercizi', g
   useEffect(() => {
     getStoricoScheda(schedaId)
       .then(setDati)
-      .catch((err) => setErrore(err instanceof Error ? err.message : 'Errore nel caricamento dello storico'));
+      .catch((err) => setErrore(err instanceof Error ? err.message : tr('Errore nel caricamento dello storico', 'Error loading the history')));
   }, [schedaId]);
 
   // Chiusura con Esc (da computer) e pagina sotto bloccata mentre il pannello è aperto.
@@ -109,20 +110,20 @@ export default function StoricoCliente({ schedaId, vistaIniziale = 'esercizi', g
       <div className="sticky top-0 z-10 border-b border-line bg-surface/95 pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="min-w-0">
-            <p className="eyebrow">Progressi{dati ? ` · ${dati.cliente.nome}` : ''}</p>
+            <p className="eyebrow">{tr('Progressi', 'Progress')}{dati ? ` · ${dati.cliente.nome}` : ''}</p>
             <h2 id="storico-titolo" className="truncate text-lg font-extrabold uppercase tracking-tight">
-              {dati?.nome ?? 'Caricamento…'}
+              {dati?.nome ?? tr('Caricamento…', 'Loading…')}
             </h2>
           </div>
           <button type="button" className="btn-secondary shrink-0 px-4" onClick={onChiudi}>
-            Chiudi
+            {tr('Chiudi', 'Close')}
           </button>
         </div>
         <div className="mx-auto flex max-w-4xl gap-2 px-4 pb-3 sm:px-6" role="tablist">
           {(
             [
-              ['esercizi', 'Per esercizio'],
-              ['allenamenti', 'Per allenamento'],
+              ['esercizi', tr('Per esercizio', 'By exercise')],
+              ['allenamenti', tr('Per allenamento', 'By workout')],
             ] as [Vista, string][]
           ).map(([v, testo]) => (
             <button
@@ -143,9 +144,9 @@ export default function StoricoCliente({ schedaId, vistaIniziale = 'esercizi', g
 
       <div className="mx-auto max-w-4xl space-y-4 px-4 py-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-6">
         {errore && <p className="alert-error">{errore}</p>}
-        {!dati && !errore && <p className="py-10 text-center text-muted">Carico i dati del cliente…</p>}
+        {!dati && !errore && <p className="py-10 text-center text-muted">{tr('Carico i dati del cliente…', 'Loading the client’s data…')}</p>}
         {dati && giorni.length === 0 && (
-          <p className="empty-state">{dati.cliente.nome} non ha ancora registrato serie su questa scheda.</p>
+          <p className="empty-state">{tr(`${dati.cliente.nome} non ha ancora registrato serie su questa scheda.`, `${dati.cliente.nome} hasn’t logged any sets on this programme yet.`)}</p>
         )}
 
         {/* ---------- Per esercizio ---------- */}
@@ -166,22 +167,22 @@ export default function StoricoCliente({ schedaId, vistaIniziale = 'esercizi', g
                   <div className="flex flex-wrap items-center gap-2">
                     <h3 className="text-lg font-extrabold tracking-tight">{es.nome}</h3>
                     {es.archiviatoIl && (
-                      <span className="rounded-md bg-surface-2 px-2 py-0.5 text-xs font-semibold text-muted">tolto dalla scheda</span>
+                      <span className="rounded-md bg-surface-2 px-2 py-0.5 text-xs font-semibold text-muted">{tr('tolto dalla scheda', 'removed from the programme')}</span>
                     )}
                   </div>
-                  <p className="mt-0.5 text-sm text-soft">Programma: {riassuntoSerie(es)}</p>
+                  <p className="mt-0.5 text-sm text-soft">{tr('Programma', 'Plan')}: {riassuntoSerie(es)}</p>
                   {migliore && (
                     <p className="mt-1 text-sm text-muted">
-                      Record: <span className="font-bold text-ink">{kg(migliore.pesoUsato)} kg × {migliore.repsFatte}</span> ·{' '}
-                      {dataCorta(migliore.data)} · {perGiorno.size} {perGiorno.size === 1 ? 'allenamento' : 'allenamenti'}
+                      {tr('Record', 'Best')}: <span className="font-bold text-ink">{kg(migliore.pesoUsato)} kg × {migliore.repsFatte}</span> ·{' '}
+                      {dataCorta(migliore.data)} · {perGiorno.size} {perGiorno.size === 1 ? tr('allenamento', 'workout') : tr('allenamenti', 'workouts')}
                     </p>
                   )}
                 </header>
                 {es.registri.length === 0 ? (
-                  <p className="text-sm text-muted">Nessuna serie registrata.</p>
+                  <p className="text-sm text-muted">{tr('Nessuna serie registrata.', 'No sets logged.')}</p>
                 ) : (
                   <>
-                    <ProgressoChart storico={es.registri} titolo={`Progressi di ${dati.cliente.nome}`} />
+                    <ProgressoChart storico={es.registri} titolo={tr(`Progressi di ${dati.cliente.nome}`, `${dati.cliente.nome}’s progress`)} />
                     <ul className="divide-y divide-line">
                       {mostrati.map((serie) => (
                         <li key={serie[0].id} className="space-y-2 py-3">
@@ -196,7 +197,7 @@ export default function StoricoCliente({ schedaId, vistaIniziale = 'esercizi', g
                         className="btn-link text-sm"
                         onClick={() => setTuttiIGiorni((p) => ({ ...p, [es.id]: !p[es.id] }))}
                       >
-                        {tuttiIGiorni[es.id] ? 'Mostra meno' : `Mostra tutti i ${elenco.length} allenamenti`}
+                        {tuttiIGiorni[es.id] ? tr('Mostra meno', 'Show less') : tr(`Mostra tutti i ${elenco.length} allenamenti`, `Show all ${elenco.length} workouts`)}
                       </button>
                     )}
                   </>
@@ -221,8 +222,8 @@ export default function StoricoCliente({ schedaId, vistaIniziale = 'esercizi', g
                     <div className="min-w-0">
                       <p className="font-bold first-letter:uppercase">{dataLunga(g.data)}</p>
                       <p className="mt-0.5 text-sm text-muted">
-                        {g.esercizi.length} {g.esercizi.length === 1 ? 'esercizio' : 'esercizi'} · {g.numeroSerie} serie ·{' '}
-                        {Math.round(g.volume).toLocaleString('it-IT')} kg sollevati
+                        {g.esercizi.length} {g.esercizi.length === 1 ? tr('esercizio', 'exercise') : tr('esercizi', 'exercises')} · {g.numeroSerie}{' '}
+                        {g.numeroSerie === 1 ? tr('serie', 'set') : tr('serie', 'sets')} · {Math.round(g.volume).toLocaleString(locale)} {tr('kg sollevati', 'kg lifted')}
                       </p>
                     </div>
                     <span aria-hidden className="text-muted">{aperto ? '▴' : '▾'}</span>

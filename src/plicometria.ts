@@ -1,18 +1,20 @@
 // Plicometria: % di massa grassa dalle pliche, con le formule di Jackson & Pollock
 // (densità corporea) e di Siri (da densità a % di grasso).
 
+import { tr } from './lingua';
+
 export type Sesso = 'M' | 'F';
 export type NumeroSiti = 3 | 7;
 export type Sito = 'pettorale' | 'addome' | 'coscia' | 'tricipite' | 'sovrailiaca' | 'sottoscapolare' | 'ascellare';
 
 export const NOMI_SITI: Record<Sito, string> = {
-  pettorale: 'Pettorale',
-  addome: 'Addome',
-  coscia: 'Coscia',
-  tricipite: 'Tricipite',
-  sovrailiaca: 'Sovrailiaca',
-  sottoscapolare: 'Sottoscapolare',
-  ascellare: 'Ascellare',
+  pettorale: tr('Pettorale', 'Chest'),
+  addome: tr('Addome', 'Abdomen'),
+  coscia: tr('Coscia', 'Thigh'),
+  tricipite: tr('Tricipite', 'Triceps'),
+  sovrailiaca: tr('Sovrailiaca', 'Suprailiac'),
+  sottoscapolare: tr('Sottoscapolare', 'Subscapular'),
+  ascellare: tr('Ascellare', 'Midaxillary'),
 };
 
 // Quali pliche servono: con 7 siti sono le stesse per tutti,

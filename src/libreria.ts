@@ -1,19 +1,20 @@
 // Libreria esercizi: gruppi muscolari e ricerca "con poche lettere".
 import type { EsercizioPreset, GruppoMuscolare } from './api';
+import { tr } from './lingua';
 
 export const GRUPPI: { valore: GruppoMuscolare; nome: string }[] = [
-  { valore: 'PETTO', nome: 'Petto' },
-  { valore: 'DORSO', nome: 'Dorso' },
-  { valore: 'SPALLE', nome: 'Spalle' },
-  { valore: 'BRACCIA', nome: 'Braccia' },
-  { valore: 'GAMBE', nome: 'Gambe' },
-  { valore: 'ADDOME', nome: 'Addome' },
+  { valore: 'PETTO', nome: tr('Petto', 'Chest') },
+  { valore: 'DORSO', nome: tr('Dorso', 'Back') },
+  { valore: 'SPALLE', nome: tr('Spalle', 'Shoulders') },
+  { valore: 'BRACCIA', nome: tr('Braccia', 'Arms') },
+  { valore: 'GAMBE', nome: tr('Gambe', 'Legs') },
+  { valore: 'ADDOME', nome: tr('Addome', 'Abs') },
   { valore: 'CARDIO', nome: 'Cardio' },
-  { valore: 'ALTRO', nome: 'Altro' },
+  { valore: 'ALTRO', nome: tr('Altro', 'Other') },
 ];
 
 export const nomeGruppo = (g: GruppoMuscolare | null | undefined) =>
-  GRUPPI.find((x) => x.valore === g)?.nome ?? 'Senza gruppo';
+  GRUPPI.find((x) => x.valore === g)?.nome ?? tr('Senza gruppo', 'No group');
 
 // Minuscolo e senza accenti: "Pànca" e "panca" sono la stessa cosa.
 export function normalizza(testo: string): string {
@@ -53,7 +54,7 @@ export function perGruppo(preset: EsercizioPreset[]) {
     nome: g.nome,
     esercizi: preset.filter((p) => p.gruppo === g.valore),
   }));
-  sezioni.push({ valore: null, nome: 'Senza gruppo', esercizi: preset.filter((p) => !p.gruppo) });
+  sezioni.push({ valore: null, nome: tr('Senza gruppo', 'No group'), esercizi: preset.filter((p) => !p.gruppo) });
   return sezioni
     .map((s) => ({ ...s, esercizi: [...s.esercizi].sort((a, b) => a.nome.localeCompare(b.nome, 'it')) }))
     .filter((s) => s.esercizi.length > 0);

@@ -7,14 +7,66 @@ import CambioPassword from './CambioPassword';
 import EliminaAccount from './EliminaAccount';
 import InformativaPrivacy from './Privacy';
 import { leggiSceltaTema, salvaSceltaTema, SceltaTema } from './tema';
+import { cambiaLingua, lingua, Lingua, tr } from './lingua';
 
-// Impostazioni: tema dell'app (salvato su questo telefono) e cambio password.
+// Scelta della lingua: due bottoni, ognuno scritto nella sua lingua. Cambiando, la pagina si ricarica.
+// "piccola": la versione discreta per la schermata di accesso, che non ruba la scena al bottone Accedi.
+function SceltaLingua({ piccola = false }: { piccola?: boolean }) {
+  const opzioni: { valore: Lingua; nome: string }[] = [
+    { valore: 'it', nome: 'Italiano' },
+    { valore: 'en', nome: 'English' },
+  ];
+  if (piccola) {
+    return (
+      <div className="flex justify-center">
+        <div className="inline-flex gap-1 rounded-full border border-line p-1" role="radiogroup" aria-label={tr('Lingua', 'Language')}>
+          {opzioni.map((o) => (
+            <button
+              key={o.valore}
+              type="button"
+              role="radio"
+              lang={o.valore}
+              aria-checked={lingua === o.valore}
+              onClick={() => cambiaLingua(o.valore)}
+              className={`min-h-9 rounded-full px-4 text-xs font-semibold transition-colors ${
+                lingua === o.valore ? 'bg-accent text-accent-ink' : 'text-muted hover:text-ink'
+              }`}
+            >
+              {o.nome}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label={tr('Lingua', 'Language')}>
+      {opzioni.map((o) => (
+        <button
+          key={o.valore}
+          type="button"
+          role="radio"
+          lang={o.valore}
+          aria-checked={lingua === o.valore}
+          onClick={() => cambiaLingua(o.valore)}
+          className={`min-h-11 rounded-xl border px-3 text-sm font-semibold transition-colors ${
+            lingua === o.valore ? 'border-accent-strong bg-accent text-accent-ink' : 'border-line bg-field text-ink hover:border-accent-strong'
+          }`}
+        >
+          {o.nome}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Impostazioni: lingua e tema dell'app (salvati su questo telefono) e cambio password.
 function Impostazioni({ onCambiaPassword, onEliminaAccount, onPrivacy, onChiudi }: { onCambiaPassword: () => void; onEliminaAccount: () => void; onPrivacy: () => void; onChiudi: () => void }) {
   const [tema, setTema] = useState<SceltaTema>(leggiSceltaTema);
   const opzioni: { valore: SceltaTema; nome: string; descrizione: string }[] = [
-    { valore: 'automatico', nome: 'Automatico', descrizione: 'Come il telefono' },
-    { valore: 'chiaro', nome: 'Chiaro', descrizione: 'Sempre chiaro' },
-    { valore: 'scuro', nome: 'Scuro', descrizione: 'Sempre scuro' },
+    { valore: 'automatico', nome: tr('Automatico', 'Automatic'), descrizione: tr('Come il telefono', 'Like your phone') },
+    { valore: 'chiaro', nome: tr('Chiaro', 'Light'), descrizione: tr('Sempre chiaro', 'Always light') },
+    { valore: 'scuro', nome: tr('Scuro', 'Dark'), descrizione: tr('Sempre scuro', 'Always dark') },
   ];
   function scegli(valore: SceltaTema) {
     setTema(valore);
@@ -23,11 +75,15 @@ function Impostazioni({ onCambiaPassword, onEliminaAccount, onPrivacy, onChiudi 
   return (
     <div className="card w-full space-y-6 p-6 sm:p-8">
       <div className="flex items-start justify-between gap-4">
-        <h2 id="settings-title" className="text-2xl font-bold tracking-tight">Impostazioni</h2>
-        <button type="button" className="btn-secondary px-3" onClick={onChiudi}>Chiudi</button>
+        <h2 id="settings-title" className="text-2xl font-bold tracking-tight">{tr('Impostazioni', 'Settings')}</h2>
+        <button type="button" className="btn-secondary px-3" onClick={onChiudi}>{tr('Chiudi', 'Close')}</button>
       </div>
       <fieldset>
-        <legend className="label">Tema</legend>
+        <legend className="label">{tr('Lingua', 'Language')}</legend>
+        <SceltaLingua />
+      </fieldset>
+      <fieldset>
+        <legend className="label">{tr('Tema', 'Theme')}</legend>
         <div className="grid grid-cols-3 gap-2" role="radiogroup">
           {opzioni.map((o) => (
             <button
@@ -45,16 +101,16 @@ function Impostazioni({ onCambiaPassword, onEliminaAccount, onPrivacy, onChiudi 
             </button>
           ))}
         </div>
-        <p className="mt-2 text-xs text-muted">La scelta vale per questo telefono o computer.</p>
+        <p className="mt-2 text-xs text-muted">{tr('Lingua e tema valgono per questo telefono o computer.', 'Language and theme apply to this phone or computer.')}</p>
       </fieldset>
       <div>
         <p className="label">Account</p>
-        <button type="button" className="btn-secondary w-full" onClick={onCambiaPassword}>Cambia password</button>
-        <button type="button" className="btn-link mt-3 w-full text-sm" onClick={onPrivacy}>Informativa privacy</button>
+        <button type="button" className="btn-secondary w-full" onClick={onCambiaPassword}>{tr('Cambia password', 'Change password')}</button>
+        <button type="button" className="btn-link mt-3 w-full text-sm" onClick={onPrivacy}>{tr('Informativa privacy', 'Privacy notice')}</button>
       </div>
       {/* In fondo e separato: un'azione definitiva non deve stare vicino a quelle di tutti i giorni */}
       <div className="border-t border-line pt-5">
-        <button type="button" className="btn-link w-full text-sm text-danger" onClick={onEliminaAccount}>Elimina account</button>
+        <button type="button" className="btn-link w-full text-sm text-danger" onClick={onEliminaAccount}>{tr('Elimina account', 'Delete account')}</button>
       </div>
     </div>
   );
@@ -78,14 +134,15 @@ function Brand({ compact = false, suFoto = false }: { compact?: boolean; suFoto?
       </span>
       <div>
         <span className={`block whitespace-nowrap font-black uppercase tracking-[-0.05em] ${suFoto ? 'text-white' : 'text-ink'} ${compact ? "text-base sm:text-xl" : "text-xl"}`}>LIFTIO<span className={suFoto ? 'text-oro' : 'text-accent-strong'}>.</span></span>
-        {!compact && <span className={`block text-[10px] font-bold uppercase tracking-[0.15em] ${suFoto ? 'text-white/70' : 'text-muted'}`}>Solleva, segna, migliora.</span>}
+        {!compact && <span className={`block text-[10px] font-bold uppercase tracking-[0.15em] ${suFoto ? 'text-white/70' : 'text-muted'}`}>{tr('Solleva, segna, migliora.', 'Lift, log, level up.')}</span>}
       </div>
     </div>
   );
 }
 
 // Messaggi della schermata di accesso che sono buone notizie (in verde), non errori.
-const messaggioPositivo = (testo: string) => testo.startsWith('Registrazione completata') || testo.startsWith('Account eliminato');
+const messaggioPositivo = (testo: string) =>
+  ['Registrazione completata', 'Registration complete', 'Account eliminato', 'Account deleted'].some((inizio) => testo.startsWith(inizio));
 
 function Modal({ children, titleId, onClose }: { children: ReactNode; titleId: string; onClose?: () => void }) {
   const dialog = useRef<HTMLDivElement>(null);
@@ -201,7 +258,7 @@ export default function App() {
     // Account sospeso mentre era dentro: si esce e la schermata di accesso spiega il motivo.
     const quandoSospeso = (e: Event) => {
       handleLogout();
-      setErrore((e as CustomEvent<string>).detail || 'Il tuo account è sospeso.');
+      setErrore((e as CustomEvent<string>).detail || tr('Il tuo account è sospeso.', 'Your account is suspended.'));
     };
     window.addEventListener(EVENTO_SOSPESO, quandoSospeso);
     return () => {
@@ -237,7 +294,7 @@ export default function App() {
       else localStorage.removeItem('inAttesa');
       setInAttesa(dati.inAttesa === true);
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore di login');
+      setErrore(err instanceof Error ? err.message : tr('Errore di login', 'Sign-in error'));
     } finally {
       setInInvio(false);
     }
@@ -256,7 +313,7 @@ export default function App() {
     if (inInvio) return;
     setErrore('');
     if (!consensoPrivacy) {
-      setErrore('Per registrarti devi accettare l’informativa privacy');
+      setErrore(tr('Per registrarti devi accettare l’informativa privacy', 'To sign up you need to accept the privacy notice'));
       return;
     }
     setInInvio(true);
@@ -281,11 +338,14 @@ export default function App() {
       if (invitoDalLink) window.history.replaceState(null, '', window.location.pathname);
       setErrore(
         esito.inAttesa
-          ? 'Registrazione completata: la tua richiesta è stata inviata all’amministratore. Accedi per vedere quando viene approvata.'
-          : 'Registrazione completata, ora accedi',
+          ? tr(
+              'Registrazione completata: la tua richiesta è stata inviata all’amministratore. Accedi per vedere quando viene approvata.',
+              'Registration complete: your request has been sent to the administrator. Sign in to see when it is approved.',
+            )
+          : tr('Registrazione completata, ora accedi', 'Registration complete, now sign in'),
       );
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore di registrazione');
+      setErrore(err instanceof Error ? err.message : tr('Errore di registrazione', 'Registration error'));
     } finally {
       setInInvio(false);
     }
@@ -339,59 +399,71 @@ export default function App() {
               <div className="absolute inset-0 bg-gradient-to-t from-[#0a1430] via-[#0a1430]/60 to-[#0a1430]/40" />
               <div className="relative z-10"><Brand suFoto /></div>
               <div className="relative z-10 mt-auto pt-10 lg:pt-20">
-                <p className="mb-4 hidden text-xs font-bold uppercase tracking-[0.18em] text-oro sm:block">Il tuo prossimo livello</p>
-                <h1 className="max-w-sm text-[2.35rem] font-black uppercase leading-[0.95] tracking-[-0.06em] text-white sm:text-[3.5rem] lg:text-[3.9rem]">Allenati.<br />Migliora.<br /><span className="text-oro">Ripeti.</span></h1>
-                <p className="mt-6 hidden max-w-xs text-sm leading-6 text-white/80 lg:block">Schede mirate. Carichi sotto controllo. Un programma da seguire, una serie alla volta.</p>
+                <p className="mb-4 hidden text-xs font-bold uppercase tracking-[0.18em] text-oro sm:block">{tr('Il tuo prossimo livello', 'Your next level')}</p>
+                <h1 className="max-w-sm text-[2.35rem] font-black uppercase leading-[0.95] tracking-[-0.06em] text-white sm:text-[3.5rem] lg:text-[3.9rem]">{tr('Allenati.', 'Train.')}<br />{tr('Migliora.', 'Improve.')}<br /><span className="text-oro">{tr('Ripeti.', 'Repeat.')}</span></h1>
+                <p className="mt-6 hidden max-w-xs text-sm leading-6 text-white/80 lg:block">{tr('Schede mirate. Carichi sotto controllo. Un programma da seguire, una serie alla volta.', 'Targeted programmes. Loads under control. A plan to follow, one set at a time.')}</p>
               </div>
               <div className="relative z-10 mt-8 flex items-center gap-3 border-t border-white/20 pt-4 lg:mt-10 lg:pt-6">
                 <span className="h-1 w-1 rounded-full bg-oro" aria-hidden="true" />
                 <button type="button" className="min-h-11 text-xs font-bold uppercase tracking-[0.16em] text-white/80 underline-offset-4 hover:text-white hover:underline" onClick={() => setPrivacyAperta(true)}>
-                  Informativa privacy
+                  {tr('Informativa privacy', 'Privacy notice')}
                 </button>
               </div>
             </section>
             <section className="flex items-center p-6 sm:p-10 lg:p-12">
               <div className="mx-auto w-full max-w-sm">
-                <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-accent-strong">Il tuo allenamento</p>
-                <h2 className="text-3xl font-black uppercase leading-none tracking-[-0.045em] sm:text-4xl">{modalitaRegistrazione ? 'Crea il tuo account.' : 'Bentornato.'}</h2>
-                <p className="mt-3 mb-8 text-sm leading-6 text-muted">{modalitaRegistrazione ? 'Registra il tuo account e inizia a organizzare il tuo allenamento.' : 'Accedi alle tue schede. Registra i carichi. Tieni traccia di ogni sessione.'}</p>
+                <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-accent-strong">{tr('Il tuo allenamento', 'Your training')}</p>
+                <h2 className="text-3xl font-black uppercase leading-none tracking-[-0.045em] sm:text-4xl">{modalitaRegistrazione ? tr('Crea il tuo account.', 'Create your account.') : tr('Bentornato.', 'Welcome back.')}</h2>
+                <p className="mt-3 mb-8 text-sm leading-6 text-muted">
+                  {modalitaRegistrazione
+                    ? tr('Registra il tuo account e inizia a organizzare il tuo allenamento.', 'Sign up and start organising your training.')
+                    : tr('Accedi alle tue schede. Registra i carichi. Tieni traccia di ogni sessione.', 'Open your programmes. Log your loads. Keep track of every session.')}
+                </p>
                 {daVecchioIndirizzo && (
                   <div role="status" className="mb-6 rounded-xl border border-accent-strong/30 bg-accent-soft px-4 py-3 text-sm leading-6 text-soft">
-                    <p className="font-bold text-ink">Liftio ha un nuovo indirizzo: liftio.it</p>
-                    <p className="mt-1">Accedi di nuovo con la tua email e password: serve solo questa volta. I tuoi dati sono tutti qui. Se avevi l’app sulla schermata Home, toglila e aggiungila di nuovo da questa pagina.</p>
+                    <p className="font-bold text-ink">{tr('Liftio ha un nuovo indirizzo: liftio.it', 'Liftio has a new address: liftio.it')}</p>
+                    <p className="mt-1">
+                      {tr(
+                        'Accedi di nuovo con la tua email e password: serve solo questa volta. I tuoi dati sono tutti qui. Se avevi l’app sulla schermata Home, toglila e aggiungila di nuovo da questa pagina.',
+                        'Sign in again with your email and password: you only need to do this once. All your data is here. If you had the app on your Home screen, remove it and add it again from this page.',
+                      )}
+                    </p>
                   </div>
                 )}
                 <form onSubmit={modalitaRegistrazione ? handleRegister : handleLogin} className="space-y-5" aria-busy={inInvio}>
-                  {modalitaRegistrazione && <div><label htmlFor="auth-name" className="label">Nome</label><input id="auth-name" name="name" className="input" autoComplete="name" placeholder="Il tuo nome" value={nomeInput} onChange={(e) => setNomeInput(e.target.value)} required /></div>}
+                  {modalitaRegistrazione && <div><label htmlFor="auth-name" className="label">{tr('Nome', 'Name')}</label><input id="auth-name" name="name" className="input" autoComplete="name" placeholder={tr('Il tuo nome', 'Your name')} value={nomeInput} onChange={(e) => setNomeInput(e.target.value)} required /></div>}
                   <div>
-                    <label htmlFor="auth-email" className="label">Indirizzo email</label>
-                    <input id="auth-email" name="email" className="input" type="email" autoComplete="email" autoCapitalize="none" placeholder="nome@esempio.it" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                    <label htmlFor="auth-email" className="label">{tr('Indirizzo email', 'Email address')}</label>
+                    <input id="auth-email" name="email" className="input" type="email" autoComplete="email" autoCapitalize="none" placeholder={tr('nome@esempio.it', 'name@example.com')} value={email} onChange={(e) => setEmail(e.target.value)} required />
                   </div>
                   <div>
                     <label htmlFor="auth-password" className="label">Password</label>
                     <div className="relative">
-                      <input id="auth-password" name="password" className="input pr-24" placeholder={modalitaRegistrazione ? 'Almeno 8 caratteri' : 'La tua password'} type={mostraPassword ? 'text' : 'password'} autoComplete={modalitaRegistrazione ? 'new-password' : 'current-password'} minLength={modalitaRegistrazione ? 8 : undefined} maxLength={modalitaRegistrazione ? 72 : undefined} value={password} onChange={(e) => setPassword(e.target.value)} required />
-                      <button type="button" className="absolute inset-y-0 right-1 rounded-lg px-3 text-xs font-semibold text-muted hover:text-accent-strong focus-visible:outline-accent-strong" aria-label={mostraPassword ? 'Nascondi password' : 'Mostra password'} aria-pressed={mostraPassword} onClick={() => setMostraPassword(!mostraPassword)}>{mostraPassword ? 'Nascondi' : 'Mostra'}</button>
+                      <input id="auth-password" name="password" className="input pr-24" placeholder={modalitaRegistrazione ? tr('Almeno 8 caratteri', 'At least 8 characters') : tr('La tua password', 'Your password')} type={mostraPassword ? 'text' : 'password'} autoComplete={modalitaRegistrazione ? 'new-password' : 'current-password'} minLength={modalitaRegistrazione ? 8 : undefined} maxLength={modalitaRegistrazione ? 72 : undefined} value={password} onChange={(e) => setPassword(e.target.value)} required />
+                      <button type="button" className="absolute inset-y-0 right-1 rounded-lg px-3 text-xs font-semibold text-muted hover:text-accent-strong focus-visible:outline-accent-strong" aria-label={mostraPassword ? tr('Nascondi password', 'Hide password') : tr('Mostra password', 'Show password')} aria-pressed={mostraPassword} onClick={() => setMostraPassword(!mostraPassword)}>{mostraPassword ? tr('Nascondi', 'Hide') : tr('Mostra', 'Show')}</button>
                     </div>
                   </div>
-                  {modalitaRegistrazione && <div><label htmlFor="auth-role" className="label">Come userai Liftio?</label><select id="auth-role" name="role" className="input" value={ruoloScelto} onChange={(e) => setRuoloScelto(e.target.value as Ruolo)}><option value="CLIENTE">Sono un cliente</option><option value="TRAINER">Sono un trainer</option></select></div>}
+                  {modalitaRegistrazione && <div><label htmlFor="auth-role" className="label">{tr('Come userai Liftio?', 'How will you use Liftio?')}</label><select id="auth-role" name="role" className="input" value={ruoloScelto} onChange={(e) => setRuoloScelto(e.target.value as Ruolo)}><option value="CLIENTE">{tr('Sono un cliente', 'I’m a client')}</option><option value="TRAINER">{tr('Sono un trainer', 'I’m a trainer')}</option></select></div>}
                   {modalitaRegistrazione && ruoloScelto === 'TRAINER' && !mostraCodiceTrainer && (
                     <div className="rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm leading-6 text-soft">
                       <p>
-                        <strong className="text-ink">Non hai un codice invito? Nessun problema.</strong> Registrati comunque: il tuo account sarà attivo
-                        appena l’amministratore di Liftio lo approva.
+                        <strong className="text-ink">{tr('Non hai un codice invito? Nessun problema.', 'No invite code? No problem.')}</strong>{' '}
+                        {tr(
+                          'Registrati comunque: il tuo account sarà attivo appena l’amministratore di Liftio lo approva.',
+                          'Sign up anyway: your account will be active as soon as the Liftio administrator approves it.',
+                        )}
                       </p>
                       <button type="button" className="btn-link mt-1 text-sm" onClick={() => setMostraCodiceTrainer(true)}>
-                        Ho un codice invito →
+                        {tr('Ho un codice invito →', 'I have an invite code →')}
                       </button>
                     </div>
                   )}
                   {modalitaRegistrazione && (ruoloScelto === 'CLIENTE' || mostraCodiceTrainer) && (
                     <div>
                       <label htmlFor="auth-invite" className="label">
-                        {ruoloScelto === 'TRAINER' ? 'Codice invito trainer' : 'Codice invito'}
-                        {ruoloScelto === 'CLIENTE' && !invitoObbligatorio && <span className="font-normal text-muted"> (se te l’ha dato il tuo trainer)</span>}
-                        {ruoloScelto === 'TRAINER' && <span className="font-normal text-muted"> (se ce l’hai)</span>}
+                        {ruoloScelto === 'TRAINER' ? tr('Codice invito trainer', 'Trainer invite code') : tr('Codice invito', 'Invite code')}
+                        {ruoloScelto === 'CLIENTE' && !invitoObbligatorio && <span className="font-normal text-muted">{tr(' (se te l’ha dato il tuo trainer)', ' (if your trainer gave you one)')}</span>}
+                        {ruoloScelto === 'TRAINER' && <span className="font-normal text-muted">{tr(' (se ce l’hai)', ' (if you have one)')}</span>}
                       </label>
                       <input
                         id="auth-invite"
@@ -400,27 +472,27 @@ export default function App() {
                         autoCapitalize="characters"
                         spellCheck={false}
                         maxLength={20}
-                        placeholder="Es. K7M3-Q9TX"
+                        placeholder={tr('Es. K7M3-Q9TX', 'E.g. K7M3-Q9TX')}
                         value={codiceInvito}
                         onChange={(e) => setCodiceInvito(e.target.value)}
                         required={ruoloScelto === 'CLIENTE' && invitoObbligatorio}
                       />
-                      {ruoloScelto === 'TRAINER' && <p className="mt-1.5 text-xs text-muted">Con un codice invito entri subito. Senza, scrivi due righe su di te e la tua richiesta viene approvata dall’amministratore di Liftio.</p>}
+                      {ruoloScelto === 'TRAINER' && <p className="mt-1.5 text-xs text-muted">{tr('Con un codice invito entri subito. Senza, scrivi due righe su di te e la tua richiesta viene approvata dall’amministratore di Liftio.', 'With an invite code you get in straight away. Without one, write a couple of lines about yourself and your request is approved by the Liftio administrator.')}</p>}
                     </div>
                   )}
                   {modalitaRegistrazione && ruoloScelto === 'TRAINER' && !(mostraCodiceTrainer && codiceInvito.trim()) && (
                     <>
                     <div>
-                      <label htmlFor="auth-clienti" className="label">Quanti clienti segui?</label>
+                      <label htmlFor="auth-clienti" className="label">{tr('Quanti clienti segui?', 'How many clients do you train?')}</label>
                       <select id="auth-clienti" className="input" value={fasciaClienti} onChange={(e) => setFasciaClienti(e.target.value)} required>
-                        <option value="" disabled>Scegli</option>
+                        <option value="" disabled>{tr('Scegli', 'Choose')}</option>
                         {FASCE_CLIENTI.map((f) => (
                           <option key={f.valore} value={f.valore}>{f.testo}</option>
                         ))}
                       </select>
                     </div>
                     <div>
-                      <label htmlFor="auth-presentazione" className="label">Presentati</label>
+                      <label htmlFor="auth-presentazione" className="label">{tr('Presentati', 'Introduce yourself')}</label>
                       <textarea
                         id="auth-presentazione"
                         className="input min-h-24"
@@ -442,24 +514,27 @@ export default function App() {
                         required
                       />
                       <label htmlFor="auth-privacy" className="text-sm leading-snug text-soft">
-                        Ho letto l’
-                        <button type="button" className="btn-link inline p-0 text-sm" onClick={() => setPrivacyAperta(true)}>informativa privacy</button>{' '}
-                        e acconsento al trattamento dei miei dati, compresi peso e massa grassa.
+                        {tr('Ho letto l’', 'I have read the ')}
+                        <button type="button" className="btn-link inline p-0 text-sm" onClick={() => setPrivacyAperta(true)}>{tr('informativa privacy', 'privacy notice')}</button>{' '}
+                        {tr('e acconsento al trattamento dei miei dati, compresi peso e massa grassa.', 'and consent to the processing of my data, including weight and body fat.')}
                       </label>
                     </div>
                   )}
                   {errore && <p role={messaggioPositivo(errore) ? 'status' : 'alert'} className={messaggioPositivo(errore) ? 'alert-success' : 'alert-error'}>{errore}</p>}
                   <button type="submit" className="btn-primary w-full py-3 uppercase tracking-wide" disabled={inInvio}>
-                    {inInvio ? 'Un momento…' : modalitaRegistrazione ? 'Crea il tuo account' : 'Accedi'}
+                    {inInvio ? tr('Un momento…', 'One moment…') : modalitaRegistrazione ? tr('Crea il tuo account', 'Create your account') : tr('Accedi', 'Sign in')}
                     {!inInvio && <span aria-hidden="true" className="ml-2">→</span>}
                   </button>
-                  <p className="pt-1 text-center text-sm text-muted">{modalitaRegistrazione ? 'Hai già un account?' : 'Sei nuovo qui?'}{' '}<button type="button" className="btn-link" onClick={cambiaModalita} disabled={inInvio}>{modalitaRegistrazione ? 'Accedi' : 'Crea un account'}</button></p>
+                  <p className="pt-1 text-center text-sm text-muted">{modalitaRegistrazione ? tr('Hai già un account?', 'Already have an account?') : tr('Sei nuovo qui?', 'New here?')}{' '}<button type="button" className="btn-link" onClick={cambiaModalita} disabled={inInvio}>{modalitaRegistrazione ? tr('Accedi', 'Sign in') : tr('Crea un account', 'Create an account')}</button></p>
                 </form>
-                <p className="mt-9 border-t border-line pt-5 text-center text-xs leading-5 text-muted">Schede, sessioni e progressi. Tutto sotto controllo.</p>
+                <div className="mt-6">
+                  <SceltaLingua piccola />
+                </div>
+                <p className="mt-6 border-t border-line pt-5 text-center text-xs leading-5 text-muted">{tr('Schede, sessioni e progressi. Tutto sotto controllo.', 'Programmes, sessions and progress. All under control.')}</p>
               </div>
             </section>
           </div>
-          <p className="mt-6 text-center text-xs text-muted">LIFTIO · SOLLEVA, SEGNA, MIGLIORA</p>
+          <p className="mt-6 text-center text-xs text-muted">{tr('LIFTIO · SOLLEVA, SEGNA, MIGLIORA', 'LIFTIO · LIFT, LOG, LEVEL UP')}</p>
         </div>
         {privacyAperta && (
           <Modal titleId="privacy-titolo" onClose={() => setPrivacyAperta(false)}>
@@ -481,24 +556,28 @@ export default function App() {
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <div className="mr-1 hidden items-center gap-2.5 border-r border-line pr-4 sm:flex">
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-soft text-sm font-bold text-accent-strong" aria-hidden="true">{nome.trim().charAt(0).toUpperCase()}</span>
-              <div className="max-w-36"><span className="block truncate text-sm font-semibold">{nome}</span><span className="block text-xs text-muted">{ruolo === 'TRAINER' ? 'Trainer' : 'Cliente'}</span></div>
+              <div className="max-w-36"><span className="block truncate text-sm font-semibold">{nome}</span><span className="block text-xs text-muted">{ruolo === 'TRAINER' ? 'Trainer' : tr('Cliente', 'Client')}</span></div>
             </div>
             {!devoCambiarePassword && (
-              <button type="button" className="btn-ghost px-3" onClick={() => setImpostazioniAperte(true)} aria-label="Impostazioni: tema e password">
+              <button type="button" className="btn-ghost px-3" onClick={() => setImpostazioniAperte(true)} aria-label={tr('Impostazioni: lingua, tema e password', 'Settings: language, theme and password')}>
                 <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
-                <span className="hidden sm:inline">Impostazioni</span>
+                <span className="hidden sm:inline">{tr('Impostazioni', 'Settings')}</span>
               </button>
             )}
-            <button type="button" className="btn-secondary px-3" onClick={handleLogout}>Esci</button>
+            <button type="button" className="btn-secondary px-3" onClick={handleLogout}>{tr('Esci', 'Sign out')}</button>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-10">
         <div className="mb-7 sm:mb-9">
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-accent-strong">{ruolo === 'TRAINER' ? 'Area trainer' : 'Allenamento'}</p>
-          <h1 className="break-words text-3xl font-black uppercase tracking-[-0.045em] sm:text-4xl">Ciao, {nome}<span className="text-accent-strong">.</span></h1>
-          <p className="mt-2 text-sm leading-6 text-muted sm:text-base">{ruolo === 'TRAINER' ? 'Gestisci clienti, programmi e risultati.' : 'Scegli la scheda. Registra le serie. Costruisci il prossimo risultato.'}</p>
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-accent-strong">{ruolo === 'TRAINER' ? tr('Area trainer', 'Trainer area') : tr('Allenamento', 'Training')}</p>
+          <h1 className="break-words text-3xl font-black uppercase tracking-[-0.045em] sm:text-4xl">{tr('Ciao', 'Hi')}, {nome}<span className="text-accent-strong">.</span></h1>
+          <p className="mt-2 text-sm leading-6 text-muted sm:text-base">
+            {ruolo === 'TRAINER'
+              ? tr('Gestisci clienti, programmi e risultati.', 'Manage clients, programmes and results.')
+              : tr('Scegli la scheda. Registra le serie. Costruisci il prossimo risultato.', 'Pick your programme. Log your sets. Build your next result.')}
+          </p>
         </div>
 
         {devoCambiarePassword ? (
@@ -550,7 +629,7 @@ export default function App() {
             onEliminato={() => {
               // Account cancellato: si esce e la schermata di accesso lo conferma.
               handleLogout();
-              setErrore('Account eliminato. Grazie per aver usato Liftio.');
+              setErrore(tr('Account eliminato. Grazie per aver usato Liftio.', 'Account deleted. Thank you for using Liftio.'));
             }}
           />
         </Modal>
@@ -561,12 +640,12 @@ export default function App() {
       {sessioneScaduta && (
         <Modal titleId="session-title">
           <form onSubmit={handleLogin} className="card w-full space-y-5 p-6 sm:p-8" aria-busy={inInvio}>
-            <div><p className="mb-2 text-xs font-bold uppercase tracking-wider text-accent-strong">Riprendi da qui</p><h2 id="session-title" className="text-2xl font-black uppercase tracking-tight">Accedi di nuovo</h2><p className="mt-2 text-sm leading-6 text-soft">La sessione è scaduta. Accedi per continuare: i dati che stavi inserendo restano nella pagina.</p></div>
-            <div><label htmlFor="session-email" className="label">Indirizzo email</label><input id="session-email" className="input" type="email" autoComplete="email" autoCapitalize="none" placeholder="nome@esempio.it" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
-            <div><label htmlFor="session-password" className="label">Password</label><input id="session-password" className="input" type="password" autoComplete="current-password" placeholder="La tua password" value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
+            <div><p className="mb-2 text-xs font-bold uppercase tracking-wider text-accent-strong">{tr('Riprendi da qui', 'Pick up where you left off')}</p><h2 id="session-title" className="text-2xl font-black uppercase tracking-tight">{tr('Accedi di nuovo', 'Sign in again')}</h2><p className="mt-2 text-sm leading-6 text-soft">{tr('La sessione è scaduta. Accedi per continuare: i dati che stavi inserendo restano nella pagina.', 'Your session has expired. Sign in to continue: what you were entering stays on the page.')}</p></div>
+            <div><label htmlFor="session-email" className="label">{tr('Indirizzo email', 'Email address')}</label><input id="session-email" className="input" type="email" autoComplete="email" autoCapitalize="none" placeholder={tr('nome@esempio.it', 'name@example.com')} value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
+            <div><label htmlFor="session-password" className="label">Password</label><input id="session-password" className="input" type="password" autoComplete="current-password" placeholder={tr('La tua password', 'Your password')} value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
             {errore && <p role="alert" className="alert-error">{errore}</p>}
-            <button type="submit" className="btn-primary w-full py-3 uppercase tracking-wide" disabled={inInvio}>{inInvio ? 'Accesso in corso…' : 'Accedi e continua'}</button>
-            <button type="button" className="btn-link w-full text-sm" onClick={handleLogout}>Esci dall’account</button>
+            <button type="submit" className="btn-primary w-full py-3 uppercase tracking-wide" disabled={inInvio}>{inInvio ? tr('Accesso in corso…', 'Signing in…') : tr('Accedi e continua', 'Sign in and continue')}</button>
+            <button type="button" className="btn-link w-full text-sm" onClick={handleLogout}>{tr('Esci dall’account', 'Sign out of your account')}</button>
           </form>
         </Modal>
       )}

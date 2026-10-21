@@ -4,6 +4,7 @@ import { eliminaMisura, getMisure, MisuraCorporea, salvaMisura, TipoMisura } fro
 import { useColoriTema } from './tema';
 import { dataCorta, dataLunga, giornoDi, leggiNumero, numero, oggi } from './misure-formati';
 import CalcoloPliche from './CalcoloPliche';
+import { tr } from './lingua';
 
 // Sezione "Il tuo corpo": peso corporeo e % di massa grassa, con grafico.
 // - Il CLIENTE scrive il proprio peso e vede la massa grassa (la misura il trainer).
@@ -21,8 +22,8 @@ interface InfoTipo {
 }
 
 const TIPI: Record<TipoMisura, InfoTipo> = {
-  PESO: { titolo: 'Peso corporeo', unita: 'kg', chiScrive: 'CLIENTE', min: 20, max: 350, esempio: 'es. 72,5' },
-  MASSA_GRASSA: { titolo: 'Massa grassa', unita: '%', chiScrive: 'TRAINER', min: 2, max: 70, esempio: 'es. 18,5' },
+  PESO: { titolo: tr('Peso corporeo', 'Body weight'), unita: 'kg', chiScrive: 'CLIENTE', min: 20, max: 350, esempio: tr('es. 72,5', 'e.g. 72.5') },
+  MASSA_GRASSA: { titolo: tr('Massa grassa', 'Body fat'), unita: '%', chiScrive: 'TRAINER', min: 2, max: 70, esempio: tr('es. 18,5', 'e.g. 18.5') },
 };
 
 function Grafico({ misure, info }: { misure: MisuraCorporea[]; info: InfoTipo }) {
@@ -30,7 +31,7 @@ function Grafico({ misure, info }: { misure: MisuraCorporea[]; info: InfoTipo })
   if (misure.length < 2) {
     return (
       <p className="rounded-xl border border-line bg-surface-2 px-4 py-4 text-sm leading-relaxed text-muted">
-        Il grafico compare dalla seconda misura.
+        {tr('Il grafico compare dalla seconda misura.', 'The chart appears from the second measurement.')}
       </p>
     );
   }
@@ -112,7 +113,11 @@ function RigaMisura({ misura, info, modificabile, onElimina }: { misura: MisuraC
             type="button"
             disabled={inCorso}
             className={conferma ? 'btn-danger min-h-10 px-3 text-xs' : 'btn-ghost min-h-10 px-3 text-xs'}
-            aria-label={conferma ? 'Conferma eliminazione' : `Elimina la misura del ${dataLunga(giornoDi(misura.data))}`}
+            aria-label={
+              conferma
+                ? tr('Conferma eliminazione', 'Confirm deletion')
+                : tr(`Elimina la misura del ${dataLunga(giornoDi(misura.data))}`, `Delete the measurement of ${dataLunga(giornoDi(misura.data))}`)
+            }
             onClick={async () => {
               if (!conferma) return setConferma(true);
               setInCorso(true);
@@ -124,7 +129,7 @@ function RigaMisura({ misura, info, modificabile, onElimina }: { misura: MisuraC
               }
             }}
           >
-            {conferma ? 'Sicuro?' : 'Elimina'}
+            {conferma ? tr('Sicuro?', 'Sure?') : tr('Elimina', 'Delete')}
           </button>
         )}
       </span>
@@ -177,11 +182,11 @@ function SchedaMisura({
     setErrore('');
     setSalvato(false);
     if (n === null || n < info.min || n > info.max) {
-      setErrore(`Scrivi un valore tra ${info.min} e ${info.max} ${info.unita} (${info.esempio})`);
+      setErrore(tr(`Scrivi un valore tra ${info.min} e ${info.max} ${info.unita} (${info.esempio})`, `Enter a value between ${info.min} and ${info.max} ${info.unita} (${info.esempio})`));
       return;
     }
     if (!giorno || giorno > oggi()) {
-      setErrore('Scegli una data non nel futuro');
+      setErrore(tr('Scegli una data non nel futuro', 'Choose a date that isn’t in the future'));
       return;
     }
     setInInvio(true);
@@ -194,7 +199,7 @@ function SchedaMisura({
       setSalvato(true);
       setTimeout(() => setSalvato(false), 2500);
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nel salvataggio, riprova');
+      setErrore(err instanceof Error ? err.message : tr('Errore nel salvataggio, riprova', 'Error saving, try again'));
     } finally {
       setInInvio(false);
     }
@@ -226,16 +231,16 @@ function SchedaMisura({
               <span className="text-lg font-bold"> {info.unita}</span>
             </p>
           ) : (
-            <p className="mt-1 text-sm text-muted">Nessuna misura ancora.</p>
+            <p className="mt-1 text-sm text-muted">{tr('Nessuna misura ancora.', 'No measurements yet.')}</p>
           )}
         </div>
         {ultima && (
           <div className="text-right text-xs text-muted">
-            <p>ultima: {dataLunga(giornoDi(ultima.data))}</p>
+            <p>{tr('ultima', 'latest')}: {dataLunga(giornoDi(ultima.data))}</p>
             {differenza !== null && (
               <p className="mt-0.5 font-semibold text-soft tabular-nums">
                 {differenza > 0 ? '+' : differenza < 0 ? '−' : '±'}
-                {numero(Math.abs(differenza))} {info.unita} dal {dataCorta(giornoDi(prima.data))}
+                {numero(Math.abs(differenza))} {info.unita} {tr('dal', 'since')} {dataCorta(giornoDi(prima.data))}
               </p>
             )}
           </div>
@@ -249,7 +254,7 @@ function SchedaMisura({
           <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] gap-3">
             <div>
               <label htmlFor={idCampo} className="label">
-                {tipo === 'PESO' ? 'Peso (kg)' : 'Grasso (%)'}
+                {tipo === 'PESO' ? tr('Peso (kg)', 'Weight (kg)') : tr('Grasso (%)', 'Fat (%)')}
               </label>
               <input
                 id={idCampo}
@@ -266,7 +271,7 @@ function SchedaMisura({
               />
             </div>
             <div>
-              <label htmlFor={`${idCampo}-data`} className="label">Giorno</label>
+              <label htmlFor={`${idCampo}-data`} className="label">{tr('Giorno', 'Day')}</label>
               <input
                 id={`${idCampo}-data`}
                 type="date"
@@ -279,30 +284,35 @@ function SchedaMisura({
           </div>
           {giaPresente && (
             <p className="text-xs text-muted">
-              Il {dataLunga(giorno)} c’è già {numero(giaPresente.valore)} {info.unita}: salvando lo correggi.
+              {tr(
+                `Il ${dataLunga(giorno)} c’è già ${numero(giaPresente.valore)} ${info.unita}: salvando lo correggi.`,
+                `There’s already ${numero(giaPresente.valore)} ${info.unita} on ${dataLunga(giorno)}: saving will correct it.`,
+              )}
             </p>
           )}
           {errore && <p className="alert-error">{errore}</p>}
           <button type="submit" className="btn-primary min-h-12 w-full" disabled={inInvio}>
-            {inInvio ? 'Salvo…' : salvato ? 'Salvato ✓' : giaPresente ? 'Correggi' : 'Salva'}
+            {inInvio ? tr('Salvo…', 'Saving…') : salvato ? tr('Salvato ✓', 'Saved ✓') : giaPresente ? tr('Correggi', 'Correct') : tr('Salva', 'Save')}
           </button>
           {tipo === 'MASSA_GRASSA' && ruolo === 'TRAINER' && clienteId !== undefined && (
             <button type="button" className="btn-secondary min-h-12 w-full" onClick={() => setPlicheAperte(true)}>
-              Calcola con le pliche
+              {tr('Calcola con le pliche', 'Calculate from skinfolds')}
             </button>
           )}
         </form>
       ) : (
         <p className="text-xs text-muted">
           {tipo === 'PESO'
-            ? `Il peso lo inserisce ${nomeCliente ?? 'il cliente'} dalla sua app.`
-            : 'La misura il tuo trainer.'}
+            ? nomeCliente
+              ? tr(`Il peso lo inserisce ${nomeCliente} dalla sua app.`, `${nomeCliente} enters their weight from their app.`)
+              : tr('Il peso lo inserisce il cliente dalla sua app.', 'The client enters their weight from their app.')
+            : tr('La misura il tuo trainer.', 'Your trainer measures it.')}
         </p>
       )}
 
       {misure.length > 0 && (
         <div>
-          <p className="label">Storico</p>
+          <p className="label">{tr('Storico', 'History')}</p>
           <ul className="divide-y divide-line">
             {mostrate.map((m) => (
               <RigaMisura
@@ -315,7 +325,7 @@ function SchedaMisura({
                     await eliminaMisura(m.id);
                     onCambiate(misure.filter((x) => x.id !== m.id));
                   } catch (err) {
-                    setErrore(err instanceof Error ? err.message : 'Errore, riprova');
+                    setErrore(err instanceof Error ? err.message : tr('Errore, riprova', 'Error, try again'));
                   }
                 }}
               />
@@ -323,7 +333,7 @@ function SchedaMisura({
           </ul>
           {recenti.length > 5 && (
             <button type="button" className="btn-link mt-2 text-sm" onClick={() => setTutte(!tutte)}>
-              {tutte ? 'Mostra meno' : `Mostra tutte (${recenti.length})`}
+              {tutte ? tr('Mostra meno', 'Show less') : tr(`Mostra tutte (${recenti.length})`, `Show all (${recenti.length})`)}
             </button>
           )}
         </div>
@@ -342,7 +352,7 @@ export default function MisureCorporee({ ruolo, clienteId, nomeCliente }: { ruol
     setErrore('');
     getMisure(ruolo === 'TRAINER' ? clienteId : undefined)
       .then((m) => !annullato && setMisure(m))
-      .catch((err) => !annullato && setErrore(err instanceof Error ? err.message : 'Errore nel caricamento delle misure'));
+      .catch((err) => !annullato && setErrore(err instanceof Error ? err.message : tr('Errore nel caricamento delle misure', 'Error loading measurements')));
     return () => {
       annullato = true;
     };
@@ -355,13 +365,13 @@ export default function MisureCorporee({ ruolo, clienteId, nomeCliente }: { ruol
   return (
     <section id="corpo" className="scroll-mt-24 space-y-4" aria-labelledby="corpo-titolo">
       <div>
-        <p className="eyebrow mb-1">{ruolo === 'TRAINER' ? `Corpo · ${nomeCliente ?? ''}` : 'Composizione corporea'}</p>
+        <p className="eyebrow mb-1">{ruolo === 'TRAINER' ? `${tr('Corpo', 'Body')} · ${nomeCliente ?? ''}` : tr('Composizione corporea', 'Body composition')}</p>
         <h2 id="corpo-titolo" className={ruolo === 'TRAINER' ? 'section-title' : 'text-2xl font-black uppercase tracking-tight sm:text-3xl'}>
-          {ruolo === 'TRAINER' ? 'Peso e massa grassa' : 'Il tuo corpo'}
+          {ruolo === 'TRAINER' ? tr('Peso e massa grassa', 'Weight and body fat') : tr('Il tuo corpo', 'Your body')}
         </h2>
       </div>
       {errore && <p className="alert-error">{errore}</p>}
-      {!misure && !errore && <p className="py-6 text-center text-sm text-muted">Carico le misure…</p>}
+      {!misure && !errore && <p className="py-6 text-center text-sm text-muted">{tr('Carico le misure…', 'Loading measurements…')}</p>}
       {misure && (
         <div className="grid gap-4 md:grid-cols-2">
           {(['PESO', 'MASSA_GRASSA'] as TipoMisura[]).map((tipo) => (

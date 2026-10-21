@@ -44,6 +44,7 @@ import {
   TipoCollegamento,
 } from './api';
 import { riassuntoSerie, testoReps, testoRecupero, leggiReps } from './serie';
+import { locale, tr } from './lingua';
 
 // Campo ripetizioni: numero dalla tastiera numerica, oppure "Max" con un tocco sul bottone.
 function CampoReps({ valore, onChange }: { valore: string; onChange: (v: string) => void }) {
@@ -55,14 +56,14 @@ function CampoReps({ valore, onChange }: { valore: string; onChange: (v: string)
         className="input pr-12"
         type="text"
         // Niente tastierino numerico: sul telefono non ha il trattino per scrivere "6-9".
-        placeholder="10 o 6-9"
+        placeholder={tr('10 o 6-9', '10 or 6-9')}
         value={eMax ? 'Max' : valore}
         onChange={(e) => onChange(e.target.value)}
       />
       <button
         type="button"
         aria-pressed={eMax}
-        title="Ripetizioni massime (a cedimento)"
+        title={tr('Ripetizioni massime (a cedimento)', 'Max reps (to failure)')}
         className={`absolute top-1/2 right-1.5 h-8 -translate-y-1/2 rounded-lg px-2 text-[11px] font-bold transition ${
           eMax ? 'bg-accent text-accent-ink' : 'bg-surface-2 text-muted hover:text-ink'
         }`}
@@ -77,17 +78,17 @@ function CampoReps({ valore, onChange }: { valore: string; onChange: (v: string)
 // Da quanto tempo esiste una scheda, in parole: "oggi", "3 giorni fa", "2 mesi fa".
 function etaScheda(iso: string): string {
   const giorni = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
-  if (giorni <= 0) return 'oggi';
-  if (giorni === 1) return 'ieri';
-  if (giorni < 14) return `${giorni} giorni fa`;
-  if (giorni < 60) return `${Math.floor(giorni / 7)} settimane fa`;
-  if (giorni < 365) return `${Math.floor(giorni / 30)} mesi fa`;
+  if (giorni <= 0) return tr('oggi', 'today');
+  if (giorni === 1) return tr('ieri', 'yesterday');
+  if (giorni < 14) return tr(`${giorni} giorni fa`, `${giorni} days ago`);
+  if (giorni < 60) return tr(`${Math.floor(giorni / 7)} settimane fa`, `${Math.floor(giorni / 7)} weeks ago`);
+  if (giorni < 365) return tr(`${Math.floor(giorni / 30)} mesi fa`, `${Math.floor(giorni / 30)} months ago`);
   const anni = Math.floor(giorni / 365);
-  return anni === 1 ? '1 anno fa' : `${anni} anni fa`;
+  return anni === 1 ? tr('1 anno fa', '1 year ago') : tr(`${anni} anni fa`, `${anni} years ago`);
 }
 
 // "29/09/2026"
-const dataBreve = (iso: string) => new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const dataBreve = (iso: string) => new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 // Più vecchia di 90 giorni: probabilmente il programma va aggiornato.
 const eVecchia = (iso: string) => Date.now() - new Date(iso).getTime() > 90 * 86_400_000;
@@ -119,9 +120,12 @@ function AccessoCliente({ cliente, onEmailCambiata }: { cliente: Cliente; onEmai
       const aggiornato = await cambiaEmailCliente(cliente.id, email);
       onEmailCambiata(aggiornato);
       setEmail(aggiornato.email);
-      setMessaggio({ ok: true, testo: `Email aggiornata: ora ${cliente.nome} accede con ${aggiornato.email}` });
+      setMessaggio({
+        ok: true,
+        testo: tr(`Email aggiornata: ora ${cliente.nome} accede con ${aggiornato.email}`, `Email updated: ${cliente.nome} now signs in with ${aggiornato.email}`),
+      });
     } catch (err) {
-      setMessaggio({ ok: false, testo: err instanceof Error ? err.message : 'Errore nel salvataggio' });
+      setMessaggio({ ok: false, testo: err instanceof Error ? err.message : tr('Errore nel salvataggio', 'Error saving') });
     } finally {
       setInInvio(false);
     }
@@ -136,7 +140,7 @@ function AccessoCliente({ cliente, onEmailCambiata }: { cliente: Cliente; onEmai
       setSalvata(temporanea);
       setTemporanea(null);
     } catch (err) {
-      setMessaggio({ ok: false, testo: err instanceof Error ? err.message : 'Errore nel reset' });
+      setMessaggio({ ok: false, testo: err instanceof Error ? err.message : tr('Errore nel reset', 'Reset error') });
     } finally {
       setInInvio(false);
     }
@@ -145,7 +149,7 @@ function AccessoCliente({ cliente, onEmailCambiata }: { cliente: Cliente; onEmai
   return (
     <div className="space-y-4 border-t border-line pt-3">
       <div>
-        <label className="label">Email per accedere</label>
+        <label className="label">{tr('Email per accedere', 'Sign-in email')}</label>
         <div className="flex gap-2">
           <input
             className="input min-w-0 flex-1"
@@ -161,7 +165,7 @@ function AccessoCliente({ cliente, onEmailCambiata }: { cliente: Cliente; onEmai
             disabled={inInvio || email.trim().toLowerCase() === cliente.email}
             onClick={salvaEmail}
           >
-            Salva
+            {tr('Salva', 'Save')}
           </button>
         </div>
       </div>
@@ -170,29 +174,29 @@ function AccessoCliente({ cliente, onEmailCambiata }: { cliente: Cliente; onEmai
         <p className="label">Password</p>
         {salvata ? (
           <div className="rounded-xl border border-success/40 bg-success-soft p-3 text-sm">
-            <p>
-              Password temporanea di {cliente.nome}:
-            </p>
+            <p>{tr(`Password temporanea di ${cliente.nome}:`, `${cliente.nome}’s temporary password:`)}</p>
             <p className="my-2 text-center font-mono text-2xl font-extrabold tracking-wider select-all">{salvata}</p>
             <p className="text-soft">
-              Diglielo a voce o scrivigliela. Al primo accesso dovrà sceglierne una sua, che tu non vedrai.
-              I suoi dispositivi collegati sono stati disconnessi.
+              {tr(
+                'Diglielo a voce o scrivigliela. Al primo accesso dovrà sceglierne una sua, che tu non vedrai. I suoi dispositivi collegati sono stati disconnessi.',
+                'Tell them or write it down for them. On first sign-in they’ll have to choose their own, which you won’t see. Their signed-in devices have been signed out.',
+              )}
             </p>
             <button type="button" className="btn-link mt-2 text-xs" onClick={() => setSalvata(null)}>
-              Ok, fatto
+              {tr('Ok, fatto', 'OK, done')}
             </button>
           </div>
         ) : temporanea ? (
           <div className="rounded-xl border border-accent-strong/50 bg-accent-soft p-3 text-sm">
-            <p>Nuova password temporanea:</p>
+            <p>{tr('Nuova password temporanea:', 'New temporary password:')}</p>
             <p className="my-2 text-center font-mono text-2xl font-extrabold tracking-wider">{temporanea}</p>
-            <p className="text-soft">La password attuale di {cliente.nome} smetterà di funzionare.</p>
+            <p className="text-soft">{tr(`La password attuale di ${cliente.nome} smetterà di funzionare.`, `${cliente.nome}’s current password will stop working.`)}</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button type="button" className="btn-secondary text-xs" onClick={() => setTemporanea(null)} disabled={inInvio}>
-                Annulla
+                {tr('Annulla', 'Cancel')}
               </button>
               <button type="button" className="btn-primary text-xs" onClick={confermaReset} disabled={inInvio}>
-                {inInvio ? 'Salvo…' : 'Conferma'}
+                {inInvio ? tr('Salvo…', 'Saving…') : tr('Conferma', 'Confirm')}
               </button>
             </div>
           </div>
@@ -205,7 +209,7 @@ function AccessoCliente({ cliente, onEmailCambiata }: { cliente: Cliente; onEmai
               setTemporanea(generaPasswordTemporanea());
             }}
           >
-            Reimposta password
+            {tr('Reimposta password', 'Reset password')}
           </button>
         )}
       </div>
@@ -231,7 +235,7 @@ function SospensioneCliente({ cliente, onCambiato }: { cliente: Cliente; onCambi
       onCambiato(cliente.sospeso ? await riattivaCliente(cliente.id) : await sospendiCliente(cliente.id));
       setConferma(false);
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Operazione non riuscita');
+      setErrore(err instanceof Error ? err.message : tr('Operazione non riuscita', 'Operation failed'));
     } finally {
       setInInvio(false);
     }
@@ -239,31 +243,38 @@ function SospensioneCliente({ cliente, onCambiato }: { cliente: Cliente; onCambi
 
   return (
     <div>
-      <p className="label">Accesso all’app</p>
+      <p className="label">{tr('Accesso all’app', 'App access')}</p>
       {cliente.sospeso ? (
         <div className="space-y-2 rounded-xl border border-warning/40 bg-warning-soft p-3 text-sm">
           <p className="text-soft">
-            <strong className="text-warning">Sospeso.</strong> {cliente.nome} non può accedere. Schede, serie e misure sono tutte al loro posto.
+            <strong className="text-warning">{tr('Sospeso.', 'Suspended.')}</strong>{' '}
+            {tr(
+              `${cliente.nome} non può accedere. Schede, serie e misure sono tutte al loro posto.`,
+              `${cliente.nome} can’t sign in. Programmes, sets and measurements are all still there.`,
+            )}
           </p>
           <button type="button" className="btn-primary w-full text-xs" disabled={inInvio} onClick={esegui}>
-            {inInvio ? 'Un momento…' : 'Riattiva l’accesso'}
+            {inInvio ? tr('Un momento…', 'One moment…') : tr('Riattiva l’accesso', 'Restore access')}
           </button>
         </div>
       ) : conferma ? (
         <div className="space-y-2 rounded-xl border border-line bg-surface-2 p-3 text-sm">
           <p className="text-soft">
-            Sospendi {cliente.nome}? Non potrà più accedere finché non lo riattivi. Non viene cancellato niente.
+            {tr(
+              `Sospendi ${cliente.nome}? Non potrà più accedere finché non lo riattivi. Non viene cancellato niente.`,
+              `Suspend ${cliente.nome}? They won’t be able to sign in until you reactivate them. Nothing is deleted.`,
+            )}
           </p>
           <div className="grid grid-cols-2 gap-2">
-            <button type="button" className="btn-secondary text-xs" disabled={inInvio} onClick={() => setConferma(false)}>Annulla</button>
+            <button type="button" className="btn-secondary text-xs" disabled={inInvio} onClick={() => setConferma(false)}>{tr('Annulla', 'Cancel')}</button>
             <button type="button" className="btn-danger text-xs" disabled={inInvio} onClick={esegui}>
-              {inInvio ? 'Un momento…' : 'Sì, sospendi'}
+              {inInvio ? tr('Un momento…', 'One moment…') : tr('Sì, sospendi', 'Yes, suspend')}
             </button>
           </div>
         </div>
       ) : (
         <button type="button" className="btn-ghost w-full text-xs" onClick={() => setConferma(true)}>
-          Sospendi l’accesso
+          {tr('Sospendi l’accesso', 'Suspend access')}
         </button>
       )}
       {errore && <p role="alert" className="alert-error mt-2">{errore}</p>}
@@ -313,12 +324,12 @@ function SceltaCliente({
         className="input pr-10"
         type="text"
         role="combobox"
-        aria-label="Cliente della scheda"
+        aria-label={tr('Cliente della scheda', 'Programme client')}
         aria-expanded={aperto}
         aria-autocomplete="list"
         autoComplete="off"
         autoCapitalize="none"
-        placeholder="Scrivi il nome…"
+        placeholder={tr('Scrivi il nome…', 'Type the name…')}
         value={testo ?? scelto?.nome ?? ''}
         onFocus={(e) => {
           setAperto(true);
@@ -346,7 +357,7 @@ function SceltaCliente({
       {aperto && !scelto && (
         <ul className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-line bg-surface shadow-lg">
           {suggerimenti.length === 0 ? (
-            <li className="px-3 py-3 text-sm text-muted">Nessun cliente trovato</li>
+            <li className="px-3 py-3 text-sm text-muted">{tr('Nessun cliente trovato', 'No clients found')}</li>
           ) : (
             suggerimenti.map((c) => (
               <li key={c.id}>
@@ -381,8 +392,8 @@ function ChipGruppo({ g }: { g: InfoGruppo }) {
 // Al posto del campo recupero, in un superset: tra i due esercizi non si riposa.
 function RecuperoAssente() {
   return (
-    <p className="input flex items-center text-sm text-muted" aria-label="Nessun recupero">
-      Nessuno
+    <p className="input flex items-center text-sm text-muted" aria-label={tr('Nessun recupero', 'No rest')}>
+      {tr('Nessuno', 'None')}
     </p>
   );
 }
@@ -390,9 +401,14 @@ function RecuperoAssente() {
 // Cosa succede con il recupero di questo esercizio dentro il gruppo, in parole semplici.
 function spiegaRecupero(tipo: TipoCollegamento | '', g: InfoGruppo): string {
   const successivo = `${g.lettera}${g.posizione + 1}`;
-  if (tipo === 'SUPERSET' && g.posizione < g.dimensione) return `Dopo ogni serie si passa subito a ${successivo}, senza recupero.`;
-  if (tipo === 'JUMPSET' && g.posizione < g.dimensione) return `Questo recupero si fa prima di passare a ${successivo}.`;
-  return `Fine giro: questo recupero si fa prima di ricominciare da ${g.lettera}1 (esercizio ${g.inizio + 1}).`;
+  if (tipo === 'SUPERSET' && g.posizione < g.dimensione)
+    return tr(`Dopo ogni serie si passa subito a ${successivo}, senza recupero.`, `After each set, move straight to ${successivo}, with no rest.`);
+  if (tipo === 'JUMPSET' && g.posizione < g.dimensione)
+    return tr(`Questo recupero si fa prima di passare a ${successivo}.`, `This rest is taken before moving to ${successivo}.`);
+  return tr(
+    `Fine giro: questo recupero si fa prima di ricominciare da ${g.lettera}1 (esercizio ${g.inizio + 1}).`,
+    `End of round: this rest is taken before starting again from ${g.lettera}1 (exercise ${g.inizio + 1}).`,
+  );
 }
 
 // Tra un esercizio e il successivo: collegali in superset o jumpset, oppure scollegali.
@@ -413,7 +429,7 @@ function Collegamento({
           className="btn-ghost min-h-9 px-3 text-xs text-muted"
           onClick={() => onCambia('SUPERSET')}
         >
-          + Collega con l’esercizio {numeroSuccessivo}
+          {tr(`+ Collega con l’esercizio ${numeroSuccessivo}`, `+ Link with exercise ${numeroSuccessivo}`)}
         </button>
       </div>
     );
@@ -436,14 +452,14 @@ function Collegamento({
       <span aria-hidden className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-accent-strong/60" />
       <div
         role="group"
-        aria-label={`Collegamento con l’esercizio ${numeroSuccessivo}`}
+        aria-label={tr(`Collegamento con l’esercizio ${numeroSuccessivo}`, `Link with exercise ${numeroSuccessivo}`)}
         className="relative flex items-center gap-1 rounded-full border border-accent-strong/60 bg-surface p-1"
       >
         {opzione('SUPERSET', 'Superset')}
         {opzione('JUMPSET', 'Jumpset')}
         <button
           type="button"
-          aria-label="Scollega"
+          aria-label={tr('Scollega', 'Unlink')}
           className="min-h-9 rounded-full px-3 text-xs text-muted transition hover:text-danger"
           onClick={() => onCambia('')}
         >
@@ -457,14 +473,14 @@ function Collegamento({
 // "oggi alle 18:32", "ieri alle 9:05", oppure "lun 21/09 alle 18:32".
 function quando(iso: string): string {
   const d = new Date(iso);
-  const ora = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  const ora = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   const oggi = new Date();
   const ieri = new Date();
   ieri.setDate(oggi.getDate() - 1);
-  if (d.toDateString() === oggi.toDateString()) return `oggi alle ${ora}`;
-  if (d.toDateString() === ieri.toDateString()) return `ieri alle ${ora}`;
-  const giorno = d.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' });
-  return `${giorno} alle ${ora}`;
+  if (d.toDateString() === oggi.toDateString()) return tr(`oggi alle ${ora}`, `today at ${ora}`);
+  if (d.toDateString() === ieri.toDateString()) return tr(`ieri alle ${ora}`, `yesterday at ${ora}`);
+  const giorno = d.toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: '2-digit' });
+  return tr(`${giorno} alle ${ora}`, `${giorno} at ${ora}`);
 }
 
 // Serie "diversa" in fase di scrittura (stringhe, come tutti i campi dei form).
@@ -607,7 +623,7 @@ export default function TrainerDashboard() {
     try {
       setEserciziRimossi(await getEserciziArchiviati(schedaId));
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nel caricamento degli esercizi rimossi');
+      setErrore(err instanceof Error ? err.message : tr('Errore nel caricamento degli esercizi rimossi', 'Error loading removed exercises'));
     }
   }
 
@@ -621,7 +637,7 @@ export default function TrainerDashboard() {
       setEsercizi((prev) => [...prev.filter((r) => r.nome.trim() || r.id), daEsercizioABozza(es)]);
       await caricaSchede();
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nel ripristino dell’esercizio');
+      setErrore(err instanceof Error ? err.message : tr('Errore nel ripristino dell’esercizio', 'Error restoring the exercise'));
     }
   }
 
@@ -647,7 +663,7 @@ export default function TrainerDashboard() {
       setStorico(dati);
       setStoricoAperto(esercizioId);
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nel caricamento storico');
+      setErrore(err instanceof Error ? err.message : tr('Errore nel caricamento storico', 'Error loading history'));
     }
   }
 
@@ -656,7 +672,7 @@ export default function TrainerDashboard() {
       const dati = await getSchede();
       setSchede(dati);
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nel caricamento schede');
+      setErrore(err instanceof Error ? err.message : tr('Errore nel caricamento schede', 'Error loading programmes'));
     }
   }
 
@@ -671,10 +687,10 @@ export default function TrainerDashboard() {
     try {
       setClienti(await getClienti());
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nel caricamento dei clienti');
+      setErrore(err instanceof Error ? err.message : tr('Errore nel caricamento dei clienti', 'Error loading clients'));
     }
   }
-  const nomeCliente = (id: number) => clienti.find((c) => c.id === id)?.nome ?? `cliente #${id}`;
+  const nomeCliente = (id: number) => clienti.find((c) => c.id === id)?.nome ?? tr(`cliente #${id}`, `client #${id}`);
 
   // true mentre il salvataggio è in corso: blocca il doppio tocco su "Crea scheda".
   const [salvando, setSalvando] = useState(false);
@@ -692,7 +708,7 @@ export default function TrainerDashboard() {
     try {
       setSessioni(await getSessioni());
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nel caricamento degli allenamenti');
+      setErrore(err instanceof Error ? err.message : tr('Errore nel caricamento degli allenamenti', 'Error loading workouts'));
     }
   }
 
@@ -700,7 +716,7 @@ export default function TrainerDashboard() {
     try {
       setPreset(await getPreset());
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nel caricamento della libreria');
+      setErrore(err instanceof Error ? err.message : tr('Errore nel caricamento della libreria', 'Error loading the library'));
     }
   }
 
@@ -762,7 +778,7 @@ export default function TrainerDashboard() {
       const aggiornato = await cambiaGruppoPreset(p.id, gruppo);
       setPreset((prev) => prev.map((x) => (x.id === aggiornato.id ? aggiornato : x)));
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nel cambio di gruppo');
+      setErrore(err instanceof Error ? err.message : tr('Errore nel cambio di gruppo', 'Error changing the group'));
     }
   }
 
@@ -770,11 +786,11 @@ export default function TrainerDashboard() {
   function chiediGruppo(indice: number) {
     const es = esercizi[indice];
     if (!es.nome.trim()) {
-      setErrore('Scrivi almeno il nome dell’esercizio prima di salvarlo');
+      setErrore(tr('Scrivi almeno il nome dell’esercizio prima di salvarlo', 'Type at least the exercise name before saving it'));
       return;
     }
     if (preset.some((p) => p.nome.toLowerCase() === es.nome.trim().toLowerCase())) {
-      setErrore(`"${es.nome}" è già nella tua libreria`);
+      setErrore(tr(`"${es.nome}" è già nella tua libreria`, `"${es.nome}" is already in your library`));
       return;
     }
     setErrore('');
@@ -785,12 +801,12 @@ export default function TrainerDashboard() {
     setGruppoPer(null);
     const es = esercizi[indice];
     if (!es.nome.trim()) {
-      setErrore('Scrivi almeno il nome dell’esercizio prima di salvarlo');
+      setErrore(tr('Scrivi almeno il nome dell’esercizio prima di salvarlo', 'Type at least the exercise name before saving it'));
       return;
     }
     // Evita doppioni con lo stesso nome nella libreria.
     if (preset.some((p) => p.nome.toLowerCase() === es.nome.trim().toLowerCase())) {
-      setErrore(`"${es.nome}" è già nella tua libreria`);
+      setErrore(tr(`"${es.nome}" è già nella tua libreria`, `"${es.nome}" is already in your library`));
       return;
     }
     try {
@@ -799,7 +815,7 @@ export default function TrainerDashboard() {
       await creaPreset(es.nome.trim(), es.videoUrl, undefined, gruppo);
       await caricaPreset();
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nel salvataggio');
+      setErrore(err instanceof Error ? err.message : tr('Errore nel salvataggio', 'Error saving'));
     }
   }
 
@@ -812,14 +828,14 @@ export default function TrainerDashboard() {
     try {
       setNotePreset(await getNotePreset());
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nel caricamento delle note');
+      setErrore(err instanceof Error ? err.message : tr('Errore nel caricamento delle note', 'Error loading notes'));
     }
   }
 
   async function salvaNota(testo: string) {
     const pulito = testo.trim();
     if (notePreset.some((n) => n.testo.toLowerCase() === pulito.toLowerCase())) {
-      setErrore('Questa nota è già tra le note salvate');
+      setErrore(tr('Questa nota è già tra le note salvate', 'This note is already among your saved notes'));
       return;
     }
     try {
@@ -827,7 +843,7 @@ export default function TrainerDashboard() {
       const nuova = await creaNotaPreset(pulito);
       setNotePreset([...notePreset, nuova].sort((a, b) => a.testo.localeCompare(b.testo)));
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nel salvataggio della nota');
+      setErrore(err instanceof Error ? err.message : tr('Errore nel salvataggio della nota', 'Error saving the note'));
     }
   }
 
@@ -844,7 +860,7 @@ export default function TrainerDashboard() {
       await cancellaNotaPreset(id);
       setNotePreset(notePreset.filter((n) => n.id !== id));
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nella cancellazione');
+      setErrore(err instanceof Error ? err.message : tr('Errore nella cancellazione', 'Error deleting'));
     }
   }
 
@@ -853,7 +869,7 @@ export default function TrainerDashboard() {
       await cancellaPreset(id);
       setPreset(preset.filter((p) => p.id !== id));
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nella cancellazione');
+      setErrore(err instanceof Error ? err.message : tr('Errore nella cancellazione', 'Error deleting'));
     }
   }
 
@@ -928,7 +944,7 @@ export default function TrainerDashboard() {
     if (salvando) return; // doppio tocco: il primo salvataggio è ancora in corso
     setErrore('');
     if (!clienteId) {
-      setErrore('Scegli il cliente: scrivi le prime lettere e tocca il suggerimento');
+      setErrore(tr('Scegli il cliente: scrivi le prime lettere e tocca il suggerimento', 'Choose the client: type the first letters and tap the suggestion'));
       return;
     }
     setSalvando(true);
@@ -937,7 +953,9 @@ export default function TrainerDashboard() {
       const reps = (testo: string, dove: string) => {
         const valore = leggiReps(testo);
         if (valore === undefined) {
-          throw new Error(`${dove}: reps non valide. Scrivi un numero (10), un intervallo (6-9) o Max`);
+          throw new Error(
+            tr(`${dove}: reps non valide. Scrivi un numero (10), un intervallo (6-9) o Max`, `${dove}: invalid reps. Enter a number (10), a range (6-9) or Max`),
+          );
         }
         return valore;
       };
@@ -955,7 +973,12 @@ export default function TrainerDashboard() {
         const n = Number(testo);
         // testo vuoto → errore (Number('') darebbe 0: un recupero cancellato diventerebbe "nessun recupero")
         if (!testo.trim() || !Number.isInteger(n) || n < minimo) {
-          throw new Error(`${dove}: ${campo} non valido${minimo > 0 ? ' (serve un numero maggiore di 0)' : ''}`);
+          throw new Error(
+            tr(
+              `${dove}: ${campo} non valido${minimo > 0 ? ' (serve un numero maggiore di 0)' : ''}`,
+              `${dove}: invalid ${campo}${minimo > 0 ? ' (a number greater than 0 is needed)' : ''}`,
+            ),
+          );
         }
         return n;
       };
@@ -973,22 +996,22 @@ export default function TrainerDashboard() {
         nome: es.nome,
         videoUrl: link(es.videoUrl),
         descrizione: es.descrizione || undefined,
-        serieTarget: intero(es.serieTarget, es.nome || `Esercizio ${indice + 1}`, 'numero di serie', 1),
+        serieTarget: intero(es.serieTarget, es.nome || tr(`Esercizio ${indice + 1}`, `Exercise ${indice + 1}`), tr('numero di serie', 'number of sets'), 1),
         ...(() => {
-          const r = reps(es.repsTarget, es.nome || 'Esercizio');
+          const r = reps(es.repsTarget, es.nome || tr('Esercizio', 'Exercise'));
           return { repsTarget: r.reps, repsMax: r.repsMax };
         })(),
         recuperoSecondi: superset
           ? recuperoNascosto(es.recuperoSecondi)
-          : intero(es.recuperoSecondi, es.nome || `Esercizio ${indice + 1}`, 'recupero', 0),
+          : intero(es.recuperoSecondi, es.nome || tr(`Esercizio ${indice + 1}`, `Exercise ${indice + 1}`), tr('recupero', 'rest'), 0),
         serieExtra: es.serieExtra.map((x, j) => ({
-          ...reps(x.reps, `${es.nome || 'Esercizio'}, serie ${Number(es.serieTarget) + j + 1}`),
+          ...reps(x.reps, `${es.nome || tr('Esercizio', 'Exercise')}, ${tr('serie', 'set')} ${Number(es.serieTarget) + j + 1}`),
           recuperoSecondi: superset
             ? recuperoNascosto(x.recuperoSecondi)
             : intero(
                 x.recuperoSecondi,
-                `${es.nome || `Esercizio ${indice + 1}`}, serie ${Number(es.serieTarget) + j + 1}`,
-                'recupero',
+                `${es.nome || tr(`Esercizio ${indice + 1}`, `Exercise ${indice + 1}`)}, ${tr('serie', 'set')} ${Number(es.serieTarget) + j + 1}`,
+                tr('recupero', 'rest'),
                 0
               ),
           nota: x.nota || undefined,
@@ -1012,7 +1035,7 @@ export default function TrainerDashboard() {
       resetForm();
       await caricaSchede();
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nel salvataggio della scheda');
+      setErrore(err instanceof Error ? err.message : tr('Errore nel salvataggio della scheda', 'Error saving the programme'));
     } finally {
       setSalvando(false);
     }
@@ -1028,7 +1051,7 @@ export default function TrainerDashboard() {
     try {
       setArchiviate(await getSchedeArchiviate());
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nel caricamento dell’archivio');
+      setErrore(err instanceof Error ? err.message : tr('Errore nel caricamento dell’archivio', 'Error loading the archive'));
     }
   }
 
@@ -1048,7 +1071,7 @@ export default function TrainerDashboard() {
       setSchede(schede.filter((s) => s.id !== id));
       await caricaArchiviate();
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nell’archiviazione');
+      setErrore(err instanceof Error ? err.message : tr('Errore nell’archiviazione', 'Error archiving'));
     }
   }
 
@@ -1059,7 +1082,7 @@ export default function TrainerDashboard() {
       setArchiviate(archiviate.filter((s) => s.id !== id));
       await caricaSchede();
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nel ripristino');
+      setErrore(err instanceof Error ? err.message : tr('Errore nel ripristino', 'Error restoring'));
     }
   }
 
@@ -1069,7 +1092,7 @@ export default function TrainerDashboard() {
       await eliminaSchedaDefinitivamente(id);
       setArchiviate(archiviate.filter((s) => s.id !== id));
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nell’eliminazione');
+      setErrore(err instanceof Error ? err.message : tr('Errore nell’eliminazione', 'Error deleting'));
     } finally {
       setConfermaElimina(null);
     }
@@ -1080,7 +1103,7 @@ export default function TrainerDashboard() {
     const c = m.get(s.clienteId);
     m.set(s.clienteId, { id: s.clienteId, nome: s.cliente.nome, quanti: (c?.quanti ?? 0) + 1 });
     return m;
-  }, new Map<number, { id: number; nome: string; quanti: number }>()).values()].sort((a, b) => a.nome.localeCompare(b.nome, 'it'));
+  }, new Map<number, { id: number; nome: string; quanti: number }>()).values()].sort((a, b) => a.nome.localeCompare(b.nome, locale));
   // Le sessioni arrivano dalla più recente: di base si apre il cliente che si è allenato per ultimo.
   const clienteScelto = clientiConSessioni.some((c) => c.id === clienteSessioni) ? clienteSessioni : (sessioni[0]?.clienteId ?? null);
   const sessioniCliente = sessioni.filter((s) => s.clienteId === clienteScelto);
@@ -1095,43 +1118,45 @@ export default function TrainerDashboard() {
           className="flex items-center justify-between gap-3 rounded-2xl border border-accent-strong/40 bg-accent-soft px-5 py-4 text-sm font-semibold text-ink transition-colors hover:border-accent-strong"
         >
           <span>
-            {trainerInAttesa === 1 ? '1 trainer aspetta' : `${trainerInAttesa} trainer aspettano`} la tua approvazione
+            {trainerInAttesa === 1
+              ? tr('1 trainer aspetta la tua approvazione', '1 trainer is waiting for your approval')
+              : tr(`${trainerInAttesa} trainer aspettano la tua approvazione`, `${trainerInAttesa} trainers are waiting for your approval`)}
           </span>
-          <span className="shrink-0 text-accent-strong">Vedi →</span>
+          <span className="shrink-0 text-accent-strong">{tr('Vedi →', 'See →')}</span>
         </a>
       )}
-      <div className="grid gap-3 sm:grid-cols-3 sm:gap-4" aria-label="Riepilogo attività">
+      <div className="grid gap-3 sm:grid-cols-3 sm:gap-4" aria-label={tr('Riepilogo attività', 'Activity summary')}>
         <div className="metric-card">
           <span className="metric-icon bg-surface-2 text-accent-strong" aria-hidden="true">
             <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 5"/></svg>
           </span>
-          <div><p className="text-3xl font-bold tabular-nums tracking-tight">{clienti.length}</p><p className="text-sm text-muted">Clienti registrati</p></div>
+          <div><p className="text-3xl font-bold tabular-nums tracking-tight">{clienti.length}</p><p className="text-sm text-muted">{tr('Clienti registrati', 'Registered clients')}</p></div>
         </div>
         <div className="metric-card">
           <span className="metric-icon bg-surface-2 text-accent-strong" aria-hidden="true">
             <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><rect x="5" y="4" width="14" height="17" rx="3"/><rect x="9" y="2" width="6" height="4" rx="1.5" fill="currentColor" stroke="none"/><path d="M9 11h6m-6 5h6"/></svg>
           </span>
-          <div><p className="text-3xl font-bold tabular-nums tracking-tight">{schede.length}</p><p className="text-sm text-muted">Schede attive</p></div>
+          <div><p className="text-3xl font-bold tabular-nums tracking-tight">{schede.length}</p><p className="text-sm text-muted">{tr('Schede attive', 'Active programmes')}</p></div>
         </div>
         <div className="metric-card">
           <span className="metric-icon bg-surface-2 text-accent-strong" aria-hidden="true">
             <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m4 14 5-5 4 4 7-9m-5 0h5v5M4 4v16h16"/></svg>
           </span>
-          <div><p className="text-3xl font-bold tabular-nums tracking-tight">{sessioni.length}</p><p className="text-sm text-muted">Allenamenti conclusi</p></div>
+          <div><p className="text-3xl font-bold tabular-nums tracking-tight">{sessioni.length}</p><p className="text-sm text-muted">{tr('Allenamenti conclusi', 'Workouts completed')}</p></div>
         </div>
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <nav className="flex flex-wrap gap-2 text-sm font-semibold" aria-label="Sezioni trainer">
-          <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#attivita">Panoramica</a>
-          <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#schede-clienti">Schede</a>
-          <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#gestione-clienti">Clienti</a>
-          <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#inviti">Inviti</a>
+        <nav className="flex flex-wrap gap-2 text-sm font-semibold" aria-label={tr('Sezioni trainer', 'Trainer sections')}>
+          <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#attivita">{tr('Panoramica', 'Overview')}</a>
+          <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#schede-clienti">{tr('Schede', 'Programmes')}</a>
+          <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#gestione-clienti">{tr('Clienti', 'Clients')}</a>
+          <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#inviti">{tr('Inviti', 'Invites')}</a>
           {admin && (
             <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href={trainerInAttesa > 0 ? '#trainer-in-attesa' : '#trainer-app'}>
-              Trainer
+              {tr('Trainer', 'Trainers')}
               {trainerInAttesa > 0 && (
-                <span className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-xs text-accent-ink" aria-label={`${trainerInAttesa} in attesa`}>
+                <span className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-xs text-accent-ink" aria-label={tr(`${trainerInAttesa} in attesa`, `${trainerInAttesa} pending`)}>
                   {trainerInAttesa}
                 </span>
               )}
@@ -1143,7 +1168,7 @@ export default function TrainerDashboard() {
           if (editorAperto) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }}>
           <span aria-hidden="true" className="text-xl leading-none">+</span>
-          {editorAperto ? 'Continua la scheda' : 'Nuova scheda'}
+          {editorAperto ? tr('Continua la scheda', 'Continue programme') : tr('Nuova scheda', 'New programme')}
         </button>
       </div>
 
@@ -1153,12 +1178,12 @@ export default function TrainerDashboard() {
       <section id="attivita" className="card scroll-mt-24">
         <div className="mb-5 flex items-start justify-between gap-3">
           <div>
-            <p className="eyebrow mb-1">Attività recente</p>
-            <h2 className="section-title">Allenamenti completati</h2>
-            <p className="mt-1 text-sm text-muted">Scegli un cliente e guarda come sono andati i suoi allenamenti.</p>
+            <p className="eyebrow mb-1">{tr('Attività recente', 'Recent activity')}</p>
+            <h2 className="section-title">{tr('Allenamenti completati', 'Completed workouts')}</h2>
+            <p className="mt-1 text-sm text-muted">{tr('Scegli un cliente e guarda come sono andati i suoi allenamenti.', 'Choose a client and see how their workouts went.')}</p>
           </div>
           <button
-            aria-label="Aggiorna allenamenti completati"
+            aria-label={tr('Aggiorna allenamenti completati', 'Refresh completed workouts')}
             className="btn-secondary h-11 w-11 shrink-0 px-0"
             onClick={caricaSessioni}
           >
@@ -1167,12 +1192,12 @@ export default function TrainerDashboard() {
         </div>
         {sessioni.length === 0 ? (
           <p className="empty-state">
-            Nessun cliente ha ancora concluso un allenamento.
+            {tr('Nessun cliente ha ancora concluso un allenamento.', 'No client has finished a workout yet.')}
           </p>
         ) : (
           <>
           <div className="mb-2">
-            <label className="label" htmlFor="cliente-sessioni">Cliente</label>
+            <label className="label" htmlFor="cliente-sessioni">{tr('Cliente', 'Client')}</label>
             <select
               id="cliente-sessioni"
               className="input"
@@ -1181,7 +1206,7 @@ export default function TrainerDashboard() {
             >
               {clientiConSessioni.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.nome} · {c.quanti === 1 ? '1 allenamento' : `${c.quanti} allenamenti`}
+                  {c.nome} · {c.quanti === 1 ? tr('1 allenamento', '1 workout') : tr(`${c.quanti} allenamenti`, `${c.quanti} workouts`)}
                 </option>
               ))}
             </select>
@@ -1196,7 +1221,7 @@ export default function TrainerDashboard() {
                     type="button"
                     className="flex w-full items-center gap-3 py-4 text-left transition-colors hover:bg-surface-2/50 sm:gap-4"
                     onClick={() => setProgressiScheda({ schedaId: s.schedaId, giorno: s.completataIl })}
-                    aria-label={`Dettaglio allenamento di ${s.cliente.nome}, ${s.scheda.nome}`}
+                    aria-label={tr(`Dettaglio allenamento di ${s.cliente.nome}, ${s.scheda.nome}`, `Workout details for ${s.cliente.nome}, ${s.scheda.nome}`)}
                   >
                   {/* Il cliente è già scelto sopra: nel quadratino c'è il giorno dell'allenamento */}
                   <span
@@ -1207,7 +1232,7 @@ export default function TrainerDashboard() {
                   >
                     <span className="text-base font-bold tabular-nums">{new Date(s.completataIl).getDate()}</span>
                     <span className="mt-0.5 text-[10px] font-semibold uppercase">
-                      {new Date(s.completataIl).toLocaleDateString('it-IT', { month: 'short' }).replace('.', '')}
+                      {new Date(s.completataIl).toLocaleDateString(locale, { month: 'short' }).replace('.', '')}
                     </span>
                   </span>
                   <div className="min-w-0 flex-1">
@@ -1223,10 +1248,10 @@ export default function TrainerDashboard() {
                   </div>
                   <div className="shrink-0 text-right">
                     <p className={`rounded-md px-2 py-1 text-xs font-semibold tabular-nums sm:text-sm ${completa ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}>
-                      {s.serieFatte}/{s.serieTotali} serie
+                      {s.serieFatte}/{s.serieTotali} {tr('serie', 'sets')}
                     </p>
                     <p className="mt-1 text-xs text-muted tabular-nums">
-                      {Math.round(s.volume).toLocaleString('it-IT')} kg
+                      {Math.round(s.volume).toLocaleString(locale)} kg
                     </p>
                   </div>
                   <span aria-hidden className="shrink-0 text-lg text-muted">›</span>
@@ -1239,7 +1264,7 @@ export default function TrainerDashboard() {
         )}
         {sessioniCliente.length > 5 && (
           <button className="btn-link mt-3 text-sm" onClick={() => setMostraTutte(!mostraTutte)}>
-            {mostraTutte ? 'Mostra meno' : `Mostra tutti (${sessioniCliente.length})`}
+            {mostraTutte ? tr('Mostra meno', 'Show less') : tr(`Mostra tutti (${sessioniCliente.length})`, `Show all (${sessioniCliente.length})`)}
           </button>
         )}
       </section>
@@ -1252,17 +1277,18 @@ export default function TrainerDashboard() {
       >
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <p className="eyebrow mb-1">Programmazione</p>
-            <h2 className="section-title">{schedaInModifica !== null ? 'Modifica scheda' : 'Nuova scheda'}</h2>
-            <p className="mt-1 text-sm text-muted">Scegli il cliente e costruisci il suo prossimo allenamento.</p>
+            <p className="eyebrow mb-1">{tr('Programmazione', 'Planning')}</p>
+            <h2 className="section-title">{schedaInModifica !== null ? tr('Modifica scheda', 'Edit programme') : tr('Nuova scheda', 'New programme')}</h2>
+            <p className="mt-1 text-sm text-muted">{tr('Scegli il cliente e costruisci il suo prossimo allenamento.', 'Choose the client and build their next workout.')}</p>
           </div>
-          <button type="button" className="btn-secondary shrink-0" onClick={() => setEditorAperto(false)}>Riduci</button>
+          <button type="button" className="btn-secondary shrink-0" onClick={() => setEditorAperto(false)}>{tr('Riduci', 'Collapse')}</button>
         </div>
         {schedaInModifica !== null && (
           <p className="mb-5 rounded-lg bg-accent-soft px-3 py-2 text-sm text-soft">
-            Stai modificando una scheda esistente. Se rimuovi un esercizio esce dalla scheda,
-            ma tutte le serie che il cliente ha già registrato restano salvate e puoi rimetterlo
-            quando vuoi dall’elenco in fondo agli esercizi.
+            {tr(
+              'Stai modificando una scheda esistente. Se rimuovi un esercizio esce dalla scheda, ma tutte le serie che il cliente ha già registrato restano salvate e puoi rimetterlo quando vuoi dall’elenco in fondo agli esercizi.',
+              'You’re editing an existing programme. If you remove an exercise it leaves the programme, but every set the client already logged stays saved and you can put it back any time from the list below the exercises.',
+            )}
           </p>
         )}
         <form
@@ -1274,18 +1300,18 @@ export default function TrainerDashboard() {
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="label" htmlFor="nome-scheda">Nome scheda</label>
+              <label className="label" htmlFor="nome-scheda">{tr('Nome scheda', 'Programme name')}</label>
               <input
                 id="nome-scheda"
                 className="input"
-                placeholder="Nome scheda (es. Full Body A)"
+                placeholder={tr('Nome scheda (es. Full Body A)', 'Programme name (e.g. Full Body A)')}
                 value={nomeScheda}
                 onChange={(e) => setNomeScheda(e.target.value)}
                 required
               />
             </div>
             <div>
-              <label className="label">Cliente</label>
+              <label className="label">{tr('Cliente', 'Client')}</label>
               {/* Si scrivono le prime lettere e si tocca il nome: niente ID da ricordare, niente schede
                   assegnate alla persona sbagliata. La key riparte da zero quando il form si svuota. */}
               <SceltaCliente key={versioneForm} clienti={clienti} valore={clienteId} onChange={setClienteId} />
@@ -1296,7 +1322,7 @@ export default function TrainerDashboard() {
               Su telefono: la libreria si apre dal bottone "Libreria" in basso. */}
           <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start lg:gap-6">
           <div className="min-w-0">
-            <h3 className="mb-3 text-lg font-bold text-ink">Esercizi della scheda</h3>
+            <h3 className="mb-3 text-lg font-bold text-ink">{tr('Esercizi della scheda', 'Programme exercises')}</h3>
 
             <div>
               {esercizi.map((es, i) => {
@@ -1326,7 +1352,7 @@ export default function TrainerDashboard() {
                         aria-expanded={gruppoPer === es.chiave}
                         onClick={() => (gruppoPer === es.chiave ? setGruppoPer(null) : chiediGruppo(i))}
                       >
-                        ☆ Salva esercizio
+                        {tr('☆ Salva esercizio', '☆ Save exercise')}
                       </button>
                       {esercizi.length > 1 && (
                         <button
@@ -1334,7 +1360,7 @@ export default function TrainerDashboard() {
                           className="btn-danger px-3 py-1 text-xs"
                           onClick={() => rimuoviRigaEsercizio(i)}
                         >
-                          {confermaRimuovi === es.chiave ? 'Sicuro? Tocca ancora' : 'Rimuovi'}
+                          {confermaRimuovi === es.chiave ? tr('Sicuro? Tocca ancora', 'Sure? Tap again') : tr('Rimuovi', 'Remove')}
                         </button>
                       )}
                     </div>
@@ -1349,7 +1375,7 @@ export default function TrainerDashboard() {
                   )}
                   <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
                     <div className="col-span-3 sm:col-span-3">
-                      <label className="label">Esercizio</label>
+                      <label className="label">{tr('Esercizio', 'Exercise')}</label>
                       <CampoNomeEsercizio
                         valore={es.nome}
                         preset={preset}
@@ -1361,18 +1387,18 @@ export default function TrainerDashboard() {
                       <label className="label">Video</label>
                       <input
                         className="input"
-                        placeholder="Link video (opzionale)"
+                        placeholder={tr('Link video (opzionale)', 'Video link (optional)')}
                         maxLength={500}
                         value={es.videoUrl}
                         onChange={(e) => aggiornaEsercizio(i, 'videoUrl', e.target.value)}
                       />
                     </div>
                     <div className="sm:col-span-2">
-                      <label className="label">Serie</label>
+                      <label className="label">{tr('Serie', 'Sets')}</label>
                       <input
                         className="input"
                         type="number"
-                        placeholder="Serie"
+                        placeholder={tr('Serie', 'Sets')}
                         value={es.serieTarget}
                         onChange={(e) => aggiornaEsercizio(i, 'serieTarget', e.target.value)}
                       />
@@ -1382,14 +1408,14 @@ export default function TrainerDashboard() {
                       <CampoReps valore={es.repsTarget} onChange={(v) => aggiornaEsercizio(i, 'repsTarget', v)} />
                     </div>
                     <div className="sm:col-span-2">
-                      <label className="label">Rec. (sec)</label>
+                      <label className="label">{tr('Rec. (sec)', 'Rest (sec)')}</label>
                       {superset ? (
                         <RecuperoAssente />
                       ) : (
                         <input
                           className="input"
                           type="number"
-                          placeholder="Recupero (sec)"
+                          placeholder={tr('Recupero (sec)', 'Rest (sec)')}
                           value={es.recuperoSecondi}
                           onChange={(e) => aggiornaEsercizio(i, 'recuperoSecondi', e.target.value)}
                         />
@@ -1404,11 +1430,11 @@ export default function TrainerDashboard() {
                         <div key={j} className="rounded-xl border border-accent-strong/40 bg-accent-soft p-3">
                           <div className="mb-2 flex items-center justify-between">
                             <span className="text-xs font-semibold tracking-wide text-accent-strong uppercase">
-                              Serie {Number(es.serieTarget || 0) + j + 1}
+                              {tr('Serie', 'Set')} {Number(es.serieTarget || 0) + j + 1}
                             </span>
                             <button
                               type="button"
-                              aria-label={`Rimuovi serie ${Number(es.serieTarget || 0) + j + 1}`}
+                              aria-label={tr(`Rimuovi serie ${Number(es.serieTarget || 0) + j + 1}`, `Remove set ${Number(es.serieTarget || 0) + j + 1}`)}
                               className="btn-ghost min-h-8 w-8 px-0 text-sm text-muted hover:text-danger"
                               onClick={() => rimuoviSerieExtra(i, j)}
                             >
@@ -1421,7 +1447,7 @@ export default function TrainerDashboard() {
                               <CampoReps valore={x.reps} onChange={(v) => aggiornaSerieExtra(i, j, 'reps', v)} />
                             </div>
                             <div>
-                              <label className="label">Rec. (sec)</label>
+                              <label className="label">{tr('Rec. (sec)', 'Rest (sec)')}</label>
                               {superset ? (
                                 <RecuperoAssente />
                               ) : (
@@ -1437,7 +1463,7 @@ export default function TrainerDashboard() {
                           </div>
                           <input
                             className="input mt-2"
-                            placeholder='Nota, es. "drop set" o "a cedimento"'
+                            placeholder={tr('Nota, es. "drop set" o "a cedimento"', 'Note, e.g. "drop set" or "to failure"')}
                             maxLength={200}
                             value={x.nota}
                             onChange={(e) => aggiornaSerieExtra(i, j, 'nota', e.target.value)}
@@ -1452,15 +1478,15 @@ export default function TrainerDashboard() {
                       className="btn-ghost mt-3 w-full border border-dashed border-accent-strong/50 text-accent-strong"
                       onClick={() => aggiungiSerieExtra(i)}
                     >
-                      + Aggiungi serie
+                      {tr('+ Aggiungi serie', '+ Add set')}
                     </button>
                   )}
 
                   <div className="mt-3">
-                    <label className="label">Note per il cliente (opzionale)</label>
+                    <label className="label">{tr('Note per il cliente (opzionale)', 'Notes for the client (optional)')}</label>
                     <textarea
                       className="input min-h-[60px] resize-y"
-                      placeholder='Es. "3x10 ma con 3 secondi di isometria in basso"'
+                      placeholder={tr('Es. "3x10 ma con 3 secondi di isometria in basso"', 'E.g. "3x10 with a 3-second pause at the bottom"')}
                       maxLength={1000}
                       value={es.descrizione}
                       onChange={(e) => aggiornaEsercizio(i, 'descrizione', e.target.value)}
@@ -1473,21 +1499,21 @@ export default function TrainerDashboard() {
                         disabled={!es.descrizione.trim()}
                         onClick={() => salvaNota(es.descrizione)}
                       >
-                        ☆ Salva nota
+                        {tr('☆ Salva nota', '☆ Save note')}
                       </button>
                       <button
                         type="button"
                         className={`btn-secondary min-h-9 px-3 text-xs ${noteAperte === es.chiave ? 'border-accent-strong' : ''}`}
                         onClick={() => setNoteAperte(noteAperte === es.chiave ? null : es.chiave)}
                       >
-                        Note salvate ({notePreset.length}) {noteAperte === es.chiave ? '▴' : '▾'}
+                        {tr('Note salvate', 'Saved notes')} ({notePreset.length}) {noteAperte === es.chiave ? '▴' : '▾'}
                       </button>
                     </div>
                     {noteAperte === es.chiave && (
                       <div className="mt-2 rounded-xl border border-line bg-surface p-2">
                         {notePreset.length === 0 ? (
                           <p className="px-1 py-1 text-xs text-muted">
-                            Nessuna nota salvata. Scrivine una qui sopra e premi “Salva nota”.
+                            {tr('Nessuna nota salvata. Scrivine una qui sopra e premi “Salva nota”.', 'No saved notes. Write one above and press “Save note”.')}
                           </p>
                         ) : (
                           <ul className="flex flex-col gap-1.5">
@@ -1502,7 +1528,7 @@ export default function TrainerDashboard() {
                                 </button>
                                 <button
                                   type="button"
-                                  aria-label={`Elimina la nota salvata: ${n.testo}`}
+                                  aria-label={tr(`Elimina la nota salvata: ${n.testo}`, `Delete the saved note: ${n.testo}`)}
                                   className="border-l border-line px-3 text-muted transition hover:bg-danger-soft hover:text-danger"
                                   onClick={() => handleCancellaNota(n.id)}
                                 >
@@ -1528,27 +1554,29 @@ export default function TrainerDashboard() {
               })}
             </div>
             <button type="button" className="btn-secondary mt-3 w-full border-dashed sm:w-auto" onClick={aggiungiRigaEsercizio}>
-              + Aggiungi esercizio
+              {tr('+ Aggiungi esercizio', '+ Add exercise')}
             </button>
 
             {/* Solo in modifica: esercizi tolti in passato da questa scheda, con le serie del cliente
                 ancora salvate. "Rimetti" li riporta nella scheda con tutto il loro storico. */}
             {schedaInModifica !== null && eserciziRimossi.length > 0 && (
               <div className="mt-5 rounded-xl border border-line bg-surface p-3">
-                <p className="mb-2 text-xs font-semibold text-muted">Esercizi tolti da questa scheda (dati conservati)</p>
+                <p className="mb-2 text-xs font-semibold text-muted">{tr('Esercizi tolti da questa scheda (dati conservati)', 'Exercises removed from this programme (data kept)')}</p>
                 <ul className="divide-y divide-line">
                   {eserciziRimossi.map((es) => (
                     <li key={es.id} className="flex items-center gap-3 py-2">
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{es.nome}</p>
                         <p className="text-xs text-muted">
-                          {es._count.registri > 0 ? `${es._count.registri} serie registrate` : 'nessuna serie registrata'}
-                          {' · tolto il '}
-                          {new Date(es.archiviatoIl).toLocaleDateString('it-IT')}
+                          {es._count.registri > 0
+                            ? tr(`${es._count.registri} serie registrate`, `${es._count.registri} sets logged`)
+                            : tr('nessuna serie registrata', 'no sets logged')}
+                          {tr(' · tolto il ', ' · removed on ')}
+                          {new Date(es.archiviatoIl).toLocaleDateString(locale)}
                         </p>
                       </div>
                       <button type="button" className="btn-secondary shrink-0 px-3 py-1 text-xs" onClick={() => handleRipristinaEsercizio(es)}>
-                        ↺ Rimetti
+                        {tr('↺ Rimetti', '↺ Put back')}
                       </button>
                     </li>
                   ))}
@@ -1557,7 +1585,7 @@ export default function TrainerDashboard() {
             )}
           </div>
             <aside
-              aria-label="Libreria esercizi"
+              aria-label={tr('Libreria esercizi', 'Exercise library')}
               className="hidden rounded-2xl border border-line bg-surface p-4 lg:sticky lg:top-24 lg:block lg:h-[calc(100vh-8rem)]"
             >
               <PannelloLibreria
@@ -1571,12 +1599,12 @@ export default function TrainerDashboard() {
 
           {/* Telefono: libreria in un pannello dal basso */}
           {libreriaAperta && (
-            <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Libreria esercizi">
-              <button type="button" aria-label="Chiudi la libreria" className="absolute inset-0 bg-black/50" onClick={() => setLibreriaAperta(false)} />
+            <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label={tr('Libreria esercizi', 'Exercise library')}>
+              <button type="button" aria-label={tr('Chiudi la libreria', 'Close the library')} className="absolute inset-0 bg-black/50" onClick={() => setLibreriaAperta(false)} />
               <div className="absolute inset-x-0 bottom-0 flex h-[75vh] flex-col rounded-t-3xl border-t border-line bg-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl">
                 <div className="mb-2 flex justify-end">
                   <button type="button" className="btn-ghost min-h-9 px-3 text-sm" onClick={() => setLibreriaAperta(false)}>
-                    Chiudi
+                    {tr('Chiudi', 'Close')}
                   </button>
                 </div>
                 <div className="min-h-0 flex-1">
@@ -1597,7 +1625,7 @@ export default function TrainerDashboard() {
               className="btn-primary fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 min-h-12 px-4 shadow-lg lg:hidden"
               onClick={() => setLibreriaAperta(true)}
             >
-              + Libreria
+              {tr('+ Libreria', '+ Library')}
             </button>
           )}
 
@@ -1605,11 +1633,11 @@ export default function TrainerDashboard() {
           <div className="flex flex-col-reverse gap-3 border-t border-line pt-5 sm:flex-row sm:justify-end">
             {schedaInModifica !== null && (
               <button type="button" className="btn-secondary w-full px-6 py-2.5 sm:w-auto" onClick={resetForm}>
-                Annulla modifica
+                {tr('Annulla modifica', 'Cancel editing')}
               </button>
             )}
             <button type="submit" className="btn-primary w-full px-6 py-2.5 sm:w-auto" disabled={salvando}>
-              {salvando ? 'Salvo…' : schedaInModifica !== null ? 'Salva modifiche' : 'Crea scheda'}
+              {salvando ? tr('Salvo…', 'Saving…') : schedaInModifica !== null ? tr('Salva modifiche', 'Save changes') : tr('Crea scheda', 'Create programme')}
             </button>
           </div>
         </form>
@@ -1617,20 +1645,20 @@ export default function TrainerDashboard() {
 
       <section id="schede-clienti" className="scroll-mt-24">
         <div className="mb-5">
-          <p className="eyebrow mb-1">Programmi di allenamento</p>
-          <h2 className="section-title">Le schede dei tuoi clienti</h2>
-          <p className="mt-1 text-sm text-muted">Seleziona un cliente per consultare e aggiornare il suo programma.</p>
+          <p className="eyebrow mb-1">{tr('Programmi di allenamento', 'Training programmes')}</p>
+          <h2 className="section-title">{tr('Le schede dei tuoi clienti', 'Your clients’ programmes')}</h2>
+          <p className="mt-1 text-sm text-muted">{tr('Seleziona un cliente per consultare e aggiornare il suo programma.', 'Select a client to view and update their programme.')}</p>
         </div>
         {schede.length === 0 && (
           <p className="rounded-2xl border border-dashed border-line bg-surface p-8 text-center text-muted">
-            Nessuna scheda ancora creata.
+            {tr('Nessuna scheda ancora creata.', 'No programmes created yet.')}
           </p>
         )}
 
         {/* Elenco clienti: si tocca un nome e sotto compaiono solo le sue schede */}
         {clienti.length > 0 && (
           <div className="mb-5 rounded-2xl border border-line bg-surface p-4 sm:p-5">
-            <p className="label">Scegli il cliente</p>
+            <p className="label">{tr('Scegli il cliente', 'Choose the client')}</p>
             <div className="flex flex-wrap gap-2">
               {clienti.map((c) => {
                 const numero = schede.filter((sc) => sc.clienteId === c.id).length;
@@ -1657,7 +1685,7 @@ export default function TrainerDashboard() {
         )}
         {schede.length > 0 && clienteVisto === null && (
           <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">
-            Tocca il nome di un cliente per vedere le sue schede.
+            {tr('Tocca il nome di un cliente per vedere le sue schede.', 'Tap a client’s name to see their programmes.')}
           </p>
         )}
         {/* Cliente scelto: prima peso e massa grassa, poi le sue schede */}
@@ -1669,7 +1697,7 @@ export default function TrainerDashboard() {
         )}
         {clienteVisto !== null && !schede.some((sc) => sc.clienteId === clienteVisto) && (
           <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">
-            {nomeCliente(clienteVisto)} non ha ancora schede.
+            {tr(`${nomeCliente(clienteVisto)} non ha ancora schede.`, `${nomeCliente(clienteVisto)} has no programmes yet.`)}
           </p>
         )}
         <div className="grid gap-4 md:grid-cols-2">
@@ -1683,24 +1711,24 @@ export default function TrainerDashboard() {
                   </span>
                   {/* Data di creazione + quanto tempo fa: le schede sono già in ordine dalla più recente */}
                   <p className={`mt-1.5 text-xs ${eVecchia(scheda.creataIl) ? 'font-semibold text-accent-strong' : 'text-muted'}`}>
-                    Creata il {dataBreve(scheda.creataIl)} · {etaScheda(scheda.creataIl)}
-                    {eVecchia(scheda.creataIl) && ' · da aggiornare?'}
+                    {tr('Creata il', 'Created on')} {dataBreve(scheda.creataIl)} · {etaScheda(scheda.creataIl)}
+                    {eVecchia(scheda.creataIl) && tr(' · da aggiornare?', ' · time to update?')}
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">
                   <button className="btn-primary px-3 py-1.5 text-xs" onClick={() => setProgressiScheda({ schedaId: scheda.id })}>
-                    Progressi
+                    {tr('Progressi', 'Progress')}
                   </button>
                   <button
                     className="btn-secondary px-3 py-1.5 text-xs"
                     onClick={() => avviaModifica(scheda)}
                     disabled={schedaInModifica === scheda.id}
                   >
-                    {schedaInModifica === scheda.id ? 'In modifica…' : 'Modifica'}
+                    {schedaInModifica === scheda.id ? tr('In modifica…', 'Editing…') : tr('Modifica', 'Edit')}
                   </button>
                   {/* Archivia: nessuna conferma serve, perché non si perde niente e si ripristina con un tocco */}
                   <button className="btn-ghost px-3 py-1.5 text-xs" onClick={() => handleArchivia(scheda.id)}>
-                    Archivia
+                    {tr('Archivia', 'Archive')}
                   </button>
                 </div>
               </div>
@@ -1720,12 +1748,12 @@ export default function TrainerDashboard() {
                         {es.nome}
                       </span>
                       <span className="min-w-0 text-muted">
-                        <span className="font-semibold text-ink">{riassuntoSerie(es)}</span> · {superset ? 'subito il successivo' : testoRecupero(es.recuperoSecondi)}
+                        <span className="font-semibold text-ink">{riassuntoSerie(es)}</span> · {superset ? tr('subito il successivo', 'straight to the next') : testoRecupero(es.recuperoSecondi)}
                       </span>
                     </div>
                     {(es.serieExtra || []).map((x, j) => (
                       <p key={j} className="mt-1 text-xs text-accent-strong">
-                        + Serie {es.serieTarget + j + 1}: {testoReps(x.reps, x.repsMax)} reps{superset ? '' : ` · ${testoRecupero(x.recuperoSecondi)}`}
+                        + {tr('Serie', 'Set')} {es.serieTarget + j + 1}: {testoReps(x.reps, x.repsMax)} reps{superset ? '' : ` · ${testoRecupero(x.recuperoSecondi)}`}
                         {x.nota ? ` · ${x.nota}` : ''}
                       </p>
                     ))}
@@ -1736,19 +1764,19 @@ export default function TrainerDashboard() {
                       className="btn-link mt-1 text-xs"
                       onClick={() => toggleStorico(es.id)}
                     >
-                      {storicoAperto === es.id ? 'Nascondi note cliente' : 'Vedi note cliente'}
+                      {storicoAperto === es.id ? tr('Nascondi note cliente', 'Hide client notes') : tr('Vedi note cliente', 'See client notes')}
                     </button>
 
                     {storicoAperto === es.id && (
                       <div className="mt-2 rounded-lg border border-line bg-surface-2 p-2">
                         {storico.length === 0 ? (
-                          <p className="px-2 py-1 text-xs text-muted">Nessun allenamento registrato ancora.</p>
+                          <p className="px-2 py-1 text-xs text-muted">{tr('Nessun allenamento registrato ancora.', 'No workouts logged yet.')}</p>
                         ) : (
                           <ul className="divide-y divide-line">
                             {storico.map((r) => (
                               <li key={r.id} className="px-2 py-1.5 text-xs">
                                 <div className="flex items-center justify-between gap-2 text-muted">
-                                  <span>{new Date(r.data).toLocaleDateString('it-IT')}</span>
+                                  <span>{new Date(r.data).toLocaleDateString(locale)}</span>
                                   <span className="font-semibold text-ink">
                                     {r.pesoUsato}kg x {r.repsFatte}
                                   </span>
@@ -1791,14 +1819,14 @@ export default function TrainerDashboard() {
           aria-expanded={clientiAperti}
           onClick={() => setClientiAperti(!clientiAperti)}
         >
-          <span>Gestione clienti <span className="ml-1 text-muted">({clienti.length})</span><span className="mt-0.5 block text-sm font-normal text-muted">Email e credenziali di accesso</span></span>
+          <span>{tr('Gestione clienti', 'Client management')} <span className="ml-1 text-muted">({clienti.length})</span><span className="mt-0.5 block text-sm font-normal text-muted">{tr('Email e credenziali di accesso', 'Email and sign-in details')}</span></span>
           <span aria-hidden>{clientiAperti ? '▴' : '▾'}</span>
         </button>
         {clientiAperti && (
           <div className="mt-3 space-y-2">
             {clienti.length === 0 && (
               <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">
-                Nessun cliente registrato.
+                {tr('Nessun cliente registrato.', 'No registered clients.')}
               </p>
             )}
             {clienti.map((c) => (
@@ -1807,7 +1835,7 @@ export default function TrainerDashboard() {
                   <div className="min-w-0">
                     <p className="flex items-center gap-2 font-semibold">
                       <span className="truncate">{c.nome}</span>
-                      {c.sospeso && <span className="shrink-0 rounded-md bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning">Sospeso</span>}
+                      {c.sospeso && <span className="shrink-0 rounded-md bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning">{tr('Sospeso', 'Suspended')}</span>}
                     </p>
                     <p className="truncate text-xs text-muted">{c.email}</p>
                   </div>
@@ -1816,7 +1844,7 @@ export default function TrainerDashboard() {
                     className="btn-secondary shrink-0 px-3 py-1.5 text-xs"
                     onClick={() => setAccessoAperto(accessoAperto === c.id ? null : c.id)}
                   >
-                    {accessoAperto === c.id ? 'Chiudi' : 'Gestisci'}
+                    {accessoAperto === c.id ? tr('Chiudi', 'Close') : tr('Gestisci', 'Manage')}
                   </button>
                 </div>
                 {accessoAperto === c.id && (
@@ -1843,7 +1871,7 @@ export default function TrainerDashboard() {
             setArchivioAperto(!archivioAperto);
           }}
         >
-          <span>Schede archiviate{archivioAperto ? ` (${archiviate.length})` : ''}</span>
+          <span>{tr('Schede archiviate', 'Archived programmes')}{archivioAperto ? ` (${archiviate.length})` : ''}</span>
           <span aria-hidden>{archivioAperto ? '▴' : '▾'}</span>
         </button>
 
@@ -1851,7 +1879,7 @@ export default function TrainerDashboard() {
           <div className="mt-3 space-y-3">
             {archiviate.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">
-                Nessuna scheda archiviata.
+                {tr('Nessuna scheda archiviata.', 'No archived programmes.')}
               </p>
             ) : (
               archiviate.map((scheda) => (
@@ -1859,36 +1887,36 @@ export default function TrainerDashboard() {
                   <div>
                     <strong className="block leading-tight font-bold break-words">{scheda.nome}</strong>
                     <p className="mt-1 text-xs text-muted">
-                      {nomeCliente(scheda.clienteId)} · creata il {dataBreve(scheda.creataIl)}
+                      {nomeCliente(scheda.clienteId)} · {tr('creata il', 'created on')} {dataBreve(scheda.creataIl)}
                       {scheda.archiviataIl &&
-                        ` · archiviata il ${new Date(scheda.archiviataIl).toLocaleDateString('it-IT')}`}
+                        ` · ${tr('archiviata il', 'archived on')} ${new Date(scheda.archiviataIl).toLocaleDateString(locale)}`}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button className="btn-secondary flex-1 text-xs" onClick={() => setProgressiScheda({ schedaId: scheda.id })}>
-                      Progressi
+                      {tr('Progressi', 'Progress')}
                     </button>
                     <button className="btn-secondary flex-1 text-xs" onClick={() => handleRipristina(scheda.id)}>
-                      ↺ Ripristina
+                      {tr('↺ Ripristina', '↺ Restore')}
                     </button>
                     {/* Eliminazione definitiva solo se non c'è storico (es. scheda creata per sbaglio) */}
                     {scheda.haStorico ? (
                       <p className="w-full text-xs text-muted">
-                        Ha allenamenti registrati: resta in archivio per proteggere i dati del cliente.
+                        {tr('Ha allenamenti registrati: resta in archivio per proteggere i dati del cliente.', 'It has logged workouts: it stays in the archive to protect the client’s data.')}
                       </p>
                     ) : confermaElimina === scheda.id ? (
                       <button
                         className="btn-danger flex-1 text-xs"
                         onClick={() => handleEliminaDefinitivo(scheda.id)}
                       >
-                        Sicuro? Elimina per sempre
+                        {tr('Sicuro? Elimina per sempre', 'Sure? Delete forever')}
                       </button>
                     ) : (
                       <button
                         className="btn-ghost flex-1 text-xs text-muted hover:text-danger"
                         onClick={() => setConfermaElimina(scheda.id)}
                       >
-                        Elimina definitivamente
+                        {tr('Elimina definitivamente', 'Delete permanently')}
                       </button>
                     )}
                   </div>

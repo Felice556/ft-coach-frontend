@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { annullaInvito, creaInvito, getInviti, Invito, linkInvito, TipoInvito } from './api';
+import { locale, tr } from './lingua';
 
 // Inviti personali per far registrare qualcuno. Due tipi, stessa schermata:
 // - CLIENTE: il trainer invita i suoi clienti;
@@ -9,40 +10,54 @@ import { annullaInvito, creaInvito, getInviti, Invito, linkInvito, TipoInvito } 
 const TESTI: Record<TipoInvito, { id: string; eyebrow: string; titolo: string; spiega: string; esempio: string; vuoto: string }> = {
   CLIENTE: {
     id: 'inviti',
-    eyebrow: 'Nuovi clienti',
-    titolo: 'Inviti',
-    spiega: 'Crea un codice per ogni nuovo cliente e mandaglielo: vale una volta sola e scade da solo.',
-    esempio: 'Es. Marco Rossi',
-    vuoto: 'Nessun invito attivo.',
+    eyebrow: tr('Nuovi clienti', 'New clients'),
+    titolo: tr('Inviti', 'Invites'),
+    spiega: tr(
+      'Crea un codice per ogni nuovo cliente e mandaglielo: vale una volta sola e scade da solo.',
+      'Create a code for each new client and send it to them: it works only once and expires on its own.',
+    ),
+    esempio: tr('Es. Marco Rossi', 'E.g. Mark Smith'),
+    vuoto: tr('Nessun invito attivo.', 'No active invites.'),
   },
   TRAINER: {
     id: 'inviti-trainer',
-    eyebrow: 'Solo amministratore',
-    titolo: 'Inviti trainer',
-    spiega:
+    eyebrow: tr('Solo amministratore', 'Administrator only'),
+    titolo: tr('Inviti trainer', 'Trainer invites'),
+    spiega: tr(
       'Crea un codice per ogni trainer che vuoi far entrare. Avrà la sua area con i suoi clienti, e non vedrà mai i tuoi. Solo tu puoi creare questi inviti.',
-    esempio: 'Es. Coach Roberto',
-    vuoto: 'Nessun invito trainer attivo.',
+      'Create a code for each trainer you want to let in. They’ll have their own area with their own clients, and will never see yours. Only you can create these invites.',
+    ),
+    esempio: tr('Es. Coach Roberto', 'E.g. Coach Robert'),
+    vuoto: tr('Nessun invito trainer attivo.', 'No active trainer invites.'),
   },
 };
 
 const dataBreve = (iso: string) =>
-  new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 const ETICHETTA_STATO: Record<Invito['stato'], { testo: string; classe: string }> = {
-  attivo: { testo: 'Attivo', classe: 'bg-success-soft text-success' },
-  usato: { testo: 'Usato', classe: 'bg-surface-2 text-soft' },
-  scaduto: { testo: 'Scaduto', classe: 'bg-warning-soft text-warning' },
-  annullato: { testo: 'Annullato', classe: 'bg-danger-soft text-danger' },
+  attivo: { testo: tr('Attivo', 'Active'), classe: 'bg-success-soft text-success' },
+  usato: { testo: tr('Usato', 'Used'), classe: 'bg-surface-2 text-soft' },
+  scaduto: { testo: tr('Scaduto', 'Expired'), classe: 'bg-warning-soft text-warning' },
+  annullato: { testo: tr('Annullato', 'Cancelled'), classe: 'bg-danger-soft text-danger' },
 };
 
 function testoDaCondividere(inv: Invito, tipo: TipoInvito) {
-  const saluto = inv.nota ? `Ciao ${inv.nota}! ` : 'Ciao! ';
+  // Il messaggio esce nella lingua dell'app di chi invita.
+  const saluto = inv.nota ? tr(`Ciao ${inv.nota}! `, `Hi ${inv.nota}! `) : tr('Ciao! ', 'Hi! ');
   const app =
     tipo === 'TRAINER'
-      ? 'Ecco il tuo invito per usare Liftio come trainer, con i tuoi clienti e le tue schede.'
-      : 'Ecco il tuo invito per Liftio, l’app dei tuoi allenamenti.';
-  return `${saluto}${app} Apri il link e registrati (vale una volta sola, fino al ${dataBreve(inv.scadeIl)}): ${linkInvito(inv.codice, tipo)}\nCodice: ${inv.codice}`;
+      ? tr(
+          'Ecco il tuo invito per usare Liftio come trainer, con i tuoi clienti e le tue schede.',
+          'Here’s your invite to use Liftio as a trainer, with your own clients and programmes.',
+        )
+      : tr('Ecco il tuo invito per Liftio, l’app dei tuoi allenamenti.', 'Here’s your invite to Liftio, the app for your workouts.');
+  const scade = dataBreve(inv.scadeIl);
+  const link = linkInvito(inv.codice, tipo);
+  return tr(
+    `${saluto}${app} Apri il link e registrati (vale una volta sola, fino al ${scade}): ${link}\nCodice: ${inv.codice}`,
+    `${saluto}${app} Open the link and sign up (it works only once, until ${scade}): ${link}\nCode: ${inv.codice}`,
+  );
 }
 
 // Riga di un invito, con le azioni: copia, condividi, annulla (con conferma).
@@ -74,7 +89,7 @@ function RigaInvito({
       setCopiato(cosa);
       setTimeout(() => setCopiato(null), 2000);
     } catch {
-      setErrore('Copia non riuscita: tieni premuto sul codice per copiarlo a mano');
+      setErrore(tr('Copia non riuscita: tieni premuto sul codice per copiarlo a mano', 'Copy failed: press and hold the code to copy it by hand'));
     }
   }
 
@@ -102,7 +117,7 @@ function RigaInvito({
       await annullaInvito(invito.id, tipo);
       onAnnullato();
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore, riprova');
+      setErrore(err instanceof Error ? err.message : tr('Errore, riprova', 'Error, try again'));
     } finally {
       setConferma(false);
     }
@@ -119,28 +134,34 @@ function RigaInvito({
       </div>
       <p className="text-xs text-muted">
         {invito.stato === 'usato' && invito.usatoDa
-          ? `Usato da ${invito.usatoDa.nome} (${invito.usatoDa.email}) il ${dataBreve(invito.usatoIl!)}`
+          ? tr(
+              `Usato da ${invito.usatoDa.nome} (${invito.usatoDa.email}) il ${dataBreve(invito.usatoIl!)}`,
+              `Used by ${invito.usatoDa.nome} (${invito.usatoDa.email}) on ${dataBreve(invito.usatoIl!)}`,
+            )
           : invito.stato === 'usato'
-            ? `Usato il ${dataBreve(invito.usatoIl!)} (account poi eliminato)`
+            ? tr(`Usato il ${dataBreve(invito.usatoIl!)} (account poi eliminato)`, `Used on ${dataBreve(invito.usatoIl!)} (account later deleted)`)
             : invito.stato === 'annullato'
-            ? `Annullato il ${dataBreve(invito.annullatoIl!)}`
+            ? tr(`Annullato il ${dataBreve(invito.annullatoIl!)}`, `Cancelled on ${dataBreve(invito.annullatoIl!)}`)
             : invito.stato === 'scaduto'
-              ? `Scaduto il ${dataBreve(invito.scadeIl)}`
-              : `Valido fino al ${dataBreve(invito.scadeIl)} · creato il ${dataBreve(invito.creatoIl)}`}
+              ? tr(`Scaduto il ${dataBreve(invito.scadeIl)}`, `Expired on ${dataBreve(invito.scadeIl)}`)
+              : tr(
+                  `Valido fino al ${dataBreve(invito.scadeIl)} · creato il ${dataBreve(invito.creatoIl)}`,
+                  `Valid until ${dataBreve(invito.scadeIl)} · created on ${dataBreve(invito.creatoIl)}`,
+                )}
       </p>
       {invito.stato === 'attivo' && (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <button type="button" className="btn-primary col-span-2 sm:col-span-1" onClick={condividi}>
-            Invia
+            {tr('Invia', 'Send')}
           </button>
           <button type="button" className="btn-secondary" onClick={() => copia('link')}>
-            {copiato === 'link' ? 'Copiato ✓' : 'Copia link'}
+            {copiato === 'link' ? tr('Copiato ✓', 'Copied ✓') : tr('Copia link', 'Copy link')}
           </button>
           <button type="button" className="btn-secondary" onClick={() => copia('codice')}>
-            {copiato === 'codice' ? 'Copiato ✓' : 'Copia codice'}
+            {copiato === 'codice' ? tr('Copiato ✓', 'Copied ✓') : tr('Copia codice', 'Copy code')}
           </button>
           <button type="button" className={conferma ? 'btn-danger col-span-2 sm:col-span-1' : 'btn-ghost col-span-2 sm:col-span-1'} onClick={annulla}>
-            {conferma ? 'Sicuro? Annulla' : 'Annulla invito'}
+            {conferma ? tr('Sicuro? Annulla', 'Sure? Cancel') : tr('Annulla invito', 'Cancel invite')}
           </button>
         </div>
       )}
@@ -163,7 +184,7 @@ export default function SezioneInviti({ tipo = 'CLIENTE' }: { tipo?: TipoInvito 
     try {
       setInviti(await getInviti(tipo));
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nel caricamento degli inviti');
+      setErrore(err instanceof Error ? err.message : tr('Errore nel caricamento degli inviti', 'Error loading invites'));
     }
   }
 
@@ -182,7 +203,7 @@ export default function SezioneInviti({ tipo = 'CLIENTE' }: { tipo?: TipoInvito 
       setAppenaCreato(nuovo.id);
       setNota('');
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nella creazione dell’invito');
+      setErrore(err instanceof Error ? err.message : tr('Errore nella creazione dell’invito', 'Error creating the invite'));
     } finally {
       setInInvio(false);
     }
@@ -201,20 +222,19 @@ export default function SezioneInviti({ tipo = 'CLIENTE' }: { tipo?: TipoInvito 
 
       <form onSubmit={crea} className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
         <div>
-          <label htmlFor={`${t.id}-nota`} className="label">Per chi è (facoltativo)</label>
+          <label htmlFor={`${t.id}-nota`} className="label">{tr('Per chi è (facoltativo)', 'Who it’s for (optional)')}</label>
           <input id={`${t.id}-nota`} className="input" maxLength={80} placeholder={t.esempio} value={nota} onChange={(e) => setNota(e.target.value)} />
         </div>
         <div>
-          <label htmlFor={`${t.id}-giorni`} className="label">Valido per</label>
+          <label htmlFor={`${t.id}-giorni`} className="label">{tr('Valido per', 'Valid for')}</label>
           <select id={`${t.id}-giorni`} className="input" value={giorni} onChange={(e) => setGiorni(Number(e.target.value))}>
-            <option value={3}>3 giorni</option>
-            <option value={7}>7 giorni</option>
-            <option value={14}>14 giorni</option>
-            <option value={30}>30 giorni</option>
+            {[3, 7, 14, 30].map((n) => (
+              <option key={n} value={n}>{tr(`${n} giorni`, `${n} days`)}</option>
+            ))}
           </select>
         </div>
         <button type="submit" className="btn-primary min-h-12" disabled={inInvio}>
-          {inInvio ? 'Creo…' : '+ Crea invito'}
+          {inInvio ? tr('Creo…', 'Creating…') : tr('+ Crea invito', '+ Create invite')}
         </button>
       </form>
 
@@ -233,7 +253,9 @@ export default function SezioneInviti({ tipo = 'CLIENTE' }: { tipo?: TipoInvito 
       {vecchi.length > 0 && (
         <div>
           <button type="button" className="btn-link text-sm" onClick={() => setMostraVecchi(!mostraVecchi)}>
-            {mostraVecchi ? 'Nascondi' : 'Mostra'} usati, scaduti e annullati ({vecchi.length})
+            {mostraVecchi
+              ? tr(`Nascondi usati, scaduti e annullati (${vecchi.length})`, `Hide used, expired and cancelled (${vecchi.length})`)
+              : tr(`Mostra usati, scaduti e annullati (${vecchi.length})`, `Show used, expired and cancelled (${vecchi.length})`)}
           </button>
           {mostraVecchi && (
             <ul className="mt-3 space-y-3">

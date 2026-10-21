@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
 import { getPanoramicaTrainer, PanoramicaTrainer as Dati, riattivaTrainer, RigaTrainer, sospendiTrainer } from './api';
+import { locale, tr } from './lingua';
 
 // Solo per l'amministratore: quanti trainer usano l'app e quanto la usano i loro clienti.
 // Mostra solo numeri: i nomi dei clienti degli altri trainer non arrivano mai qui.
 
 const dataBreve = (iso: string) =>
-  new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 function giorniFa(iso: string) {
   const giorni = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
-  if (giorni <= 0) return 'oggi';
-  if (giorni === 1) return 'ieri';
-  return `${giorni} giorni fa`;
+  if (giorni <= 0) return tr('oggi', 'today');
+  if (giorni === 1) return tr('ieri', 'yesterday');
+  return tr(`${giorni} giorni fa`, `${giorni} days ago`);
 }
 
 function Riquadro({ valore, etichetta }: { valore: number; etichetta: string }) {
@@ -48,7 +49,7 @@ function SospensioneTrainer({ t, onCambiato }: { t: RigaTrainer; onCambiato: () 
       setConferma(false);
       onCambiato();
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Operazione non riuscita');
+      setErrore(err instanceof Error ? err.message : tr('Operazione non riuscita', 'Operation failed'));
     } finally {
       setInInvio(false);
     }
@@ -58,21 +59,24 @@ function SospensioneTrainer({ t, onCambiato }: { t: RigaTrainer; onCambiato: () 
     <div className="border-t border-line pt-3">
       {t.sospeso ? (
         <button type="button" className="btn-primary w-full text-sm" disabled={inInvio} onClick={esegui}>
-          {inInvio ? 'Un momento…' : `Riattiva ${t.nome}`}
+          {inInvio ? tr('Un momento…', 'One moment…') : tr(`Riattiva ${t.nome}`, `Reactivate ${t.nome}`)}
         </button>
       ) : conferma ? (
         <div className="space-y-2 text-sm">
           <p className="text-soft">
-            Sospendi {t.nome}? Né lui né i suoi {t.clienti} clienti potranno accedere finché non lo riattivi. Non viene cancellato niente.
+            {tr(
+              `Sospendi ${t.nome}? Né lui né i suoi ${t.clienti} clienti potranno accedere finché non lo riattivi. Non viene cancellato niente.`,
+              `Suspend ${t.nome}? Neither they nor their ${t.clienti} clients will be able to sign in until you reactivate them. Nothing is deleted.`,
+            )}
           </p>
           <div className="grid grid-cols-2 gap-2">
-            <button type="button" className="btn-secondary" disabled={inInvio} onClick={() => setConferma(false)}>Annulla</button>
-            <button type="button" className="btn-danger" disabled={inInvio} onClick={esegui}>{inInvio ? 'Un momento…' : 'Sì, sospendi'}</button>
+            <button type="button" className="btn-secondary" disabled={inInvio} onClick={() => setConferma(false)}>{tr('Annulla', 'Cancel')}</button>
+            <button type="button" className="btn-danger" disabled={inInvio} onClick={esegui}>{inInvio ? tr('Un momento…', 'One moment…') : tr('Sì, sospendi', 'Yes, suspend')}</button>
           </div>
         </div>
       ) : (
         <button type="button" className="btn-ghost w-full text-sm" onClick={() => setConferma(true)}>
-          Sospendi trainer
+          {tr('Sospendi trainer', 'Suspend trainer')}
         </button>
       )}
       {errore && <p role="alert" className="alert-error mt-2">{errore}</p>}
@@ -87,19 +91,19 @@ function SchedaTrainer({ t, onCambiato }: { t: RigaTrainer; onCambiato: () => vo
         <div className="min-w-0">
           <p className="flex items-center gap-2 font-semibold">
             <span className="truncate">{t.nome}</span>
-            {t.admin && <span className="rounded-md bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent-strong">Tu · admin</span>}
-            {t.sospeso && <span className="rounded-md bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning">Sospeso</span>}
+            {t.admin && <span className="rounded-md bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent-strong">{tr('Tu · admin', 'You · admin')}</span>}
+            {t.sospeso && <span className="rounded-md bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning">{tr('Sospeso', 'Suspended')}</span>}
           </p>
           <p className="truncate text-sm text-muted">{t.email}</p>
         </div>
-        <p className="text-xs text-muted">{t.registratoIl ? `Registrato il ${dataBreve(t.registratoIl)}` : t.admin ? 'Dall’inizio' : ''}</p>
+        <p className="text-xs text-muted">{t.registratoIl ? tr(`Registrato il ${dataBreve(t.registratoIl)}`, `Joined on ${dataBreve(t.registratoIl)}`) : t.admin ? tr('Dall’inizio', 'From the start') : ''}</p>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <Numero valore={t.clienti} etichetta="Clienti" />
-        <Numero valore={t.clientiAttivi} etichetta="Attivi (30 giorni)" />
-        <Numero valore={t.schedeAttive} etichetta="Schede attive" />
-        <Numero valore={t.allenamenti30} etichetta="Allenamenti (30 giorni)" />
-        <Numero valore={t.ultimoAllenamento ? giorniFa(t.ultimoAllenamento) : '—'} etichetta="Ultimo allenamento" />
+        <Numero valore={t.clienti} etichetta={tr('Clienti', 'Clients')} />
+        <Numero valore={t.clientiAttivi} etichetta={tr('Attivi (30 giorni)', 'Active (30 days)')} />
+        <Numero valore={t.schedeAttive} etichetta={tr('Schede attive', 'Active programmes')} />
+        <Numero valore={t.allenamenti30} etichetta={tr('Allenamenti (30 giorni)', 'Workouts (30 days)')} />
+        <Numero valore={t.ultimoAllenamento ? giorniFa(t.ultimoAllenamento) : '—'} etichetta={tr('Ultimo allenamento', 'Last workout')} />
       </div>
       {!t.admin && <SospensioneTrainer t={t} onCambiato={onCambiato} />}
     </li>
@@ -115,7 +119,7 @@ export default function PanoramicaTrainer() {
     try {
       setDati(await getPanoramicaTrainer());
     } catch (err) {
-      setErrore(err instanceof Error ? err.message : 'Errore nel caricamento');
+      setErrore(err instanceof Error ? err.message : tr('Errore nel caricamento', 'Loading error'));
     }
   }
 
@@ -127,14 +131,14 @@ export default function PanoramicaTrainer() {
     <section id="trainer-app" className="card scroll-mt-24 space-y-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="eyebrow mb-1">Solo amministratore</p>
-          <h2 className="section-title">Trainer dell’app</h2>
+          <p className="eyebrow mb-1">{tr('Solo amministratore', 'Administrator only')}</p>
+          <h2 className="section-title">{tr('Trainer dell’app', 'App trainers')}</h2>
           <p className="mt-1 text-sm text-muted">
-            Chi usa Liftio e quanto la usano i suoi clienti. Solo numeri: i dati dei clienti restano privati.
+            {tr('Chi usa Liftio e quanto la usano i suoi clienti. Solo numeri: i dati dei clienti restano privati.', 'Who uses Liftio and how much their clients use it. Numbers only: client data stays private.')}
           </p>
         </div>
-        <button type="button" className="btn-secondary shrink-0" onClick={carica} aria-label="Aggiorna la panoramica">
-          Aggiorna
+        <button type="button" className="btn-secondary shrink-0" onClick={carica} aria-label={tr('Aggiorna la panoramica', 'Refresh the overview')}>
+          {tr('Aggiorna', 'Refresh')}
         </button>
       </div>
 
@@ -143,10 +147,10 @@ export default function PanoramicaTrainer() {
       {dati && (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Riquadro valore={dati.totali.trainer} etichetta="Trainer" />
-            <Riquadro valore={dati.totali.clienti} etichetta="Clienti in totale" />
-            <Riquadro valore={dati.totali.clientiAttivi} etichetta="Clienti attivi (30 giorni)" />
-            <Riquadro valore={dati.totali.allenamenti30} etichetta="Allenamenti (30 giorni)" />
+            <Riquadro valore={dati.totali.trainer} etichetta={tr('Trainer', 'Trainers')} />
+            <Riquadro valore={dati.totali.clienti} etichetta={tr('Clienti in totale', 'Total clients')} />
+            <Riquadro valore={dati.totali.clientiAttivi} etichetta={tr('Clienti attivi (30 giorni)', 'Active clients (30 days)')} />
+            <Riquadro valore={dati.totali.allenamenti30} etichetta={tr('Allenamenti (30 giorni)', 'Workouts (30 days)')} />
           </div>
           <ul className="space-y-3">
             {dati.trainer.map((t) => (

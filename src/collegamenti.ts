@@ -1,6 +1,7 @@
 // Superset e jumpset: esercizi della scheda collegati "al successivo".
 // Più esercizi collegati di fila formano un gruppo (A1, A2, A3…).
 import type { TipoCollegamento } from './api';
+import { tr } from './lingua';
 
 type ConCollegamento = { collegamento?: TipoCollegamento | null | '' };
 
@@ -18,7 +19,7 @@ function nomeGruppo(tipi: TipoCollegamento[]): string {
   const tuttiSuperset = tipi.every((t) => t === 'SUPERSET');
   const tuttiJumpset = tipi.every((t) => t === 'JUMPSET');
   if (tuttiJumpset) return 'Jumpset';
-  if (!tuttiSuperset) return 'Circuito';
+  if (!tuttiSuperset) return tr('Circuito', 'Circuit');
   if (tipi.length === 1) return 'Superset';
   if (tipi.length === 2) return 'Triset';
   return 'Giant set';

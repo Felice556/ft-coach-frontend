@@ -1,4 +1,5 @@
 import { Esercizio } from './api';
+import { tr } from './lingua';
 
 // Una singola serie da fare, già "risolta": ripetizioni, recupero e nota giusti.
 export interface SerieDaFare {
@@ -19,7 +20,7 @@ export function testoReps(reps: number | null | undefined, repsMax?: number | nu
 
 // Testo del recupero: "recupero 90s" oppure "nessun recupero" se è 0.
 export function testoRecupero(secondi: number): string {
-  return secondi > 0 ? `recupero ${secondi}s` : 'nessun recupero';
+  return secondi > 0 ? tr(`recupero ${secondi}s`, `rest ${secondi}s`) : tr('nessun recupero', 'no rest');
 }
 
 // Da testo scritto dal trainer a valore da salvare:

@@ -1,6 +1,7 @@
 // Calcoli dei progressi di un esercizio, a partire dalle serie registrate.
 // Funzioni "pure" (niente React): così si possono testare facilmente.
 import type { RegistroAllenamento } from './api';
+import { locale, tr } from './lingua';
 
 export interface MiglioreDelGiorno {
   chiave: string; // giorno, per raggruppare (es. "Mon Oct 19 2026")
@@ -11,7 +12,7 @@ export interface MiglioreDelGiorno {
 }
 
 const etichettaGiorno = (iso: string) =>
-  new Date(iso).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+  new Date(iso).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' });
 
 // "Migliore" = più peso; a parità di peso, più ripetizioni.
 const meglio = (a: { peso: number; reps: number }, b: { peso: number; reps: number }) =>
@@ -54,16 +55,17 @@ export function variazione(giorni: MiglioreDelGiorno[]): Variazione | null {
   return { kg, reps, dal: primo.etichetta, tendenza };
 }
 
-const numero = (n: number) => n.toLocaleString('it-IT', { maximumFractionDigits: 2 });
+const numero = (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 2 });
 
 // Testo breve e chiaro della variazione: "+5 kg dal 28/09", "+2 ripetizioni dal 28/09", "Stabile dal 28/09".
 export function testoVariazione(v: Variazione): string {
-  if (v.kg !== 0) return `${v.kg > 0 ? '+' : '−'}${numero(Math.abs(v.kg))} kg dal ${v.dal}`;
+  const dal = tr(`dal ${v.dal}`, `since ${v.dal}`);
+  if (v.kg !== 0) return `${v.kg > 0 ? '+' : '−'}${numero(Math.abs(v.kg))} kg ${dal}`;
   if (v.reps !== 0) {
     const n = Math.abs(v.reps);
-    return `${v.reps > 0 ? '+' : '−'}${n} ${n === 1 ? 'ripetizione' : 'ripetizioni'} dal ${v.dal}`;
+    return `${v.reps > 0 ? '+' : '−'}${n} ${n === 1 ? tr('ripetizione', 'rep') : tr('ripetizioni', 'reps')} ${dal}`;
   }
-  return `Stabile dal ${v.dal}`;
+  return tr(`Stabile dal ${v.dal}`, `Steady since ${v.dal}`);
 }
 
 // "62,5 kg × 8"

@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { leggiNumero, numero } from './misure-formati';
 import { calcolaPliche, NOMI_SITI, NumeroSiti, Sesso, sitiRichiesti } from './plicometria';
+import { tr } from './lingua';
 
 // Finestra per calcolare la % di massa grassa dalle pliche (Jackson & Pollock + Siri)
 // e inserirla con un tocco nella massa grassa del cliente.
@@ -100,31 +101,31 @@ export default function CalcoloPliche({
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <p className="eyebrow mb-1">Plicometria{nomeCliente ? ` · ${nomeCliente}` : ''}</p>
-            <h2 id={`${id}-titolo`} className="section-title">Calcola la massa grassa</h2>
-            <p className="mt-1 text-xs text-muted">Formule di Jackson &amp; Pollock e Siri. Pliche in millimetri.</p>
+            <p className="eyebrow mb-1">{tr('Plicometria', 'Skinfolds')}{nomeCliente ? ` · ${nomeCliente}` : ''}</p>
+            <h2 id={`${id}-titolo`} className="section-title">{tr('Calcola la massa grassa', 'Calculate body fat')}</h2>
+            <p className="mt-1 text-xs text-muted">{tr('Formule di Jackson & Pollock e Siri. Pliche in millimetri.', 'Jackson & Pollock and Siri formulas. Skinfolds in millimetres.')}</p>
           </div>
           <button type="button" className="btn-ghost min-h-10 px-3 text-sm" onClick={onChiudi}>
-            Chiudi
+            {tr('Chiudi', 'Close')}
           </button>
         </div>
 
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <p className="label">Sesso</p>
-              <div className="flex gap-1 rounded-xl border border-line p-1" role="group" aria-label="Sesso">
+              <p className="label">{tr('Sesso', 'Sex')}</p>
+              <div className="flex gap-1 rounded-xl border border-line p-1" role="group" aria-label={tr('Sesso', 'Sex')}>
                 <button type="button" aria-pressed={sesso === 'M'} className={scelta(sesso === 'M')} onClick={() => setSesso('M')}>
-                  Uomo
+                  {tr('Uomo', 'Male')}
                 </button>
                 <button type="button" aria-pressed={sesso === 'F'} className={scelta(sesso === 'F')} onClick={() => setSesso('F')}>
-                  Donna
+                  {tr('Donna', 'Female')}
                 </button>
               </div>
             </div>
             <div>
-              <p className="label">Numero di pliche</p>
-              <div className="flex gap-1 rounded-xl border border-line p-1" role="group" aria-label="Numero di pliche">
+              <p className="label">{tr('Numero di pliche', 'Number of skinfolds')}</p>
+              <div className="flex gap-1 rounded-xl border border-line p-1" role="group" aria-label={tr('Numero di pliche', 'Number of skinfolds')}>
                 <button type="button" aria-pressed={siti === 7} className={scelta(siti === 7)} onClick={() => setSiti(7)}>
                   7
                 </button>
@@ -134,17 +135,17 @@ export default function CalcoloPliche({
               </div>
             </div>
             <div>
-              <label className="label" htmlFor={`${id}-eta`}>Età (anni)</label>
+              <label className="label" htmlFor={`${id}-eta`}>{tr('Età (anni)', 'Age (years)')}</label>
               <input id={`${id}-eta`} className="input tabular-nums" inputMode="numeric" maxLength={2} value={eta} onChange={(e) => setEta(e.target.value)} />
             </div>
             <div>
-              <label className="label" htmlFor={`${id}-peso`}>Peso (kg)</label>
-              <input id={`${id}-peso`} className="input tabular-nums" inputMode="decimal" maxLength={6} placeholder="facoltativo" value={peso} onChange={(e) => setPeso(e.target.value)} />
+              <label className="label" htmlFor={`${id}-peso`}>{tr('Peso (kg)', 'Weight (kg)')}</label>
+              <input id={`${id}-peso`} className="input tabular-nums" inputMode="decimal" maxLength={6} placeholder={tr('facoltativo', 'optional')} value={peso} onChange={(e) => setPeso(e.target.value)} />
             </div>
           </div>
 
           <div>
-            <p className="label">Pliche (mm)</p>
+            <p className="label">{tr('Pliche (mm)', 'Skinfolds (mm)')}</p>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               {elenco.map((s) => (
                 <div key={s}>
@@ -164,34 +165,36 @@ export default function CalcoloPliche({
             </div>
           </div>
 
-          {eta.trim() !== '' && !etaOk && <p className="alert-error">Età tra 15 e 90 anni.</p>}
-          {!pesoOk && <p className="alert-error">Peso tra 20 e 350 kg (oppure lascialo vuoto).</p>}
+          {eta.trim() !== '' && !etaOk && <p className="alert-error">{tr('Età tra 15 e 90 anni.', 'Age between 15 and 90.')}</p>}
+          {!pesoOk && <p className="alert-error">{tr('Peso tra 20 e 350 kg (oppure lascialo vuoto).', 'Weight between 20 and 350 kg (or leave it empty).')}</p>}
           {elenco.some((s) => (pliche[s] ?? '').trim() !== '' && (valori[s] === null || (valori[s] as number) < 1 || (valori[s] as number) > 80)) && (
-            <p className="alert-error">Ogni plica tra 1 e 80 mm (es. 12,5).</p>
+            <p className="alert-error">{tr('Ogni plica tra 1 e 80 mm (es. 12,5).', 'Each skinfold between 1 and 80 mm (e.g. 12.5).')}</p>
           )}
 
           {risultato ? (
             <div className="rounded-2xl border border-accent-strong/50 bg-accent-soft p-4" aria-live="polite">
-              <p className="text-xs font-semibold tracking-wide text-accent-strong uppercase">Massa grassa</p>
+              <p className="text-xs font-semibold tracking-wide text-accent-strong uppercase">{tr('Massa grassa', 'Body fat')}</p>
               <p className="text-4xl font-black tabular-nums text-accent-strong">{numero(risultato.grasso)} %</p>
               <p className="mt-1 text-sm text-soft">
-                Somma pliche {numero(risultato.somma)} mm
+                {tr('Somma pliche', 'Sum of skinfolds')} {numero(risultato.somma)} mm
                 {risultato.kgGrasso !== null && risultato.kgMagra !== null && (
                   <>
-                    {' '}· {numero(risultato.kgGrasso)} kg di grasso · {numero(risultato.kgMagra)} kg di massa magra
+                    {' '}· {numero(risultato.kgGrasso)} {tr('kg di grasso', 'kg fat')} · {numero(risultato.kgMagra)} {tr('kg di massa magra', 'kg lean mass')}
                   </>
                 )}
               </p>
-              {!valido && <p className="alert-error mt-2">Risultato fuori scala: ricontrolla le pliche.</p>}
+              {!valido && <p className="alert-error mt-2">{tr('Risultato fuori scala: ricontrolla le pliche.', 'Result out of range: check the skinfolds again.')}</p>}
             </div>
           ) : (
             <p className="rounded-xl bg-surface-2 px-4 py-3 text-sm text-muted">
-              Inserisci età e tutte le {elenco.length} pliche: il risultato compare qui.
+              {tr(`Inserisci età e tutte le ${elenco.length} pliche: il risultato compare qui.`, `Enter age and all ${elenco.length} skinfolds: the result appears here.`)}
             </p>
           )}
 
           <button type="button" className="btn-primary min-h-12 w-full" disabled={!valido} onClick={usa}>
-            {valido && risultato ? `Inserisci ${numero(risultato.grasso)}% nella massa grassa` : 'Inserisci nella massa grassa'}
+            {valido && risultato
+              ? tr(`Inserisci ${numero(risultato.grasso)}% nella massa grassa`, `Add ${numero(risultato.grasso)}% to body fat`)
+              : tr('Inserisci nella massa grassa', 'Add to body fat')}
           </button>
         </div>
       </div>

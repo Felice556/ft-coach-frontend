@@ -2,17 +2,18 @@ import { useEffect, useState } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { getSessioni, SessioneAllenamento } from './api';
 import { useColoriTema } from './tema';
+import { locale, tr } from './lingua';
 
 // Feedback dei clienti a fine allenamento: voto di fatica (1-10) e nota.
 
 // Una parola per ogni voto, così il numero ha un significato chiaro per tutti.
 export function testoFatica(n: number): string {
-  if (n <= 2) return 'Facile';
-  if (n <= 4) return 'Leggero';
-  if (n <= 6) return 'Impegnativo';
-  if (n <= 8) return 'Duro';
-  if (n === 9) return 'Durissimo';
-  return 'Al limite';
+  if (n <= 2) return tr('Facile', 'Easy');
+  if (n <= 4) return tr('Leggero', 'Light');
+  if (n <= 6) return tr('Impegnativo', 'Challenging');
+  if (n <= 8) return tr('Duro', 'Hard');
+  if (n === 9) return tr('Durissimo', 'Very hard');
+  return tr('Al limite', 'Maximal');
 }
 
 // Colore del voto: verde se leggero, giallo se impegnativo, rosso se al limite.
@@ -25,7 +26,7 @@ function coloreFatica(n: number): string {
 export function ChipFatica({ fatica }: { fatica: number }) {
   return (
     <span className={`chip max-w-full tabular-nums ${coloreFatica(fatica)}`}>
-      Fatica {fatica}/10 · {testoFatica(fatica)}
+      {tr('Fatica', 'Effort')} {fatica}/10 · {testoFatica(fatica)}
     </span>
   );
 }
@@ -34,7 +35,7 @@ export function ChipFatica({ fatica }: { fatica: number }) {
 export function SceltaFatica({ valore, onChange }: { valore: number | null; onChange: (v: number | null) => void }) {
   return (
     <div>
-      <div className="grid grid-cols-5 gap-2" role="radiogroup" aria-label="Fatica da 1 a 10">
+      <div className="grid grid-cols-5 gap-2" role="radiogroup" aria-label={tr('Fatica da 1 a 10', 'Effort from 1 to 10')}>
         {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
           <button
             key={n}
@@ -52,9 +53,9 @@ export function SceltaFatica({ valore, onChange }: { valore: number | null; onCh
         ))}
       </div>
       <p className="mt-2 flex justify-between text-xs text-muted">
-        <span>1 = facilissimo</span>
+        <span>{tr('1 = facilissimo', '1 = very easy')}</span>
         <span className="font-semibold text-ink">{valore ? testoFatica(valore) : ''}</span>
-        <span>10 = al limite</span>
+        <span>{tr('10 = al limite', '10 = maximal')}</span>
       </p>
     </div>
   );
@@ -66,14 +67,14 @@ function GraficoFatica({ sessioni }: { sessioni: SessioneAllenamento[] }) {
     .filter((s) => s.fatica != null)
     .reverse() // dal più vecchio, come in ogni grafico nel tempo
     .map((s) => ({
-      data: new Date(s.completataIl).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }),
+      data: new Date(s.completataIl).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' }),
       fatica: s.fatica as number,
       scheda: s.scheda.nome,
     }));
   if (dati.length < 2) {
     return (
       <p className="rounded-xl border border-line bg-surface-2 px-4 py-4 text-sm leading-relaxed text-muted">
-        Il grafico compare dal secondo allenamento con un voto.
+        {tr('Il grafico compare dal secondo allenamento con un voto.', 'The chart appears from the second workout with a rating.')}
       </p>
     );
   }
@@ -132,7 +133,7 @@ export default function FeedbackCliente({ clienteId, nomeCliente }: { clienteId:
     let attivo = true;
     getSessioni(clienteId)
       .then((dati) => attivo && setSessioni(dati))
-      .catch((err) => attivo && setErrore(err instanceof Error ? err.message : 'Errore nel caricamento'));
+      .catch((err) => attivo && setErrore(err instanceof Error ? err.message : tr('Errore nel caricamento', 'Loading error')));
     return () => {
       attivo = false;
     };
@@ -144,13 +145,13 @@ export default function FeedbackCliente({ clienteId, nomeCliente }: { clienteId:
     <section className="card mt-4 space-y-4" aria-labelledby="feedback-titolo">
       <div>
         <p className="eyebrow mb-1">Feedback · {nomeCliente}</p>
-        <h2 id="feedback-titolo" className="section-title">Come vanno gli allenamenti</h2>
-        <p className="mt-1 text-sm text-muted">Fatica e note che il cliente lascia a fine allenamento.</p>
+        <h2 id="feedback-titolo" className="section-title">{tr('Come vanno gli allenamenti', 'How workouts are going')}</h2>
+        <p className="mt-1 text-sm text-muted">{tr('Fatica e note che il cliente lascia a fine allenamento.', 'Effort and notes the client leaves at the end of a workout.')}</p>
       </div>
       {errore && <p className="alert-error">{errore}</p>}
-      {sessioni === null && !errore && <p className="text-sm text-muted">Carico…</p>}
+      {sessioni === null && !errore && <p className="text-sm text-muted">{tr('Carico…', 'Loading…')}</p>}
       {sessioni !== null && conFeedback.length === 0 && (
-        <p className="empty-state">Nessun feedback ancora: compare quando il cliente lo lascia a fine allenamento.</p>
+        <p className="empty-state">{tr('Nessun feedback ancora: compare quando il cliente lo lascia a fine allenamento.', 'No feedback yet: it appears when the client leaves it at the end of a workout.')}</p>
       )}
       {conFeedback.length > 0 && (
         <>
@@ -160,7 +161,7 @@ export default function FeedbackCliente({ clienteId, nomeCliente }: { clienteId:
               <li key={s.id} className="py-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-sm text-muted">
-                    {new Date(s.completataIl).toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit' })} · {s.scheda.nome}
+                    {new Date(s.completataIl).toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: '2-digit' })} · {s.scheda.nome}
                   </span>
                   {s.fatica != null && <ChipFatica fatica={s.fatica} />}
                 </div>

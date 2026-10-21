@@ -1,6 +1,7 @@
 import { useId, useState } from 'react';
 import type { EsercizioPreset, GruppoMuscolare } from './api';
 import { cercaEsercizi, GRUPPI, nomeGruppo, perGruppo } from './libreria';
+import { tr } from './lingua';
 
 // ---------- Nome esercizio con suggerimenti dalla libreria ----------
 // Scrivi qualche lettera ("pan pi") e sotto compaiono gli esercizi salvati che corrispondono.
@@ -32,7 +33,7 @@ export function CampoNomeEsercizio({
     <div className="relative">
       <input
         className="input"
-        placeholder="Nome esercizio"
+        placeholder={tr('Nome esercizio', 'Exercise name')}
         maxLength={100}
         required
         role="combobox"
@@ -69,7 +70,7 @@ export function CampoNomeEsercizio({
         <ul
           id={`${id}-lista`}
           role="listbox"
-          aria-label="Esercizi salvati"
+          aria-label={tr('Esercizi salvati', 'Saved exercises')}
           className="absolute inset-x-0 top-full z-30 mt-1 overflow-hidden rounded-xl border border-line bg-surface shadow-lg"
         >
           {suggerimenti.map((p, i) => (
@@ -101,7 +102,7 @@ export function CampoNomeEsercizio({
 export function SceltaGruppo({ onScegli, onAnnulla }: { onScegli: (g: GruppoMuscolare) => void; onAnnulla: () => void }) {
   return (
     <div className="mb-3 rounded-xl border border-accent-strong/50 bg-accent-soft p-3">
-      <p className="mb-2 text-sm font-semibold">In che gruppo muscolare lo salvo?</p>
+      <p className="mb-2 text-sm font-semibold">{tr('In che gruppo muscolare lo salvo?', 'Which muscle group should I save it in?')}</p>
       <div className="flex flex-wrap gap-2">
         {GRUPPI.map((g) => (
           <button key={g.valore} type="button" className="btn-secondary min-h-10 px-3 text-sm" onClick={() => onScegli(g.valore)}>
@@ -109,7 +110,7 @@ export function SceltaGruppo({ onScegli, onAnnulla }: { onScegli: (g: GruppoMusc
           </button>
         ))}
         <button type="button" className="btn-ghost min-h-10 px-3 text-sm text-muted" onClick={onAnnulla}>
-          Annulla
+          {tr('Annulla', 'Cancel')}
         </button>
       </div>
     </div>
@@ -146,20 +147,20 @@ export function PannelloLibreria({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between gap-2">
-        <p className="font-bold">Libreria esercizi</p>
+        <p className="font-bold">{tr('Libreria esercizi', 'Exercise library')}</p>
         {preset.length > 0 && (
           <button type="button" className="btn-ghost min-h-9 px-2 text-xs" aria-pressed={gestisci} onClick={() => setGestisci(!gestisci)}>
-            {gestisci ? 'Fatto' : 'Gestisci'}
+            {gestisci ? tr('Fatto', 'Done') : tr('Gestisci', 'Manage')}
           </button>
         )}
       </div>
-      <p className="mt-0.5 text-xs text-muted">{gestisci ? 'Cambia gruppo o togli un esercizio.' : 'Tocca un esercizio per aggiungerlo alla scheda.'}</p>
+      <p className="mt-0.5 text-xs text-muted">{gestisci ? tr('Cambia gruppo o togli un esercizio.', 'Change the group or remove an exercise.') : tr('Tocca un esercizio per aggiungerlo alla scheda.', 'Tap an exercise to add it to the programme.')}</p>
       {preset.length > 0 && (
         <input
           className="input mt-3"
           type="search"
-          placeholder="Cerca…"
-          aria-label="Cerca nella libreria"
+          placeholder={tr('Cerca…', 'Search…')}
+          aria-label={tr('Cerca nella libreria', 'Search the library')}
           value={cerca}
           onChange={(e) => setCerca(e.target.value)}
         />
@@ -167,10 +168,10 @@ export function PannelloLibreria({
       <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
         {preset.length === 0 ? (
           <p className="text-sm text-muted">
-            Vuota. Scrivi un esercizio nella scheda e premi “Salva esercizio” per riusarlo le prossime volte.
+            {tr('Vuota. Scrivi un esercizio nella scheda e premi “Salva esercizio” per riusarlo le prossime volte.', 'Empty. Type an exercise in the programme and press “Save exercise” to reuse it next time.')}
           </p>
         ) : sezioni.length === 0 ? (
-          <p className="text-sm text-muted">Nessun esercizio trovato.</p>
+          <p className="text-sm text-muted">{tr('Nessun esercizio trovato.', 'No exercises found.')}</p>
         ) : (
           sezioni.map((s) => {
             const chiuso = chiusi.has(s.nome) && !cerca.trim();
@@ -196,11 +197,11 @@ export function PannelloLibreria({
                             <span className="min-w-0 flex-1 truncate px-1 text-sm">{p.nome}</span>
                             <select
                               className="min-h-9 shrink-0 rounded-md border border-line bg-surface px-1 text-xs"
-                              aria-label={`Gruppo di ${p.nome}`}
+                              aria-label={tr(`Gruppo di ${p.nome}`, `Group of ${p.nome}`)}
                               value={p.gruppo ?? ''}
                               onChange={(e) => onCambiaGruppo(p, (e.target.value || null) as GruppoMuscolare | null)}
                             >
-                              <option value="">Senza gruppo</option>
+                              <option value="">{tr('Senza gruppo', 'No group')}</option>
                               {GRUPPI.map((g) => (
                                 <option key={g.valore} value={g.valore}>
                                   {g.nome}
@@ -209,7 +210,7 @@ export function PannelloLibreria({
                             </select>
                             <button
                               type="button"
-                              aria-label={`Togli ${p.nome} dalla libreria`}
+                              aria-label={tr(`Togli ${p.nome} dalla libreria`, `Remove ${p.nome} from the library`)}
                               className="min-h-9 w-9 shrink-0 rounded-md text-muted transition hover:bg-danger-soft hover:text-danger"
                               onClick={() => onElimina(p)}
                             >
