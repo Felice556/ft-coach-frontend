@@ -44,9 +44,11 @@ import {
   EsercizioArchiviato,
   Esercizio,
   TipoCollegamento,
+  getTrainerInAttesa,
 } from './api';
 import { riassuntoSerie, testoReps, testoRecupero, leggiReps } from './serie';
 import { locale, tr } from './lingua';
+import { BarraSezioni, ICONE, ricordaSezione, useIndirizzo } from './Sezioni';
 
 // Campo ripetizioni: numero dalla tastiera numerica, oppure "Max" con un tocco sul bottone.
 function CampoReps({ valore, onChange }: { valore: string; onChange: (v: string) => void }) {
@@ -528,20 +530,33 @@ const esercizioVuoto = (): EsercizioBozza => ({
   collegamento: '',
 });
 
+// Sezioni del trainer (barra in basso sul telefono, schede in alto sul computer)
+// e pagine della scheda di un cliente.
+const SEZIONI_TRAINER = ['attivita', 'clienti', 'inviti', 'trainer'] as const;
+type SezioneTrainer = (typeof SEZIONI_TRAINER)[number];
+const PAGINE_CLIENTE = ['schede', 'cardio', 'diario', 'corpo', 'accesso'] as const;
+type PaginaCliente = (typeof PAGINE_CLIENTE)[number];
+
 export default function TrainerDashboard() {
   const [schede, setSchede] = useState<Scheda[]>([]);
   const [errore, setErrore] = useState('');
   // true solo per l'amministratore (lo dice il server): vede anche "Inviti trainer".
   const [admin, setAdmin] = useState(false);
+  const [adminNoto, setAdminNoto] = useState(false); // la risposta del server è arrivata
   useEffect(() => {
     getMe()
       .then((me) => setAdmin(me.admin === true))
-      .catch(() => setAdmin(false)); // in caso di errore la sezione resta nascosta
+      .catch(() => setAdmin(false)) // in caso di errore la sezione resta nascosta
+      .finally(() => setAdminNoto(true));
   }, []);
   // Solo amministratore: quanti trainer aspettano l'approvazione (avviso in alto e numero nel menu).
   const [trainerInAttesa, setTrainerInAttesa] = useState(0);
   // Cambia dopo un'approvazione: la panoramica dei trainer si ricarica e mostra il nuovo arrivato.
   const [chiavePanoramica, setChiavePanoramica] = useState(0);
+  // Il numero serve subito (pallino sulla voce "Trainer"), anche prima di aprire quella sezione.
+  useEffect(() => {
+    if (admin) getTrainerInAttesa().then((l) => setTrainerInAttesa(l.length)).catch(() => {});
+  }, [admin]);
 
   const [nomeScheda, setNomeScheda] = useState('');
   const [clienteId, setClienteId] = useState('');
@@ -557,8 +572,24 @@ export default function TrainerDashboard() {
     if (editorAperto) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [editorAperto, schedaInModifica]);
 
-  // Cliente di cui si stanno guardando le schede esistenti (null = nessuno scelto).
-  const [clienteVisto, setClienteVisto] = useState<number | null>(null);
+  // ---- Dove si trova il trainer: sta nell'indirizzo, così il tasto "indietro" funziona ----
+  // #attivita · #clienti (elenco) · #clienti/12 (pagina del cliente) · #clienti/12/diario · #inviti · #trainer
+  const [indirizzo, vai] = useIndirizzo();
+  const [pezzo0, pezzo1, pezzo2] = indirizzo.split('/');
+  const sezioneDaIndirizzo = SEZIONI_TRAINER.find((x) => x === pezzo0);
+  const sezione: SezioneTrainer = sezioneDaIndirizzo ?? SEZIONI_TRAINER.find((x) => x === ricordaSezione('sezioneTrainer')) ?? 'attivita';
+  // Cliente di cui è aperta la pagina (null = elenco dei clienti).
+  const clienteVisto = sezione === 'clienti' && /^\d{1,9}$/.test(pezzo1 ?? '') ? Number(pezzo1) : null;
+  const paginaCliente: PaginaCliente = PAGINE_CLIENTE.find((x) => x === pezzo2) ?? 'schede';
+  function apriCliente(id: number | null, pagina: PaginaCliente = 'schede', sostituisci = false) {
+    vai(id === null ? 'clienti' : `clienti/${id}${pagina === 'schede' ? '' : `/${pagina}`}`, sostituisci);
+  }
+  useEffect(() => {
+    // Indirizzo vuoto o sconosciuto: si sistema senza aggiungere un passo alla cronologia.
+    if (!sezioneDaIndirizzo) vai(sezione, true);
+    else if (sezione === 'trainer' && adminNoto && !admin) vai('attivita', true);
+    else ricordaSezione('sezioneTrainer', sezione);
+  });
 
   // Cambia ogni volta che il form si svuota o carica un'altra scheda: azzera il testo digitato nel campo cliente.
   const [versioneForm, setVersioneForm] = useState(0);
@@ -688,11 +719,11 @@ export default function TrainerDashboard() {
   // Pannello "Progressi" di una scheda: aperto dalla scheda o da un allenamento completato.
   const [progressiScheda, setProgressiScheda] = useState<{ schedaId: number; giorno?: string } | null>(null);
   // Sezione "I tuoi clienti": cliente di cui è aperta la gestione dell'accesso.
-  const [accessoAperto, setAccessoAperto] = useState<number | null>(null);
-  const [clientiAperti, setClientiAperti] = useState(false);
+  const [clientiCaricati, setClientiCaricati] = useState(false);
   async function caricaClienti() {
     try {
       setClienti(await getClienti());
+      setClientiCaricati(true);
     } catch (err) {
       setErrore(err instanceof Error ? err.message : tr('Errore nel caricamento dei clienti', 'Error loading clients'));
     }
@@ -1038,7 +1069,7 @@ export default function TrainerDashboard() {
       }
 
       // Dopo il salvataggio apriamo l'elenco di quel cliente: la scheda si vede subito.
-      setClienteVisto(Number(clienteId));
+      if (clienteVisto !== Number(clienteId) || paginaCliente !== 'schede') apriCliente(Number(clienteId));
       if (eraNuova) {
         // Scheda nuova: l'editor resta aperto con lo STESSO cliente già scelto, pronto per il
         // giorno successivo (Giorno A, poi B, poi C…). Si svuotano solo nome ed esercizi.
@@ -1130,844 +1161,865 @@ export default function TrainerDashboard() {
   const sessioniVisibili = mostraTutte ? sessioniCliente : sessioniCliente.slice(0, 5);
   const gruppiBozza = gruppiCollegati(esercizi);
 
-  return (
-    <div className="space-y-8">
-      {admin && trainerInAttesa > 0 && (
-        <a
-          href="#trainer-in-attesa"
-          className="flex items-center justify-between gap-3 rounded-2xl border border-accent-strong/40 bg-accent-soft px-5 py-4 text-sm font-semibold text-ink transition-colors hover:border-accent-strong"
-        >
-          <span>
-            {trainerInAttesa === 1
-              ? tr('1 trainer aspetta la tua approvazione', '1 trainer is waiting for your approval')
-              : tr(`${trainerInAttesa} trainer aspettano la tua approvazione`, `${trainerInAttesa} trainers are waiting for your approval`)}
-          </span>
-          <span className="shrink-0 text-accent-strong">{tr('Vedi →', 'See →')}</span>
-        </a>
-      )}
-      <div className="grid gap-3 sm:grid-cols-3 sm:gap-4" aria-label={tr('Riepilogo attività', 'Activity summary')}>
-        <div className="metric-card">
-          <span className="metric-icon bg-surface-2 text-accent-strong" aria-hidden="true">
-            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 5"/></svg>
-          </span>
-          <div><p className="text-3xl font-bold tabular-nums tracking-tight">{clienti.length}</p><p className="text-sm text-muted">{tr('Clienti registrati', 'Registered clients')}</p></div>
-        </div>
-        <div className="metric-card">
-          <span className="metric-icon bg-surface-2 text-accent-strong" aria-hidden="true">
-            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><rect x="5" y="4" width="14" height="17" rx="3"/><rect x="9" y="2" width="6" height="4" rx="1.5" fill="currentColor" stroke="none"/><path d="M9 11h6m-6 5h6"/></svg>
-          </span>
-          <div><p className="text-3xl font-bold tabular-nums tracking-tight">{schede.length}</p><p className="text-sm text-muted">{tr('Schede attive', 'Active programmes')}</p></div>
-        </div>
-        <div className="metric-card">
-          <span className="metric-icon bg-surface-2 text-accent-strong" aria-hidden="true">
-            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m4 14 5-5 4 4 7-9m-5 0h5v5M4 4v16h16"/></svg>
-          </span>
-          <div><p className="text-3xl font-bold tabular-nums tracking-tight">{sessioni.length}</p><p className="text-sm text-muted">{tr('Allenamenti conclusi', 'Workouts completed')}</p></div>
-        </div>
-      </div>
+  // L'editor si vede nell'elenco clienti e nella pagina "Schede" di un cliente.
+  const mostraEditor = editorAperto && (clienteVisto === null || paginaCliente === 'schede');
+  const clienteAperto = clienteVisto !== null ? clienti.find((c) => c.id === clienteVisto) : undefined;
+  // Cliente non (più) esistente nell'indirizzo: si torna all'elenco.
+  useEffect(() => {
+    if (clienteVisto !== null && clientiCaricati && !clienteAperto) apriCliente(null, 'schede', true);
+  });
+  const nomiPagine: Record<PaginaCliente, string> = {
+    schede: tr('Schede', 'Programmes'),
+    cardio: 'Cardio',
+    diario: tr('Diario', 'Diary'),
+    corpo: tr('Misure', 'Measurements'),
+    accesso: tr('Accesso', 'Sign-in'),
+  };
+  const bottoneNuovaScheda = (
+    <button type="button" className="btn-primary shrink-0" aria-expanded={editorAperto} aria-controls="scheda-editor" onClick={() => {
+      // Nella pagina di un cliente, la nuova scheda parte già con lui scelto.
+      if (!editorAperto && schedaInModifica === null && !clienteId && clienteVisto !== null) setClienteId(String(clienteVisto));
+      if (clienteVisto !== null && paginaCliente !== 'schede') apriCliente(clienteVisto, 'schede', true);
+      setEditorAperto(true);
+      if (editorAperto) setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
+    }}>
+      <span aria-hidden="true" className="text-xl leading-none">+</span>
+      {editorAperto ? tr('Continua la scheda', 'Continue programme') : tr('Nuova scheda', 'New programme')}
+    </button>
+  );
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <nav className="flex flex-wrap gap-2 text-sm font-semibold" aria-label={tr('Sezioni trainer', 'Trainer sections')}>
-          <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#attivita">{tr('Panoramica', 'Overview')}</a>
-          <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#schede-clienti">{tr('Schede', 'Programmes')}</a>
-          <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#gestione-clienti">{tr('Clienti', 'Clients')}</a>
-          <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href="#inviti">{tr('Inviti', 'Invites')}</a>
-          {admin && (
-            <a className="rounded-xl border border-accent-strong/60 px-4 py-3 text-ink transition-colors hover:bg-accent hover:text-accent-ink" href={trainerInAttesa > 0 ? '#trainer-in-attesa' : '#trainer-app'}>
-              {tr('Trainer', 'Trainers')}
-              {trainerInAttesa > 0 && (
-                <span className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 text-xs text-accent-ink" aria-label={tr(`${trainerInAttesa} in attesa`, `${trainerInAttesa} pending`)}>
-                  {trainerInAttesa}
-                </span>
-              )}
-            </a>
-          )}
-        </nav>
-        <button type="button" className="btn-primary" aria-expanded={editorAperto} aria-controls="scheda-editor" onClick={() => {
-          // Se stai guardando le schede di un cliente, la nuova scheda parte già con lui scelto.
-          if (!editorAperto && schedaInModifica === null && !clienteId && clienteVisto !== null) setClienteId(String(clienteVisto));
-          setEditorAperto(true);
-          if (editorAperto) formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }}>
-          <span aria-hidden="true" className="text-xl leading-none">+</span>
-          {editorAperto ? tr('Continua la scheda', 'Continue programme') : tr('Nuova scheda', 'New programme')}
-        </button>
-      </div>
+  return (
+    <div className="space-y-8 pb-24 sm:pb-0">
+      <BarraSezioni<SezioneTrainer>
+        etichetta={tr('Sezioni trainer', 'Trainer sections')}
+        attiva={sezione}
+        onCambia={(id) => vai(id)}
+        voci={[
+          { id: 'attivita', nome: tr('Attività', 'Activity'), icona: ICONE.attivita },
+          { id: 'clienti', nome: tr('Clienti', 'Clients'), icona: ICONE.clienti },
+          { id: 'inviti', nome: tr('Inviti', 'Invites'), icona: ICONE.inviti },
+          ...(admin ? [{ id: 'trainer' as const, nome: tr('Trainer', 'Trainers'), icona: ICONE.trainer, pallino: trainerInAttesa > 0 }] : []),
+        ]}
+      />
 
       {errore && <p className="alert-error" role="alert">{errore}</p>}
 
-      {/* Prima cosa che vede il trainer: chi si è allenato e come è andata */}
-      <section id="attivita" className="card scroll-mt-24">
-        <div className="mb-5 flex items-start justify-between gap-3">
-          <div>
-            <p className="eyebrow mb-1">{tr('Attività recente', 'Recent activity')}</p>
-            <h2 className="section-title">{tr('Allenamenti completati', 'Completed workouts')}</h2>
-            <p className="mt-1 text-sm text-muted">{tr('Scegli un cliente e guarda come sono andati i suoi allenamenti.', 'Choose a client and see how their workouts went.')}</p>
-          </div>
-          <button
-            aria-label={tr('Aggiorna allenamenti completati', 'Refresh completed workouts')}
-            className="btn-secondary h-11 w-11 shrink-0 px-0"
-            onClick={caricaSessioni}
-          >
-            <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5M4 17v-5h5M6.1 6a8 8 0 0 1 13 3M4.9 15a8 8 0 0 0 13 3"/></svg>
-          </button>
-        </div>
-        {sessioni.length === 0 ? (
-          <p className="empty-state">
-            {tr('Nessun cliente ha ancora concluso un allenamento.', 'No client has finished a workout yet.')}
-          </p>
-        ) : (
-          <>
-          <div className="mb-2">
-            <label className="label" htmlFor="cliente-sessioni">{tr('Cliente', 'Client')}</label>
-            <select
-              id="cliente-sessioni"
-              className="input"
-              value={clienteScelto ?? ''}
-              onChange={(e) => { setClienteSessioni(Number(e.target.value)); setMostraTutte(false); }}
+      {sezione === 'attivita' && (
+        <>
+          {admin && trainerInAttesa > 0 && (
+            <button
+              type="button"
+              onClick={() => vai('trainer')}
+              className="flex w-full items-center justify-between gap-3 rounded-2xl border border-accent-strong/40 bg-accent-soft px-5 py-4 text-left text-sm font-semibold text-ink transition-colors hover:border-accent-strong"
             >
-              {clientiConSessioni.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nome} · {c.quanti === 1 ? tr('1 allenamento', '1 workout') : tr(`${c.quanti} allenamenti`, `${c.quanti} workouts`)}
-                </option>
-              ))}
-            </select>
-          </div>
-          <ul className="divide-y divide-line overflow-hidden">
-            {sessioniVisibili.map((s) => {
-              const completa = s.serieFatte >= s.serieTotali;
-              return (
-                <li key={s.id}>
-                  {/* Tocca un allenamento per vedere cosa ha fatto il cliente quel giorno, serie per serie */}
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3 py-4 text-left transition-colors hover:bg-surface-2/50 sm:gap-4"
-                    onClick={() => setProgressiScheda({ schedaId: s.schedaId, giorno: s.completataIl })}
-                    aria-label={tr(`Dettaglio allenamento di ${s.cliente.nome}, ${s.scheda.nome}`, `Workout details for ${s.cliente.nome}, ${s.scheda.nome}`)}
-                  >
-                  {/* Il cliente è già scelto sopra: nel quadratino c'è il giorno dell'allenamento */}
-                  <span
-                    className={`flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl leading-none ${
-                      completa ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'
-                    }`}
-                    aria-hidden
-                  >
-                    <span className="text-base font-bold tabular-nums">{new Date(s.completataIl).getDate()}</span>
-                    <span className="mt-0.5 text-[10px] font-semibold uppercase">
-                      {new Date(s.completataIl).toLocaleDateString(locale, { month: 'short' }).replace('.', '')}
-                    </span>
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold leading-snug break-words">{s.scheda.nome}</p>
-                    <p className="mt-0.5 text-xs text-muted">{quando(s.completataIl)}</p>
-                    {/* Feedback del cliente a fine allenamento */}
-                    {(s.fatica != null || s.nota) && (
-                      <div className="mt-2 flex flex-wrap items-start gap-2">
-                        {s.fatica != null && <ChipFatica fatica={s.fatica} />}
-                        {s.nota && <p className="min-w-0 flex-1 text-sm italic leading-snug text-soft break-words">“{s.nota}”</p>}
-                      </div>
-                    )}
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className={`rounded-md px-2 py-1 text-xs font-semibold tabular-nums sm:text-sm ${completa ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}>
-                      {s.serieFatte}/{s.serieTotali} {tr('serie', 'sets')}
-                    </p>
-                    <p className="mt-1 text-xs text-muted tabular-nums">
-                      {Math.round(s.volume).toLocaleString(locale)} kg
-                    </p>
-                  </div>
-                  <span aria-hidden className="shrink-0 text-lg text-muted">›</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          </>
-        )}
-        {sessioniCliente.length > 5 && (
-          <button className="btn-link mt-3 text-sm" onClick={() => setMostraTutte(!mostraTutte)}>
-            {mostraTutte ? tr('Mostra meno', 'Show less') : tr(`Mostra tutti (${sessioniCliente.length})`, `Show all (${sessioniCliente.length})`)}
-          </button>
-        )}
-      </section>
-
-      <section
-        id="scheda-editor"
-        hidden={!editorAperto}
-        ref={formRef}
-        className={`card scroll-mt-24 sm:p-7 ${schedaInModifica !== null ? 'ring-2 ring-accent-strong/30' : ''}`}
-      >
-        <div className="mb-6 flex items-start justify-between gap-4">
-          <div>
-            <p className="eyebrow mb-1">{tr('Programmazione', 'Planning')}</p>
-            <h2 className="section-title">{schedaInModifica !== null ? tr('Modifica scheda', 'Edit programme') : tr('Nuova scheda', 'New programme')}</h2>
-            <p className="mt-1 text-sm text-muted">{tr('Scegli il cliente e costruisci il suo prossimo allenamento.', 'Choose the client and build their next workout.')}</p>
-          </div>
-          <button type="button" className="btn-secondary shrink-0" onClick={() => setEditorAperto(false)}>{tr('Riduci', 'Collapse')}</button>
-        </div>
-        {schedaInModifica !== null && (
-          <p className="mb-5 rounded-lg bg-accent-soft px-3 py-2 text-sm text-soft">
-            {tr(
-              'Stai modificando una scheda esistente. Se rimuovi un esercizio esce dalla scheda, ma tutte le serie che il cliente ha già registrato restano salvate e puoi rimetterlo quando vuoi dall’elenco in fondo agli esercizi.',
-              'You’re editing an existing programme. If you remove an exercise it leaves the programme, but every set the client already logged stays saved and you can put it back any time from the list below the exercises.',
-            )}
-          </p>
-        )}
-        {giornoSalvato !== null && schedaInModifica === null && (
-          <div role="status" className="mb-5 flex flex-col gap-3 rounded-xl border border-success/40 bg-success-soft px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-soft">
-              <strong className="text-success">
-                {tr(`“${giornoSalvato}” salvata`, `“${giornoSalvato}” saved`)}
-                {clienteId ? ` · ${nomeCliente(Number(clienteId))}` : ''}.
-              </strong>{' '}
-              {tr('Il cliente resta scelto: crea subito il prossimo giorno.', 'The client stays selected: create the next day straight away.')}
-            </p>
-            <button type="button" className="btn-secondary shrink-0" onClick={resetForm}>
-              {tr('Ho finito', 'I’m done')}
+              <span>
+                {trainerInAttesa === 1
+                  ? tr('1 trainer aspetta la tua approvazione', '1 trainer is waiting for your approval')
+                  : tr(`${trainerInAttesa} trainer aspettano la tua approvazione`, `${trainerInAttesa} trainers are waiting for your approval`)}
+              </span>
+              <span className="shrink-0 text-accent-strong">{tr('Vedi →', 'See →')}</span>
             </button>
-          </div>
-        )}
-        <form
-          onSubmit={handleSalvaScheda}
-          className="space-y-6"
-          // Mentre scrivi, il bottone "+ Libreria" si nasconde: non copre i suggerimenti né la tastiera.
-          onFocus={(e) => setScrivendo(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)}
-          onBlur={() => setScrivendo(false)}
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label" htmlFor="nome-scheda">{tr('Nome scheda', 'Programme name')}</label>
-              <input
-                id="nome-scheda"
-                className="input"
-                placeholder={tr('Nome scheda (es. Full Body A)', 'Programme name (e.g. Full Body A)')}
-                value={nomeScheda}
-                onChange={(e) => setNomeScheda(e.target.value)}
-                required
-              />
+          )}
+          <div className="grid gap-3 sm:grid-cols-3 sm:gap-4" aria-label={tr('Riepilogo attività', 'Activity summary')}>
+            <div className="metric-card">
+              <span className="metric-icon bg-surface-2 text-accent-strong" aria-hidden="true">
+                <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 5"/></svg>
+              </span>
+              <div><p className="text-3xl font-bold tabular-nums tracking-tight">{clienti.length}</p><p className="text-sm text-muted">{tr('Clienti registrati', 'Registered clients')}</p></div>
             </div>
-            <div>
-              <label className="label">{tr('Cliente', 'Client')}</label>
-              {/* Si scrivono le prime lettere e si tocca il nome: niente ID da ricordare, niente schede
-                  assegnate alla persona sbagliata. La key riparte da zero quando il form si svuota. */}
-              <SceltaCliente key={versioneForm} clienti={clienti} valore={clienteId} onChange={setClienteId} />
+            <div className="metric-card">
+              <span className="metric-icon bg-surface-2 text-accent-strong" aria-hidden="true">
+                <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"><rect x="5" y="4" width="14" height="17" rx="3"/><rect x="9" y="2" width="6" height="4" rx="1.5" fill="currentColor" stroke="none"/><path d="M9 11h6m-6 5h6"/></svg>
+              </span>
+              <div><p className="text-3xl font-bold tabular-nums tracking-tight">{schede.length}</p><p className="text-sm text-muted">{tr('Schede attive', 'Active programmes')}</p></div>
+            </div>
+            <div className="metric-card">
+              <span className="metric-icon bg-surface-2 text-accent-strong" aria-hidden="true">
+                <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m4 14 5-5 4 4 7-9m-5 0h5v5M4 4v16h16"/></svg>
+              </span>
+              <div><p className="text-3xl font-bold tabular-nums tracking-tight">{sessioni.length}</p><p className="text-sm text-muted">{tr('Allenamenti conclusi', 'Workouts completed')}</p></div>
             </div>
           </div>
 
-          {/* Su PC: esercizi a sinistra e libreria fissa a destra (resta visibile mentre scorri).
-              Su telefono: la libreria si apre dal bottone "Libreria" in basso. */}
-          <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start lg:gap-6">
-          <div className="min-w-0">
-            <h3 className="mb-3 text-lg font-bold text-ink">{tr('Esercizi della scheda', 'Programme exercises')}</h3>
-
-            <div>
-              {esercizi.map((es, i) => {
-                const g = gruppiBozza[i];
-                const ultimo = i === esercizi.length - 1;
-                const superset = es.collegamento === 'SUPERSET' && !ultimo;
-                return (
-                <Fragment key={es.chiave}>
-                <div
-                  id={`riga-${es.chiave}`}
-                  className={`rounded-2xl border bg-field p-4 transition-colors focus-within:border-accent-strong/50 sm:p-5 ${
-                    g ? 'border-accent-strong/60' : 'border-line'
-                  }`}
+          {/* Prima cosa che vede il trainer: chi si è allenato e come è andata */}
+          <section id="attivita" className="card scroll-mt-24">
+            <div className="mb-5 flex items-start justify-between gap-3">
+              <div>
+                <p className="eyebrow mb-1">{tr('Attività recente', 'Recent activity')}</p>
+                <h2 className="section-title">{tr('Allenamenti completati', 'Completed workouts')}</h2>
+                <p className="mt-1 text-sm text-muted">{tr('Scegli un cliente e guarda come sono andati i suoi allenamenti.', 'Choose a client and see how their workouts went.')}</p>
+              </div>
+              <button
+                aria-label={tr('Aggiorna allenamenti completati', 'Refresh completed workouts')}
+                className="btn-secondary h-11 w-11 shrink-0 px-0"
+                onClick={caricaSessioni}
+              >
+                <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5M4 17v-5h5M6.1 6a8 8 0 0 1 13 3M4.9 15a8 8 0 0 0 13 3"/></svg>
+              </button>
+            </div>
+            {sessioni.length === 0 ? (
+              <p className="empty-state">
+                {tr('Nessun cliente ha ancora concluso un allenamento.', 'No client has finished a workout yet.')}
+              </p>
+            ) : (
+              <>
+              <div className="mb-2">
+                <label className="label" htmlFor="cliente-sessioni">{tr('Cliente', 'Client')}</label>
+                <select
+                  id="cliente-sessioni"
+                  className="input"
+                  value={clienteScelto ?? ''}
+                  onChange={(e) => { setClienteSessioni(Number(e.target.value)); setMostraTutte(false); }}
                 >
-                  <div className="mb-3 flex items-center justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-bold text-accent-ink">
-                        {g ? sigla(g) : i + 1}
+                  {clientiConSessioni.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome} · {c.quanti === 1 ? tr('1 allenamento', '1 workout') : tr(`${c.quanti} allenamenti`, `${c.quanti} workouts`)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <ul className="divide-y divide-line overflow-hidden">
+                {sessioniVisibili.map((s) => {
+                  const completa = s.serieFatte >= s.serieTotali;
+                  return (
+                    <li key={s.id}>
+                      {/* Tocca un allenamento per vedere cosa ha fatto il cliente quel giorno, serie per serie */}
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-3 py-4 text-left transition-colors hover:bg-surface-2/50 sm:gap-4"
+                        onClick={() => setProgressiScheda({ schedaId: s.schedaId, giorno: s.completataIl })}
+                        aria-label={tr(`Dettaglio allenamento di ${s.cliente.nome}, ${s.scheda.nome}`, `Workout details for ${s.cliente.nome}, ${s.scheda.nome}`)}
+                      >
+                      {/* Il cliente è già scelto sopra: nel quadratino c'è il giorno dell'allenamento */}
+                      <span
+                        className={`flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-xl leading-none ${
+                          completa ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'
+                        }`}
+                        aria-hidden
+                      >
+                        <span className="text-base font-bold tabular-nums">{new Date(s.completataIl).getDate()}</span>
+                        <span className="mt-0.5 text-[10px] font-semibold uppercase">
+                          {new Date(s.completataIl).toLocaleDateString(locale, { month: 'short' }).replace('.', '')}
+                        </span>
                       </span>
-                      {/* Su schermi stretti il nome del gruppo sta sotto (vedi sotto), qui solo da tablet in su */}
-                      {g && <span className="hidden sm:inline-flex"><ChipGruppo g={g} /></span>}
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className="btn-secondary px-3 py-1 text-xs"
-                        aria-expanded={gruppoPer === es.chiave}
-                        onClick={() => (gruppoPer === es.chiave ? setGruppoPer(null) : chiediGruppo(i))}
-                      >
-                        {tr('☆ Salva esercizio', '☆ Save exercise')}
-                      </button>
-                      {esercizi.length > 1 && (
-                        <button
-                          type="button"
-                          className="btn-danger px-3 py-1 text-xs"
-                          onClick={() => rimuoviRigaEsercizio(i)}
-                        >
-                          {confermaRimuovi === es.chiave ? tr('Sicuro? Tocca ancora', 'Sure? Tap again') : tr('Rimuovi', 'Remove')}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {g && (
-                    <p className="-mt-1 mb-3 text-xs font-bold tracking-wide text-accent-strong uppercase sm:hidden">
-                      {g.nome} {g.lettera}
-                    </p>
-                  )}
-                  {gruppoPer === es.chiave && (
-                    <SceltaGruppo onScegli={(gruppo) => salvaComePreset(i, gruppo)} onAnnulla={() => setGruppoPer(null)} />
-                  )}
-                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-                    <div className="col-span-3 sm:col-span-3">
-                      <label className="label">{tr('Esercizio', 'Exercise')}</label>
-                      <CampoNomeEsercizio
-                        valore={es.nome}
-                        preset={preset}
-                        onChange={(v) => aggiornaEsercizio(i, 'nome', v)}
-                        onScegli={(p) => scegliSuggerimento(i, p)}
-                      />
-                    </div>
-                    <div className="col-span-3 sm:col-span-3">
-                      <label className="label">Video</label>
-                      <input
-                        className="input"
-                        placeholder={tr('Link video (opzionale)', 'Video link (optional)')}
-                        maxLength={500}
-                        value={es.videoUrl}
-                        onChange={(e) => aggiornaEsercizio(i, 'videoUrl', e.target.value)}
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="label">{tr('Serie', 'Sets')}</label>
-                      <input
-                        className="input"
-                        type="number"
-                        placeholder={tr('Serie', 'Sets')}
-                        value={es.serieTarget}
-                        onChange={(e) => aggiornaEsercizio(i, 'serieTarget', e.target.value)}
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="label">Reps</label>
-                      <CampoReps valore={es.repsTarget} onChange={(v) => aggiornaEsercizio(i, 'repsTarget', v)} />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="label">{tr('Rec. (sec)', 'Rest (sec)')}</label>
-                      {superset ? (
-                        <RecuperoAssente />
-                      ) : (
-                        <input
-                          className="input"
-                          type="number"
-                          placeholder={tr('Recupero (sec)', 'Rest (sec)')}
-                          value={es.recuperoSecondi}
-                          onChange={(e) => aggiornaEsercizio(i, 'recuperoSecondi', e.target.value)}
-                        />
-                      )}
-                    </div>
-                  </div>
-                  {g && <p className="mt-2 text-xs leading-relaxed text-accent-strong">{spiegaRecupero(es.collegamento, g)}</p>}
-                  {/* Serie aggiunte dopo quelle normali, con valori propri: es. 2 × 10 + una da 15 in drop set */}
-                  {es.serieExtra.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      {es.serieExtra.map((x, j) => (
-                        <div key={j} className="rounded-xl border border-accent-strong/40 bg-accent-soft p-3">
-                          <div className="mb-2 flex items-center justify-between">
-                            <span className="text-xs font-semibold tracking-wide text-accent-strong uppercase">
-                              {tr('Serie', 'Set')} {Number(es.serieTarget || 0) + j + 1}
-                            </span>
-                            <button
-                              type="button"
-                              aria-label={tr(`Rimuovi serie ${Number(es.serieTarget || 0) + j + 1}`, `Remove set ${Number(es.serieTarget || 0) + j + 1}`)}
-                              className="btn-ghost min-h-8 w-8 px-0 text-sm text-muted hover:text-danger"
-                              onClick={() => rimuoviSerieExtra(i, j)}
-                            >
-                              ✕
-                            </button>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold leading-snug break-words">{s.scheda.nome}</p>
+                        <p className="mt-0.5 text-xs text-muted">{quando(s.completataIl)}</p>
+                        {/* Feedback del cliente a fine allenamento */}
+                        {(s.fatica != null || s.nota) && (
+                          <div className="mt-2 flex flex-wrap items-start gap-2">
+                            {s.fatica != null && <ChipFatica fatica={s.fatica} />}
+                            {s.nota && <p className="min-w-0 flex-1 text-sm italic leading-snug text-soft break-words">“{s.nota}”</p>}
                           </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="label">Reps</label>
-                              <CampoReps valore={x.reps} onChange={(v) => aggiornaSerieExtra(i, j, 'reps', v)} />
-                            </div>
-                            <div>
-                              <label className="label">{tr('Rec. (sec)', 'Rest (sec)')}</label>
-                              {superset ? (
-                                <RecuperoAssente />
-                              ) : (
-                                <input
-                                  className="input"
-                                  type="number"
-                                  inputMode="numeric"
-                                  value={x.recuperoSecondi}
-                                  onChange={(e) => aggiornaSerieExtra(i, j, 'recuperoSecondi', e.target.value)}
-                                />
-                              )}
-                            </div>
-                          </div>
-                          <input
-                            className="input mt-2"
-                            placeholder={tr('Nota, es. "drop set" o "a cedimento"', 'Note, e.g. "drop set" or "to failure"')}
-                            maxLength={200}
-                            value={x.nota}
-                            onChange={(e) => aggiornaSerieExtra(i, j, 'nota', e.target.value)}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {es.serieExtra.length < 10 && (
-                    <button
-                      type="button"
-                      className="btn-ghost mt-3 w-full border border-dashed border-accent-strong/50 text-accent-strong"
-                      onClick={() => aggiungiSerieExtra(i)}
-                    >
-                      {tr('+ Aggiungi serie', '+ Add set')}
-                    </button>
-                  )}
-
-                  <div className="mt-3">
-                    <label className="label">{tr('Note per il cliente (opzionale)', 'Notes for the client (optional)')}</label>
-                    <textarea
-                      className="input min-h-[60px] resize-y"
-                      placeholder={tr('Es. "3x10 ma con 3 secondi di isometria in basso"', 'E.g. "3x10 with a 3-second pause at the bottom"')}
-                      maxLength={1000}
-                      value={es.descrizione}
-                      onChange={(e) => aggiornaEsercizio(i, 'descrizione', e.target.value)}
-                    />
-                    {/* Libreria note: salva questa nota, oppure aggiungine una già salvata con un tocco */}
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="btn-secondary min-h-9 px-3 text-xs"
-                        disabled={!es.descrizione.trim()}
-                        onClick={() => salvaNota(es.descrizione)}
-                      >
-                        {tr('☆ Salva nota', '☆ Save note')}
-                      </button>
-                      <button
-                        type="button"
-                        className={`btn-secondary min-h-9 px-3 text-xs ${noteAperte === es.chiave ? 'border-accent-strong' : ''}`}
-                        onClick={() => setNoteAperte(noteAperte === es.chiave ? null : es.chiave)}
-                      >
-                        {tr('Note salvate', 'Saved notes')} ({notePreset.length}) {noteAperte === es.chiave ? '▴' : '▾'}
-                      </button>
-                    </div>
-                    {noteAperte === es.chiave && (
-                      <div className="mt-2 rounded-xl border border-line bg-surface p-2">
-                        {notePreset.length === 0 ? (
-                          <p className="px-1 py-1 text-xs text-muted">
-                            {tr('Nessuna nota salvata. Scrivine una qui sopra e premi “Salva nota”.', 'No saved notes. Write one above and press “Save note”.')}
-                          </p>
-                        ) : (
-                          <ul className="flex flex-col gap-1.5">
-                            {notePreset.map((n) => (
-                              <li key={n.id} className="flex items-stretch overflow-hidden rounded-lg border border-line bg-surface-2">
-                                <button
-                                  type="button"
-                                  className="min-w-0 flex-1 px-3 py-2 text-left text-sm transition hover:bg-accent hover:text-accent-ink"
-                                  onClick={() => inserisciNota(i, n.testo)}
-                                >
-                                  + {n.testo}
-                                </button>
-                                <button
-                                  type="button"
-                                  aria-label={tr(`Elimina la nota salvata: ${n.testo}`, `Delete the saved note: ${n.testo}`)}
-                                  className="border-l border-line px-3 text-muted transition hover:bg-danger-soft hover:text-danger"
-                                  onClick={() => handleCancellaNota(n.id)}
-                                >
-                                  ×
-                                </button>
-                              </li>
-                            ))}
-                          </ul>
                         )}
                       </div>
-                    )}
-                  </div>
-                </div>
-                {!ultimo && (
-                  <Collegamento
-                    tipo={es.collegamento}
-                    onCambia={(tipo) => cambiaCollegamento(i, tipo)}
-                    numeroSuccessivo={i + 2}
-                  />
-                )}
-                </Fragment>
-                );
-              })}
-            </div>
-            <button type="button" className="btn-secondary mt-3 w-full border-dashed sm:w-auto" onClick={aggiungiRigaEsercizio}>
-              {tr('+ Aggiungi esercizio', '+ Add exercise')}
-            </button>
-
-            {/* Solo in modifica: esercizi tolti in passato da questa scheda, con le serie del cliente
-                ancora salvate. "Rimetti" li riporta nella scheda con tutto il loro storico. */}
-            {schedaInModifica !== null && eserciziRimossi.length > 0 && (
-              <div className="mt-5 rounded-xl border border-line bg-surface p-3">
-                <p className="mb-2 text-xs font-semibold text-muted">{tr('Esercizi tolti da questa scheda (dati conservati)', 'Exercises removed from this programme (data kept)')}</p>
-                <ul className="divide-y divide-line">
-                  {eserciziRimossi.map((es) => (
-                    <li key={es.id} className="flex items-center gap-3 py-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{es.nome}</p>
-                        <p className="text-xs text-muted">
-                          {es._count.registri > 0
-                            ? tr(`${es._count.registri} serie registrate`, `${es._count.registri} sets logged`)
-                            : tr('nessuna serie registrata', 'no sets logged')}
-                          {tr(' · tolto il ', ' · removed on ')}
-                          {new Date(es.archiviatoIl).toLocaleDateString(locale)}
+                      <div className="shrink-0 text-right">
+                        <p className={`rounded-md px-2 py-1 text-xs font-semibold tabular-nums sm:text-sm ${completa ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'}`}>
+                          {s.serieFatte}/{s.serieTotali} {tr('serie', 'sets')}
+                        </p>
+                        <p className="mt-1 text-xs text-muted tabular-nums">
+                          {Math.round(s.volume).toLocaleString(locale)} kg
                         </p>
                       </div>
-                      <button type="button" className="btn-secondary shrink-0 px-3 py-1 text-xs" onClick={() => handleRipristinaEsercizio(es)}>
-                        {tr('↺ Rimetti', '↺ Put back')}
+                      <span aria-hidden className="shrink-0 text-lg text-muted">›</span>
                       </button>
                     </li>
-                  ))}
-                </ul>
+                  );
+                })}
+              </ul>
+              </>
+            )}
+            {sessioniCliente.length > 5 && (
+              <button className="btn-link mt-3 text-sm" onClick={() => setMostraTutte(!mostraTutte)}>
+                {mostraTutte ? tr('Mostra meno', 'Show less') : tr(`Mostra tutti (${sessioniCliente.length})`, `Show all (${sessioniCliente.length})`)}
+              </button>
+            )}
+          </section>
+        </>
+      )}
+
+      {sezione === 'clienti' && (
+        <>
+          {/* Intestazione: elenco clienti, oppure nome del cliente con le sue pagine */}
+          {clienteVisto === null ? (
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div className="min-w-0">
+                <p className="eyebrow mb-1">{tr('Clienti', 'Clients')}</p>
+                <h2 className="section-title">{tr('I tuoi clienti', 'Your clients')}</h2>
+                <p className="mt-1 text-sm text-muted">{tr('Tocca un cliente per aprire la sua pagina: schede, cardio, diario, misure e accesso.', 'Tap a client to open their page: programmes, cardio, diary, measurements and sign-in.')}</p>
+              </div>
+              {bottoneNuovaScheda}
+            </div>
+          ) : (
+            <div>
+              <button type="button" className="btn-link mb-3 text-sm" onClick={() => apriCliente(null)}>
+                ← {tr('Tutti i clienti', 'All clients')}
+              </button>
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="eyebrow mb-1">{tr('Cliente', 'Client')}</p>
+                  <h2 className="section-title flex flex-wrap items-center gap-2 break-words">
+                    {nomeCliente(clienteVisto)}
+                    {clienteAperto?.sospeso && <span className="rounded-md bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning">{tr('Sospeso', 'Suspended')}</span>}
+                  </h2>
+                  {clienteAperto && <p className="mt-1 truncate text-sm text-muted">{clienteAperto.email}</p>}
+                </div>
+                {bottoneNuovaScheda}
+              </div>
+              <nav className="-mx-1 mt-5 flex gap-2 overflow-x-auto px-1 pb-1" aria-label={tr('Pagine del cliente', 'Client pages')}>
+                {PAGINE_CLIENTE.map((pg) => (
+                  <button
+                    key={pg}
+                    type="button"
+                    aria-current={pg === paginaCliente ? 'page' : undefined}
+                    onClick={() => apriCliente(clienteVisto, pg, true)}
+                    className={`inline-flex min-h-11 shrink-0 items-center rounded-xl border px-4 text-sm font-semibold transition-colors ${
+                      pg === paginaCliente ? 'border-accent-strong bg-accent text-accent-ink' : 'border-line bg-surface text-ink hover:border-accent-strong'
+                    }`}
+                  >
+                    {nomiPagine[pg]}
+                  </button>
+                ))}
+              </nav>
+            </div>
+          )}
+
+          <section
+            id="scheda-editor"
+            hidden={!mostraEditor}
+            ref={formRef}
+            className={`card scroll-mt-24 sm:p-7 ${schedaInModifica !== null ? 'ring-2 ring-accent-strong/30' : ''}`}
+          >
+            <div className="mb-6 flex items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow mb-1">{tr('Programmazione', 'Planning')}</p>
+                <h2 className="section-title">{schedaInModifica !== null ? tr('Modifica scheda', 'Edit programme') : tr('Nuova scheda', 'New programme')}</h2>
+                <p className="mt-1 text-sm text-muted">{tr('Scegli il cliente e costruisci il suo prossimo allenamento.', 'Choose the client and build their next workout.')}</p>
+              </div>
+              <button type="button" className="btn-secondary shrink-0" onClick={() => setEditorAperto(false)}>{tr('Riduci', 'Collapse')}</button>
+            </div>
+            {schedaInModifica !== null && (
+              <p className="mb-5 rounded-lg bg-accent-soft px-3 py-2 text-sm text-soft">
+                {tr(
+                  'Stai modificando una scheda esistente. Se rimuovi un esercizio esce dalla scheda, ma tutte le serie che il cliente ha già registrato restano salvate e puoi rimetterlo quando vuoi dall’elenco in fondo agli esercizi.',
+                  'You’re editing an existing programme. If you remove an exercise it leaves the programme, but every set the client already logged stays saved and you can put it back any time from the list below the exercises.',
+                )}
+              </p>
+            )}
+            {giornoSalvato !== null && schedaInModifica === null && (
+              <div role="status" className="mb-5 flex flex-col gap-3 rounded-xl border border-success/40 bg-success-soft px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-soft">
+                  <strong className="text-success">
+                    {tr(`“${giornoSalvato}” salvata`, `“${giornoSalvato}” saved`)}
+                    {clienteId ? ` · ${nomeCliente(Number(clienteId))}` : ''}.
+                  </strong>{' '}
+                  {tr('Il cliente resta scelto: crea subito il prossimo giorno.', 'The client stays selected: create the next day straight away.')}
+                </p>
+                <button type="button" className="btn-secondary shrink-0" onClick={resetForm}>
+                  {tr('Ho finito', 'I’m done')}
+                </button>
               </div>
             )}
-          </div>
-            <aside
-              aria-label={tr('Libreria esercizi', 'Exercise library')}
-              className="hidden rounded-2xl border border-line bg-surface p-4 lg:sticky lg:top-24 lg:block lg:h-[calc(100vh-8rem)]"
+            <form
+              onSubmit={handleSalvaScheda}
+              className="space-y-6"
+              // Mentre scrivi, il bottone "+ Libreria" si nasconde: non copre i suggerimenti né la tastiera.
+              onFocus={(e) => setScrivendo(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)}
+              onBlur={() => setScrivendo(false)}
             >
-              <PannelloLibreria
-                preset={preset}
-                onAggiungi={aggiungiDaPreset}
-                onCambiaGruppo={handleCambiaGruppo}
-                onElimina={(p) => handleCancellaPreset(p.id)}
-              />
-            </aside>
-          </div>
-
-          {/* Telefono: libreria in un pannello dal basso */}
-          {libreriaAperta && (
-            <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label={tr('Libreria esercizi', 'Exercise library')}>
-              <button type="button" aria-label={tr('Chiudi la libreria', 'Close the library')} className="absolute inset-0 bg-black/50" onClick={() => setLibreriaAperta(false)} />
-              <div className="absolute inset-x-0 bottom-0 flex h-[75vh] flex-col rounded-t-3xl border-t border-line bg-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl">
-                <div className="mb-2 flex justify-end">
-                  <button type="button" className="btn-ghost min-h-9 px-3 text-sm" onClick={() => setLibreriaAperta(false)}>
-                    {tr('Chiudi', 'Close')}
-                  </button>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="label" htmlFor="nome-scheda">{tr('Nome scheda', 'Programme name')}</label>
+                  <input
+                    id="nome-scheda"
+                    className="input"
+                    placeholder={tr('Nome scheda (es. Full Body A)', 'Programme name (e.g. Full Body A)')}
+                    value={nomeScheda}
+                    onChange={(e) => setNomeScheda(e.target.value)}
+                    required
+                  />
                 </div>
-                <div className="min-h-0 flex-1">
+                <div>
+                  <label className="label">{tr('Cliente', 'Client')}</label>
+                  {/* Si scrivono le prime lettere e si tocca il nome: niente ID da ricordare, niente schede
+                      assegnate alla persona sbagliata. La key riparte da zero quando il form si svuota. */}
+                  <SceltaCliente key={versioneForm} clienti={clienti} valore={clienteId} onChange={setClienteId} />
+                </div>
+              </div>
+
+              {/* Su PC: esercizi a sinistra e libreria fissa a destra (resta visibile mentre scorri).
+                  Su telefono: la libreria si apre dal bottone "Libreria" in basso. */}
+              <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start lg:gap-6">
+              <div className="min-w-0">
+                <h3 className="mb-3 text-lg font-bold text-ink">{tr('Esercizi della scheda', 'Programme exercises')}</h3>
+
+                <div>
+                  {esercizi.map((es, i) => {
+                    const g = gruppiBozza[i];
+                    const ultimo = i === esercizi.length - 1;
+                    const superset = es.collegamento === 'SUPERSET' && !ultimo;
+                    return (
+                    <Fragment key={es.chiave}>
+                    <div
+                      id={`riga-${es.chiave}`}
+                      className={`rounded-2xl border bg-field p-4 transition-colors focus-within:border-accent-strong/50 sm:p-5 ${
+                        g ? 'border-accent-strong/60' : 'border-line'
+                      }`}
+                    >
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-bold text-accent-ink">
+                            {g ? sigla(g) : i + 1}
+                          </span>
+                          {/* Su schermi stretti il nome del gruppo sta sotto (vedi sotto), qui solo da tablet in su */}
+                          {g && <span className="hidden sm:inline-flex"><ChipGruppo g={g} /></span>}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className="btn-secondary px-3 py-1 text-xs"
+                            aria-expanded={gruppoPer === es.chiave}
+                            onClick={() => (gruppoPer === es.chiave ? setGruppoPer(null) : chiediGruppo(i))}
+                          >
+                            {tr('☆ Salva esercizio', '☆ Save exercise')}
+                          </button>
+                          {esercizi.length > 1 && (
+                            <button
+                              type="button"
+                              className="btn-danger px-3 py-1 text-xs"
+                              onClick={() => rimuoviRigaEsercizio(i)}
+                            >
+                              {confermaRimuovi === es.chiave ? tr('Sicuro? Tocca ancora', 'Sure? Tap again') : tr('Rimuovi', 'Remove')}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {g && (
+                        <p className="-mt-1 mb-3 text-xs font-bold tracking-wide text-accent-strong uppercase sm:hidden">
+                          {g.nome} {g.lettera}
+                        </p>
+                      )}
+                      {gruppoPer === es.chiave && (
+                        <SceltaGruppo onScegli={(gruppo) => salvaComePreset(i, gruppo)} onAnnulla={() => setGruppoPer(null)} />
+                      )}
+                      <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+                        <div className="col-span-3 sm:col-span-3">
+                          <label className="label">{tr('Esercizio', 'Exercise')}</label>
+                          <CampoNomeEsercizio
+                            valore={es.nome}
+                            preset={preset}
+                            onChange={(v) => aggiornaEsercizio(i, 'nome', v)}
+                            onScegli={(p) => scegliSuggerimento(i, p)}
+                          />
+                        </div>
+                        <div className="col-span-3 sm:col-span-3">
+                          <label className="label">Video</label>
+                          <input
+                            className="input"
+                            placeholder={tr('Link video (opzionale)', 'Video link (optional)')}
+                            maxLength={500}
+                            value={es.videoUrl}
+                            onChange={(e) => aggiornaEsercizio(i, 'videoUrl', e.target.value)}
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="label">{tr('Serie', 'Sets')}</label>
+                          <input
+                            className="input"
+                            type="number"
+                            placeholder={tr('Serie', 'Sets')}
+                            value={es.serieTarget}
+                            onChange={(e) => aggiornaEsercizio(i, 'serieTarget', e.target.value)}
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="label">Reps</label>
+                          <CampoReps valore={es.repsTarget} onChange={(v) => aggiornaEsercizio(i, 'repsTarget', v)} />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="label">{tr('Rec. (sec)', 'Rest (sec)')}</label>
+                          {superset ? (
+                            <RecuperoAssente />
+                          ) : (
+                            <input
+                              className="input"
+                              type="number"
+                              placeholder={tr('Recupero (sec)', 'Rest (sec)')}
+                              value={es.recuperoSecondi}
+                              onChange={(e) => aggiornaEsercizio(i, 'recuperoSecondi', e.target.value)}
+                            />
+                          )}
+                        </div>
+                      </div>
+                      {g && <p className="mt-2 text-xs leading-relaxed text-accent-strong">{spiegaRecupero(es.collegamento, g)}</p>}
+                      {/* Serie aggiunte dopo quelle normali, con valori propri: es. 2 × 10 + una da 15 in drop set */}
+                      {es.serieExtra.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          {es.serieExtra.map((x, j) => (
+                            <div key={j} className="rounded-xl border border-accent-strong/40 bg-accent-soft p-3">
+                              <div className="mb-2 flex items-center justify-between">
+                                <span className="text-xs font-semibold tracking-wide text-accent-strong uppercase">
+                                  {tr('Serie', 'Set')} {Number(es.serieTarget || 0) + j + 1}
+                                </span>
+                                <button
+                                  type="button"
+                                  aria-label={tr(`Rimuovi serie ${Number(es.serieTarget || 0) + j + 1}`, `Remove set ${Number(es.serieTarget || 0) + j + 1}`)}
+                                  className="btn-ghost min-h-8 w-8 px-0 text-sm text-muted hover:text-danger"
+                                  onClick={() => rimuoviSerieExtra(i, j)}
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <label className="label">Reps</label>
+                                  <CampoReps valore={x.reps} onChange={(v) => aggiornaSerieExtra(i, j, 'reps', v)} />
+                                </div>
+                                <div>
+                                  <label className="label">{tr('Rec. (sec)', 'Rest (sec)')}</label>
+                                  {superset ? (
+                                    <RecuperoAssente />
+                                  ) : (
+                                    <input
+                                      className="input"
+                                      type="number"
+                                      inputMode="numeric"
+                                      value={x.recuperoSecondi}
+                                      onChange={(e) => aggiornaSerieExtra(i, j, 'recuperoSecondi', e.target.value)}
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                              <input
+                                className="input mt-2"
+                                placeholder={tr('Nota, es. "drop set" o "a cedimento"', 'Note, e.g. "drop set" or "to failure"')}
+                                maxLength={200}
+                                value={x.nota}
+                                onChange={(e) => aggiornaSerieExtra(i, j, 'nota', e.target.value)}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {es.serieExtra.length < 10 && (
+                        <button
+                          type="button"
+                          className="btn-ghost mt-3 w-full border border-dashed border-accent-strong/50 text-accent-strong"
+                          onClick={() => aggiungiSerieExtra(i)}
+                        >
+                          {tr('+ Aggiungi serie', '+ Add set')}
+                        </button>
+                      )}
+
+                      <div className="mt-3">
+                        <label className="label">{tr('Note per il cliente (opzionale)', 'Notes for the client (optional)')}</label>
+                        <textarea
+                          className="input min-h-[60px] resize-y"
+                          placeholder={tr('Es. "3x10 ma con 3 secondi di isometria in basso"', 'E.g. "3x10 with a 3-second pause at the bottom"')}
+                          maxLength={1000}
+                          value={es.descrizione}
+                          onChange={(e) => aggiornaEsercizio(i, 'descrizione', e.target.value)}
+                        />
+                        {/* Libreria note: salva questa nota, oppure aggiungine una già salvata con un tocco */}
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            className="btn-secondary min-h-9 px-3 text-xs"
+                            disabled={!es.descrizione.trim()}
+                            onClick={() => salvaNota(es.descrizione)}
+                          >
+                            {tr('☆ Salva nota', '☆ Save note')}
+                          </button>
+                          <button
+                            type="button"
+                            className={`btn-secondary min-h-9 px-3 text-xs ${noteAperte === es.chiave ? 'border-accent-strong' : ''}`}
+                            onClick={() => setNoteAperte(noteAperte === es.chiave ? null : es.chiave)}
+                          >
+                            {tr('Note salvate', 'Saved notes')} ({notePreset.length}) {noteAperte === es.chiave ? '▴' : '▾'}
+                          </button>
+                        </div>
+                        {noteAperte === es.chiave && (
+                          <div className="mt-2 rounded-xl border border-line bg-surface p-2">
+                            {notePreset.length === 0 ? (
+                              <p className="px-1 py-1 text-xs text-muted">
+                                {tr('Nessuna nota salvata. Scrivine una qui sopra e premi “Salva nota”.', 'No saved notes. Write one above and press “Save note”.')}
+                              </p>
+                            ) : (
+                              <ul className="flex flex-col gap-1.5">
+                                {notePreset.map((n) => (
+                                  <li key={n.id} className="flex items-stretch overflow-hidden rounded-lg border border-line bg-surface-2">
+                                    <button
+                                      type="button"
+                                      className="min-w-0 flex-1 px-3 py-2 text-left text-sm transition hover:bg-accent hover:text-accent-ink"
+                                      onClick={() => inserisciNota(i, n.testo)}
+                                    >
+                                      + {n.testo}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      aria-label={tr(`Elimina la nota salvata: ${n.testo}`, `Delete the saved note: ${n.testo}`)}
+                                      className="border-l border-line px-3 text-muted transition hover:bg-danger-soft hover:text-danger"
+                                      onClick={() => handleCancellaNota(n.id)}
+                                    >
+                                      ×
+                                    </button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {!ultimo && (
+                      <Collegamento
+                        tipo={es.collegamento}
+                        onCambia={(tipo) => cambiaCollegamento(i, tipo)}
+                        numeroSuccessivo={i + 2}
+                      />
+                    )}
+                    </Fragment>
+                    );
+                  })}
+                </div>
+                <button type="button" className="btn-secondary mt-3 w-full border-dashed sm:w-auto" onClick={aggiungiRigaEsercizio}>
+                  {tr('+ Aggiungi esercizio', '+ Add exercise')}
+                </button>
+
+                {/* Solo in modifica: esercizi tolti in passato da questa scheda, con le serie del cliente
+                    ancora salvate. "Rimetti" li riporta nella scheda con tutto il loro storico. */}
+                {schedaInModifica !== null && eserciziRimossi.length > 0 && (
+                  <div className="mt-5 rounded-xl border border-line bg-surface p-3">
+                    <p className="mb-2 text-xs font-semibold text-muted">{tr('Esercizi tolti da questa scheda (dati conservati)', 'Exercises removed from this programme (data kept)')}</p>
+                    <ul className="divide-y divide-line">
+                      {eserciziRimossi.map((es) => (
+                        <li key={es.id} className="flex items-center gap-3 py-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{es.nome}</p>
+                            <p className="text-xs text-muted">
+                              {es._count.registri > 0
+                                ? tr(`${es._count.registri} serie registrate`, `${es._count.registri} sets logged`)
+                                : tr('nessuna serie registrata', 'no sets logged')}
+                              {tr(' · tolto il ', ' · removed on ')}
+                              {new Date(es.archiviatoIl).toLocaleDateString(locale)}
+                            </p>
+                          </div>
+                          <button type="button" className="btn-secondary shrink-0 px-3 py-1 text-xs" onClick={() => handleRipristinaEsercizio(es)}>
+                            {tr('↺ Rimetti', '↺ Put back')}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+                <aside
+                  aria-label={tr('Libreria esercizi', 'Exercise library')}
+                  className="hidden rounded-2xl border border-line bg-surface p-4 lg:sticky lg:top-24 lg:block lg:h-[calc(100vh-8rem)]"
+                >
                   <PannelloLibreria
                     preset={preset}
                     onAggiungi={aggiungiDaPreset}
                     onCambiaGruppo={handleCambiaGruppo}
                     onElimina={(p) => handleCancellaPreset(p.id)}
                   />
-                </div>
+                </aside>
               </div>
-            </div>
-          )}
-          {/* Bottone "Libreria" sempre a portata mentre scorri l'editor (solo telefono) */}
-          {editorAperto && !libreriaAperta && !scrivendo && (
-            <button
-              type="button"
-              className="btn-primary fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 min-h-12 px-4 shadow-lg lg:hidden"
-              onClick={() => setLibreriaAperta(true)}
-            >
-              {tr('+ Libreria', '+ Library')}
-            </button>
-          )}
 
-          {errore && <p className="alert-error">{errore}</p>}
-          <div className="flex flex-col-reverse gap-3 border-t border-line pt-5 sm:flex-row sm:justify-end">
-            {schedaInModifica !== null && (
-              <button type="button" className="btn-secondary w-full px-6 py-2.5 sm:w-auto" onClick={resetForm}>
-                {tr('Annulla modifica', 'Cancel editing')}
-              </button>
-            )}
-            <button type="submit" className="btn-primary w-full px-6 py-2.5 sm:w-auto" disabled={salvando}>
-              {salvando ? tr('Salvo…', 'Saving…') : schedaInModifica !== null ? tr('Salva modifiche', 'Save changes') : tr('Crea scheda', 'Create programme')}
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section id="schede-clienti" className="scroll-mt-24">
-        <div className="mb-5">
-          <p className="eyebrow mb-1">{tr('Programmi di allenamento', 'Training programmes')}</p>
-          <h2 className="section-title">{tr('Le schede dei tuoi clienti', 'Your clients’ programmes')}</h2>
-          <p className="mt-1 text-sm text-muted">{tr('Seleziona un cliente per consultare e aggiornare il suo programma.', 'Select a client to view and update their programme.')}</p>
-        </div>
-        {schede.length === 0 && (
-          <p className="rounded-2xl border border-dashed border-line bg-surface p-8 text-center text-muted">
-            {tr('Nessuna scheda ancora creata.', 'No programmes created yet.')}
-          </p>
-        )}
-
-        {/* Elenco clienti: si tocca un nome e sotto compaiono solo le sue schede */}
-        {clienti.length > 0 && (
-          <div className="mb-5 rounded-2xl border border-line bg-surface p-4 sm:p-5">
-            <p className="label">{tr('Scegli il cliente', 'Choose the client')}</p>
-            <div className="flex flex-wrap gap-2">
-              {clienti.map((c) => {
-                const numero = schede.filter((sc) => sc.clienteId === c.id).length;
-                const attivo = clienteVisto === c.id;
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    aria-pressed={attivo}
-                    onClick={() => setClienteVisto(attivo ? null : c.id)}
-                    className={`inline-flex min-h-12 items-center gap-3 rounded-xl border px-4 text-sm font-semibold transition-colors ${
-                      attivo
-                        ? 'border-accent-strong bg-accent text-accent-ink'
-                        : 'border-line bg-field text-ink hover:border-accent-strong'
-                    }`}
-                  >
-                    {c.nome}
-                    <span className={`flex h-6 min-w-6 items-center justify-center rounded-md px-1 text-xs font-bold ${attivo ? 'bg-black/10' : 'bg-surface-2 text-muted'}`}>{numero}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-        {schede.length > 0 && clienteVisto === null && (
-          <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">
-            {tr('Tocca il nome di un cliente per vedere le sue schede.', 'Tap a client’s name to see their programmes.')}
-          </p>
-        )}
-        {/* Cliente scelto: prima peso e massa grassa, poi le sue schede */}
-        {clienteVisto !== null && (
-          <div className="mb-6">
-            <MisureCorporee key={clienteVisto} ruolo="TRAINER" clienteId={clienteVisto} nomeCliente={nomeCliente(clienteVisto)} />
-            <FeedbackCliente key={`f${clienteVisto}`} clienteId={clienteVisto} nomeCliente={nomeCliente(clienteVisto)} />
-            <div className="mt-4">
-              <CardioPassi key={`c${clienteVisto}`} ruolo="TRAINER" clienteId={clienteVisto} nomeCliente={nomeCliente(clienteVisto)} />
-            </div>
-            <div className="mt-4">
-              <DiarioAlimentare key={`d${clienteVisto}`} ruolo="TRAINER" clienteId={clienteVisto} nomeCliente={nomeCliente(clienteVisto)} />
-            </div>
-          </div>
-        )}
-        {clienteVisto !== null && !schede.some((sc) => sc.clienteId === clienteVisto) && (
-          <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">
-            {tr(`${nomeCliente(clienteVisto)} non ha ancora schede.`, `${nomeCliente(clienteVisto)} has no programmes yet.`)}
-          </p>
-        )}
-        <div className="grid gap-4 md:grid-cols-2">
-          {schede.filter((sc) => sc.clienteId === clienteVisto).map((scheda) => (
-            <div key={scheda.id} className="card flex flex-col transition hover:shadow-md">
-              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <strong className="block text-lg leading-tight font-bold break-words">{scheda.nome}</strong>
-                  <span className="mt-1 inline-block rounded-md bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">
-                    {nomeCliente(scheda.clienteId)}
-                  </span>
-                  {/* Data di creazione + quanto tempo fa: le schede sono già in ordine dalla più recente */}
-                  <p className={`mt-1.5 text-xs ${eVecchia(scheda.creataIl) ? 'font-semibold text-accent-strong' : 'text-muted'}`}>
-                    {tr('Creata il', 'Created on')} {dataBreve(scheda.creataIl)} · {etaScheda(scheda.creataIl)}
-                    {eVecchia(scheda.creataIl) && tr(' · da aggiornare?', ' · time to update?')}
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-wrap gap-2">
-                  <button className="btn-primary px-3 py-1.5 text-xs" onClick={() => setProgressiScheda({ schedaId: scheda.id })}>
-                    {tr('Progressi', 'Progress')}
-                  </button>
-                  <button
-                    className="btn-secondary px-3 py-1.5 text-xs"
-                    onClick={() => avviaModifica(scheda)}
-                    disabled={schedaInModifica === scheda.id}
-                  >
-                    {schedaInModifica === scheda.id ? tr('In modifica…', 'Editing…') : tr('Modifica', 'Edit')}
-                  </button>
-                  {/* Archivia: nessuna conferma serve, perché non si perde niente e si ripristina con un tocco */}
-                  <button className="btn-ghost px-3 py-1.5 text-xs" onClick={() => handleArchivia(scheda.id)}>
-                    {tr('Archivia', 'Archive')}
-                  </button>
-                </div>
-              </div>
-              <ul className="divide-y divide-line border-t border-line">
-                {scheda.esercizi.map((es, i, tutti) => {
-                  const g = gruppiCollegati(tutti)[i];
-                  const superset = es.collegamento === 'SUPERSET' && g !== null && g.posizione < g.dimensione;
-                  return (
-                  <li key={es.id} className={`py-3 text-sm ${g ? 'border-l-2 border-l-accent-strong pl-3' : ''}`}>
-                    {g && g.posizione === 1 && (
-                      <p className="mb-1 text-xs font-semibold tracking-wide text-accent-strong uppercase">{g.nome} {g.lettera}</p>
-                    )}
-                    {/* flex-wrap: se nome e serie non stanno sulla stessa riga, il testo va a capo invece di uscire dallo schermo */}
-                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-                      <span className="min-w-0 font-medium break-words">
-                        {g && <span className="mr-1.5 font-bold text-accent-strong">{sigla(g)}</span>}
-                        {es.nome}
-                      </span>
-                      <span className="min-w-0 text-muted">
-                        <span className="font-semibold text-ink">{riassuntoSerie(es)}</span> · {superset ? tr('subito il successivo', 'straight to the next') : testoRecupero(es.recuperoSecondi)}
-                      </span>
+              {/* Telefono: libreria in un pannello dal basso */}
+              {libreriaAperta && (
+                <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label={tr('Libreria esercizi', 'Exercise library')}>
+                  <button type="button" aria-label={tr('Chiudi la libreria', 'Close the library')} className="absolute inset-0 bg-black/50" onClick={() => setLibreriaAperta(false)} />
+                  <div className="absolute inset-x-0 bottom-0 flex h-[75vh] flex-col rounded-t-3xl border-t border-line bg-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl">
+                    <div className="mb-2 flex justify-end">
+                      <button type="button" className="btn-ghost min-h-9 px-3 text-sm" onClick={() => setLibreriaAperta(false)}>
+                        {tr('Chiudi', 'Close')}
+                      </button>
                     </div>
-                    {(es.serieExtra || []).map((x, j) => (
-                      <p key={j} className="mt-1 text-xs text-accent-strong">
-                        + {tr('Serie', 'Set')} {es.serieTarget + j + 1}: {testoReps(x.reps, x.repsMax)} reps{superset ? '' : ` · ${testoRecupero(x.recuperoSecondi)}`}
-                        {x.nota ? ` · ${x.nota}` : ''}
-                      </p>
-                    ))}
-                    {es.descrizione && <p className="mt-1 text-xs text-muted">{es.descrizione}</p>}
-
-                    <button
-                      type="button"
-                      className="btn-link mt-1 text-xs"
-                      onClick={() => toggleStorico(es.id)}
-                    >
-                      {storicoAperto === es.id ? tr('Nascondi note cliente', 'Hide client notes') : tr('Vedi note cliente', 'See client notes')}
-                    </button>
-
-                    {storicoAperto === es.id && (
-                      <div className="mt-2 rounded-lg border border-line bg-surface-2 p-2">
-                        {storico.length === 0 ? (
-                          <p className="px-2 py-1 text-xs text-muted">{tr('Nessun allenamento registrato ancora.', 'No workouts logged yet.')}</p>
-                        ) : (
-                          <ul className="divide-y divide-line">
-                            {storico.map((r) => (
-                              <li key={r.id} className="px-2 py-1.5 text-xs">
-                                <div className="flex items-center justify-between gap-2 text-muted">
-                                  <span>{new Date(r.data).toLocaleDateString(locale)}</span>
-                                  <span className="font-semibold text-ink">
-                                    {r.pesoUsato}kg x {r.repsFatte}
-                                  </span>
-                                </div>
-                                {r.nota && <p className="mt-0.5 italic text-muted">"{r.nota}"</p>}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    )}
-                  </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Accesso dei clienti: correggere l'email o dare una password temporanea a chi l'ha dimenticata */}
-      <SezioneInviti />
-
-      {/* Solo l'amministratore: inviti per far entrare nuovi trainer (ognuno con i suoi clienti) */}
-      {admin && (
-        <TrainerInAttesa
-          onCambio={(quanti, approvato) => {
-            setTrainerInAttesa(quanti);
-            if (approvato) setChiavePanoramica((k) => k + 1);
-          }}
-        />
-      )}
-      {admin && <PanoramicaTrainer key={chiavePanoramica} />}
-      {admin && <SezioneInviti tipo="TRAINER" />}
-
-      <section id="gestione-clienti" className="card scroll-mt-24">
-        <button
-          type="button"
-          className="flex min-h-11 w-full items-center justify-between gap-3 text-left font-semibold"
-          aria-expanded={clientiAperti}
-          onClick={() => setClientiAperti(!clientiAperti)}
-        >
-          <span>{tr('Gestione clienti', 'Client management')} <span className="ml-1 text-muted">({clienti.length})</span><span className="mt-0.5 block text-sm font-normal text-muted">{tr('Email e credenziali di accesso', 'Email and sign-in details')}</span></span>
-          <span aria-hidden>{clientiAperti ? '▴' : '▾'}</span>
-        </button>
-        {clientiAperti && (
-          <div className="mt-3 space-y-2">
-            {clienti.length === 0 && (
-              <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">
-                {tr('Nessun cliente registrato.', 'No registered clients.')}
-              </p>
-            )}
-            {clienti.map((c) => (
-              <div key={c.id} className="card space-y-3 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-2 font-semibold">
-                      <span className="truncate">{c.nome}</span>
-                      {c.sospeso && <span className="shrink-0 rounded-md bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning">{tr('Sospeso', 'Suspended')}</span>}
-                    </p>
-                    <p className="truncate text-xs text-muted">{c.email}</p>
+                    <div className="min-h-0 flex-1">
+                      <PannelloLibreria
+                        preset={preset}
+                        onAggiungi={aggiungiDaPreset}
+                        onCambiaGruppo={handleCambiaGruppo}
+                        onElimina={(p) => handleCancellaPreset(p.id)}
+                      />
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    className="btn-secondary shrink-0 px-3 py-1.5 text-xs"
-                    onClick={() => setAccessoAperto(accessoAperto === c.id ? null : c.id)}
-                  >
-                    {accessoAperto === c.id ? tr('Chiudi', 'Close') : tr('Gestisci', 'Manage')}
-                  </button>
                 </div>
-                {accessoAperto === c.id && (
+              )}
+              {/* Bottone "Libreria" sempre a portata mentre scorri l'editor (solo telefono) */}
+              {mostraEditor && !libreriaAperta && !scrivendo && (
+                <button
+                  type="button"
+                  className="btn-primary fixed right-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] sm:bottom-4 z-30 min-h-12 px-4 shadow-lg lg:hidden"
+                  onClick={() => setLibreriaAperta(true)}
+                >
+                  {tr('+ Libreria', '+ Library')}
+                </button>
+              )}
+
+              {errore && <p className="alert-error">{errore}</p>}
+              <div className="flex flex-col-reverse gap-3 border-t border-line pt-5 sm:flex-row sm:justify-end">
+                {schedaInModifica !== null && (
+                  <button type="button" className="btn-secondary w-full px-6 py-2.5 sm:w-auto" onClick={resetForm}>
+                    {tr('Annulla modifica', 'Cancel editing')}
+                  </button>
+                )}
+                <button type="submit" className="btn-primary w-full px-6 py-2.5 sm:w-auto" disabled={salvando}>
+                  {salvando ? tr('Salvo…', 'Saving…') : schedaInModifica !== null ? tr('Salva modifiche', 'Save changes') : tr('Crea scheda', 'Create programme')}
+                </button>
+              </div>
+            </form>
+          </section>
+
+          {clienteVisto === null ? (
+            <div className="space-y-8">
+              {clientiCaricati && clienti.length === 0 ? (
+                <div className="empty-state">
+                  <p>{tr('Nessun cliente ancora. Crea un codice invito e mandalo al tuo cliente.', 'No clients yet. Create an invite code and send it to your client.')}</p>
+                  <button type="button" className="btn-secondary mt-4" onClick={() => vai('inviti')}>{tr('Vai agli inviti', 'Go to invites')}</button>
+                </div>
+              ) : (
+                <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {clienti.map((c) => {
+                    const numero = schede.filter((sc) => sc.clienteId === c.id).length;
+                    return (
+                      <li key={c.id}>
+                        <button
+                          type="button"
+                          onClick={() => apriCliente(c.id)}
+                          className="card flex w-full items-center gap-3 py-4 text-left transition hover:border-accent-strong hover:shadow-md"
+                        >
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-2 text-base font-bold text-accent-strong" aria-hidden="true">
+                            {c.nome.trim().charAt(0).toUpperCase()}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center gap-2 font-semibold">
+                              <span className="truncate">{c.nome}</span>
+                              {c.sospeso && <span className="shrink-0 rounded-md bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning">{tr('Sospeso', 'Suspended')}</span>}
+                            </span>
+                            <span className="block text-xs text-muted">
+                              {numero === 1 ? tr('1 scheda', '1 programme') : tr(`${numero} schede`, `${numero} programmes`)}
+                            </span>
+                          </span>
+                          <span aria-hidden="true" className="shrink-0 text-lg text-muted">›</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+            {/* Archivio: schede tolte dalla vista. Nessun dato perso: si ripristinano con un tocco. */}
+            <section className="card">
+              <button
+                type="button"
+                className="flex min-h-11 w-full items-center justify-between gap-3 text-left font-semibold"
+                aria-expanded={archivioAperto}
+                onClick={() => {
+                  if (!archivioAperto) caricaArchiviate();
+                  setArchivioAperto(!archivioAperto);
+                }}
+              >
+                <span>{tr('Schede archiviate', 'Archived programmes')}{archivioAperto ? ` (${archiviate.length})` : ''}</span>
+                <span aria-hidden>{archivioAperto ? '▴' : '▾'}</span>
+              </button>
+
+              {archivioAperto && (
+                <div className="mt-3 space-y-3">
+                  {archiviate.length === 0 ? (
+                    <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">
+                      {tr('Nessuna scheda archiviata.', 'No archived programmes.')}
+                    </p>
+                  ) : (
+                    archiviate.map((scheda) => (
+                      <div key={scheda.id} className="card space-y-3">
+                        <div>
+                          <strong className="block leading-tight font-bold break-words">{scheda.nome}</strong>
+                          <p className="mt-1 text-xs text-muted">
+                            {nomeCliente(scheda.clienteId)} · {tr('creata il', 'created on')} {dataBreve(scheda.creataIl)}
+                            {scheda.archiviataIl &&
+                              ` · ${tr('archiviata il', 'archived on')} ${new Date(scheda.archiviataIl).toLocaleDateString(locale)}`}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button className="btn-secondary flex-1 text-xs" onClick={() => setProgressiScheda({ schedaId: scheda.id })}>
+                            {tr('Progressi', 'Progress')}
+                          </button>
+                          <button className="btn-secondary flex-1 text-xs" onClick={() => handleRipristina(scheda.id)}>
+                            {tr('↺ Ripristina', '↺ Restore')}
+                          </button>
+                          {/* Eliminazione definitiva solo se non c'è storico (es. scheda creata per sbaglio) */}
+                          {scheda.haStorico ? (
+                            <p className="w-full text-xs text-muted">
+                              {tr('Ha allenamenti registrati: resta in archivio per proteggere i dati del cliente.', 'It has logged workouts: it stays in the archive to protect the client’s data.')}
+                            </p>
+                          ) : confermaElimina === scheda.id ? (
+                            <button
+                              className="btn-danger flex-1 text-xs"
+                              onClick={() => handleEliminaDefinitivo(scheda.id)}
+                            >
+                              {tr('Sicuro? Elimina per sempre', 'Sure? Delete forever')}
+                            </button>
+                          ) : (
+                            <button
+                              className="btn-ghost flex-1 text-xs text-muted hover:text-danger"
+                              onClick={() => setConfermaElimina(scheda.id)}
+                            >
+                              {tr('Elimina definitivamente', 'Delete permanently')}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </section>
+            </div>
+          ) : (
+            <div key={clienteVisto}>
+              {paginaCliente === 'schede' && (
+                <div className="space-y-6">
+                  <FeedbackCliente clienteId={clienteVisto} nomeCliente={nomeCliente(clienteVisto)} />
+                  {!schede.some((sc) => sc.clienteId === clienteVisto) && (
+                    <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">
+                      {tr(`${nomeCliente(clienteVisto)} non ha ancora schede.`, `${nomeCliente(clienteVisto)} has no programmes yet.`)}
+                    </p>
+                  )}
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {schede.filter((sc) => sc.clienteId === clienteVisto).map((scheda) => (
+                      <div key={scheda.id} className="card flex flex-col transition hover:shadow-md">
+                        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <strong className="block text-lg leading-tight font-bold break-words">{scheda.nome}</strong>
+                            <span className="mt-1 inline-block rounded-md bg-surface-2 px-2 py-0.5 text-xs font-medium text-muted">
+                              {nomeCliente(scheda.clienteId)}
+                            </span>
+                            {/* Data di creazione + quanto tempo fa: le schede sono già in ordine dalla più recente */}
+                            <p className={`mt-1.5 text-xs ${eVecchia(scheda.creataIl) ? 'font-semibold text-accent-strong' : 'text-muted'}`}>
+                              {tr('Creata il', 'Created on')} {dataBreve(scheda.creataIl)} · {etaScheda(scheda.creataIl)}
+                              {eVecchia(scheda.creataIl) && tr(' · da aggiornare?', ' · time to update?')}
+                            </p>
+                          </div>
+                          <div className="flex shrink-0 flex-wrap gap-2">
+                            <button className="btn-primary px-3 py-1.5 text-xs" onClick={() => setProgressiScheda({ schedaId: scheda.id })}>
+                              {tr('Progressi', 'Progress')}
+                            </button>
+                            <button
+                              className="btn-secondary px-3 py-1.5 text-xs"
+                              onClick={() => avviaModifica(scheda)}
+                              disabled={schedaInModifica === scheda.id}
+                            >
+                              {schedaInModifica === scheda.id ? tr('In modifica…', 'Editing…') : tr('Modifica', 'Edit')}
+                            </button>
+                            {/* Archivia: nessuna conferma serve, perché non si perde niente e si ripristina con un tocco */}
+                            <button className="btn-ghost px-3 py-1.5 text-xs" onClick={() => handleArchivia(scheda.id)}>
+                              {tr('Archivia', 'Archive')}
+                            </button>
+                          </div>
+                        </div>
+                        <ul className="divide-y divide-line border-t border-line">
+                          {scheda.esercizi.map((es, i, tutti) => {
+                            const g = gruppiCollegati(tutti)[i];
+                            const superset = es.collegamento === 'SUPERSET' && g !== null && g.posizione < g.dimensione;
+                            return (
+                            <li key={es.id} className={`py-3 text-sm ${g ? 'border-l-2 border-l-accent-strong pl-3' : ''}`}>
+                              {g && g.posizione === 1 && (
+                                <p className="mb-1 text-xs font-semibold tracking-wide text-accent-strong uppercase">{g.nome} {g.lettera}</p>
+                              )}
+                              {/* flex-wrap: se nome e serie non stanno sulla stessa riga, il testo va a capo invece di uscire dallo schermo */}
+                              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                                <span className="min-w-0 font-medium break-words">
+                                  {g && <span className="mr-1.5 font-bold text-accent-strong">{sigla(g)}</span>}
+                                  {es.nome}
+                                </span>
+                                <span className="min-w-0 text-muted">
+                                  <span className="font-semibold text-ink">{riassuntoSerie(es)}</span> · {superset ? tr('subito il successivo', 'straight to the next') : testoRecupero(es.recuperoSecondi)}
+                                </span>
+                              </div>
+                              {(es.serieExtra || []).map((x, j) => (
+                                <p key={j} className="mt-1 text-xs text-accent-strong">
+                                  + {tr('Serie', 'Set')} {es.serieTarget + j + 1}: {testoReps(x.reps, x.repsMax)} reps{superset ? '' : ` · ${testoRecupero(x.recuperoSecondi)}`}
+                                  {x.nota ? ` · ${x.nota}` : ''}
+                                </p>
+                              ))}
+                              {es.descrizione && <p className="mt-1 text-xs text-muted">{es.descrizione}</p>}
+
+                              <button
+                                type="button"
+                                className="btn-link mt-1 text-xs"
+                                onClick={() => toggleStorico(es.id)}
+                              >
+                                {storicoAperto === es.id ? tr('Nascondi note cliente', 'Hide client notes') : tr('Vedi note cliente', 'See client notes')}
+                              </button>
+
+                              {storicoAperto === es.id && (
+                                <div className="mt-2 rounded-lg border border-line bg-surface-2 p-2">
+                                  {storico.length === 0 ? (
+                                    <p className="px-2 py-1 text-xs text-muted">{tr('Nessun allenamento registrato ancora.', 'No workouts logged yet.')}</p>
+                                  ) : (
+                                    <ul className="divide-y divide-line">
+                                      {storico.map((r) => (
+                                        <li key={r.id} className="px-2 py-1.5 text-xs">
+                                          <div className="flex items-center justify-between gap-2 text-muted">
+                                            <span>{new Date(r.data).toLocaleDateString(locale)}</span>
+                                            <span className="font-semibold text-ink">
+                                              {r.pesoUsato}kg x {r.repsFatte}
+                                            </span>
+                                          </div>
+                                          {r.nota && <p className="mt-0.5 italic text-muted">"{r.nota}"</p>}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </div>
+                              )}
+                            </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {paginaCliente === 'cardio' && <CardioPassi ruolo="TRAINER" clienteId={clienteVisto} nomeCliente={nomeCliente(clienteVisto)} />}
+              {paginaCliente === 'diario' && <DiarioAlimentare ruolo="TRAINER" clienteId={clienteVisto} nomeCliente={nomeCliente(clienteVisto)} />}
+              {paginaCliente === 'corpo' && <MisureCorporee ruolo="TRAINER" clienteId={clienteVisto} nomeCliente={nomeCliente(clienteVisto)} />}
+              {paginaCliente === 'accesso' && clienteAperto && (
+                <section className="card space-y-3">
+                  <div>
+                    <h3 className="text-lg font-bold">{tr('Accesso del cliente', 'Client sign-in')}</h3>
+                    <p className="mt-1 text-sm text-muted">{tr('Correggi l’email, dai una password temporanea o sospendi l’account.', 'Fix the email, give a temporary password or suspend the account.')}</p>
+                  </div>
                   <AccessoCliente
-                    key={c.id}
-                    cliente={c}
+                    cliente={clienteAperto}
                     onEmailCambiata={(agg) => setClienti((prev) => prev.map((x) => (x.id === agg.id ? { ...x, ...agg } : x)))}
                   />
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+                </section>
+              )}
+            </div>
+          )}
+        </>
+      )}
 
-      {/* Archivio: schede tolte dalla vista. Nessun dato perso: si ripristinano con un tocco. */}
-      <section className="card">
-        <button
-          type="button"
-          className="flex min-h-11 w-full items-center justify-between gap-3 text-left font-semibold"
-          aria-expanded={archivioAperto}
-          onClick={() => {
-            if (!archivioAperto) caricaArchiviate();
-            setArchivioAperto(!archivioAperto);
-          }}
-        >
-          <span>{tr('Schede archiviate', 'Archived programmes')}{archivioAperto ? ` (${archiviate.length})` : ''}</span>
-          <span aria-hidden>{archivioAperto ? '▴' : '▾'}</span>
-        </button>
+      {sezione === 'inviti' && <SezioneInviti />}
 
-        {archivioAperto && (
-          <div className="mt-3 space-y-3">
-            {archiviate.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">
-                {tr('Nessuna scheda archiviata.', 'No archived programmes.')}
-              </p>
-            ) : (
-              archiviate.map((scheda) => (
-                <div key={scheda.id} className="card space-y-3">
-                  <div>
-                    <strong className="block leading-tight font-bold break-words">{scheda.nome}</strong>
-                    <p className="mt-1 text-xs text-muted">
-                      {nomeCliente(scheda.clienteId)} · {tr('creata il', 'created on')} {dataBreve(scheda.creataIl)}
-                      {scheda.archiviataIl &&
-                        ` · ${tr('archiviata il', 'archived on')} ${new Date(scheda.archiviataIl).toLocaleDateString(locale)}`}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button className="btn-secondary flex-1 text-xs" onClick={() => setProgressiScheda({ schedaId: scheda.id })}>
-                      {tr('Progressi', 'Progress')}
-                    </button>
-                    <button className="btn-secondary flex-1 text-xs" onClick={() => handleRipristina(scheda.id)}>
-                      {tr('↺ Ripristina', '↺ Restore')}
-                    </button>
-                    {/* Eliminazione definitiva solo se non c'è storico (es. scheda creata per sbaglio) */}
-                    {scheda.haStorico ? (
-                      <p className="w-full text-xs text-muted">
-                        {tr('Ha allenamenti registrati: resta in archivio per proteggere i dati del cliente.', 'It has logged workouts: it stays in the archive to protect the client’s data.')}
-                      </p>
-                    ) : confermaElimina === scheda.id ? (
-                      <button
-                        className="btn-danger flex-1 text-xs"
-                        onClick={() => handleEliminaDefinitivo(scheda.id)}
-                      >
-                        {tr('Sicuro? Elimina per sempre', 'Sure? Delete forever')}
-                      </button>
-                    ) : (
-                      <button
-                        className="btn-ghost flex-1 text-xs text-muted hover:text-danger"
-                        onClick={() => setConfermaElimina(scheda.id)}
-                      >
-                        {tr('Elimina definitivamente', 'Delete permanently')}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-      </section>
+      {/* Solo l'amministratore: trainer in attesa, panoramica e inviti per nuovi trainer */}
+      {sezione === 'trainer' && admin && (
+        <>
+          <TrainerInAttesa
+            onCambio={(quanti, approvato) => {
+              setTrainerInAttesa(quanti);
+              if (approvato) setChiavePanoramica((k) => k + 1);
+            }}
+          />
+          <PanoramicaTrainer key={chiavePanoramica} />
+          <SezioneInviti tipo="TRAINER" />
+        </>
+      )}
+
       {progressiScheda && (
         <StoricoCliente
           key={`${progressiScheda.schedaId}-${progressiScheda.giorno ?? ''}`}

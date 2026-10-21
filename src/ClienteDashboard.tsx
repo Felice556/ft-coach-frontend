@@ -6,6 +6,7 @@ import {
   modificaSerie,
   eliminaSerie,
   getSessioni,
+  getDiario,
   completaAllenamento,
   salvaFeedback,
   SessioneAllenamento,
@@ -33,6 +34,13 @@ import {
   tieniSchermoAcceso,
 } from './suono';
 import { locale, tr } from './lingua';
+import { BarraSezioni, ICONE, ricordaSezione, useIndirizzo, VoceSezione } from './Sezioni';
+
+// Sezioni dell'area cliente: la principale è l'allenamento.
+type SezioneCliente = 'allenamento' | 'cardio' | 'diario' | 'corpo';
+const SEZIONI_CLIENTE: SezioneCliente[] = ['allenamento', 'cardio', 'diario', 'corpo'];
+const CHIAVE_SEZIONE = 'sezioneCliente';
+const CHIAVE_DIARIO_VISTO = 'diarioVistoIl'; // ultima volta che il cliente ha aperto il diario
 
 // Valore di partenza del campo reps per una serie: il numero se è fisso,
 // vuoto se è "Max" o un intervallo (6-9): lì il cliente scrive quante ne ha fatte davvero.
@@ -371,6 +379,41 @@ export default function ClienteDashboard() {
   // Suono del timer: silenziato sì/no e volume (0-100), salvati su questo telefono.
   const [suono, setSuono] = useState(suonoAttivo);
   const [volume, setVolume] = useState(leggiVolume);
+
+  // ---- Sezioni (barra in basso) ----
+  // La sezione sta nell'indirizzo (#cardio…); senza, si riapre l'ultima usata su questo telefono.
+  const [indirizzo, vaiA] = useIndirizzo();
+  const sezione: SezioneCliente = SEZIONI_CLIENTE.includes(indirizzo as SezioneCliente)
+    ? (indirizzo as SezioneCliente)
+    : ((ricordaSezione(CHIAVE_SEZIONE) as SezioneCliente | null) ?? 'allenamento');
+  useEffect(() => {
+    if (indirizzo !== sezione) vaiA(sezione, true); // l'indirizzo mostra sempre la sezione aperta
+    ricordaSezione(CHIAVE_SEZIONE, sezione);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sezione]);
+
+  // Pallino sul Diario: il trainer ha commentato dopo l'ultima volta che il cliente l'ha aperto.
+  const [ultimoCommento, setUltimoCommento] = useState<string | null>(null);
+  const [diarioVisto, setDiarioVisto] = useState(() => ricordaSezione(CHIAVE_DIARIO_VISTO) ?? '');
+  useEffect(() => {
+    getDiario()
+      .then((d) => setUltimoCommento(d.giorni.map((g) => g.commentatoIl).filter((x): x is string => !!x).sort().at(-1) ?? null))
+      .catch(() => setUltimoCommento(null)); // il pallino è solo un aiuto: se non arriva, pazienza
+  }, []);
+  useEffect(() => {
+    if (sezione !== 'diario') return;
+    const adesso = new Date().toISOString();
+    ricordaSezione(CHIAVE_DIARIO_VISTO, adesso);
+    setDiarioVisto(adesso);
+  }, [sezione]);
+
+  const vociSezioni: VoceSezione<SezioneCliente>[] = [
+    { id: 'allenamento', nome: tr('Allenamento', 'Workout'), icona: ICONE.allenamento },
+    { id: 'cardio', nome: tr('Cardio', 'Cardio'), icona: ICONE.cardio },
+    { id: 'diario', nome: tr('Diario', 'Diary'), icona: ICONE.diario, pallino: !!ultimoCommento && ultimoCommento > diarioVisto && sezione !== 'diario' },
+    { id: 'corpo', nome: tr('Corpo', 'Body'), icona: ICONE.corpo },
+  ];
+  const barra = <BarraSezioni voci={vociSezioni} attiva={sezione} onCambia={(s) => vaiA(s)} etichetta={tr('Sezioni', 'Sections')} />;
 
   useEffect(() => {
     async function carica() {
@@ -719,13 +762,33 @@ export default function ClienteDashboard() {
     apriScheda(schedaId);
   }
 
+  // ---------- Sezioni diverse dall'allenamento ----------
+  if (sezione !== 'allenamento' && schedaAperta === null) {
+    return (
+      <div className="pb-24 sm:pb-0">
+        {barra}
+        {sezione === 'cardio' && <CardioPassi ruolo="CLIENTE" />}
+        {/* Diario alimentare: lo scrive il cliente (con il suo consenso), il trainer lo legge e commenta */}
+        {sezione === 'diario' && <DiarioAlimentare ruolo="CLIENTE" />}
+        {/* Peso corporeo (lo scrive il cliente) e massa grassa (la scrive il trainer) */}
+        {sezione === 'corpo' && <MisureCorporee ruolo="CLIENTE" />}
+      </div>
+    );
+  }
+
   if (caricamento) {
-    return <p className="card py-16 text-center text-muted" role="status">{tr('Carico la tua scheda…', 'Loading your programme…')}</p>;
+    return (
+      <div className="pb-24 sm:pb-0">
+        {barra}
+        <p className="card py-16 text-center text-muted" role="status">{tr('Carico la tua scheda…', 'Loading your programme…')}</p>
+      </div>
+    );
   }
 
   if (schede.length === 0) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 pb-24 sm:pb-0">
+        {barra}
         {errore && <p className="alert-error">{errore}</p>}
         <div className="card py-14 text-center">
           <span className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-accent-strong" aria-hidden="true">
@@ -734,9 +797,6 @@ export default function ClienteDashboard() {
           <h2 className="text-2xl font-black uppercase tracking-tight">{tr('Il tuo percorso inizia qui', 'Your journey starts here')}</h2>
           <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">{tr('Il tuo trainer non ti ha ancora assegnato una scheda. Quando sarà pronta, la troverai in questa pagina.', 'Your trainer hasn’t assigned you a programme yet. When it’s ready, you’ll find it on this page.')}</p>
         </div>
-        <CardioPassi ruolo="CLIENTE" />
-        <DiarioAlimentare ruolo="CLIENTE" />
-        <MisureCorporee ruolo="CLIENTE" />
       </div>
     );
   }
@@ -744,7 +804,8 @@ export default function ClienteDashboard() {
   // ---------- HOME: elenco delle schede ----------
   if (schedaAperta === null) {
     return (
-      <div className="space-y-7">
+      <div className="space-y-7 pb-24 sm:pb-0">
+        {barra}
         {errore && <p className="alert-error">{errore}</p>}
 
         <p className="text-sm capitalize text-muted">{new Date().toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
@@ -922,13 +983,6 @@ export default function ClienteDashboard() {
           })}
           </div>
         </div>
-
-        {/* Cardio e passi: sezione a parte rispetto alle schede (il piano lo decide il trainer) */}
-        <CardioPassi ruolo="CLIENTE" />
-        {/* Diario alimentare: lo scrive il cliente (con il suo consenso), il trainer lo legge e commenta */}
-        <DiarioAlimentare ruolo="CLIENTE" />
-        {/* Peso corporeo (lo scrive il cliente) e massa grassa (la scrive il trainer) */}
-        <MisureCorporee ruolo="CLIENTE" />
       </div>
     );
   }
