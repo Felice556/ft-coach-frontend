@@ -81,6 +81,11 @@ function TestoItaliano() {
             <strong>percentuale di massa grassa</strong>, che sono dati relativi alla salute.
           </li>
           <li>
+            Dei clienti, solo con un consenso a parte: il <strong>diario alimentare</strong> (pasti scritti a parole, olio,
+            acqua e come si sono sentiti), che può dire qualcosa sulla salute. Il trainer lo legge e può commentarlo. Non è
+            un piano alimentare: Liftio non prepara diete né calcola calorie.
+          </li>
+          <li>
             Dei trainer: le schede, il piano cardio e la libreria di esercizi e note che creano; chi si registra senza codice invito indica
             anche quanti clienti segue e, se vuole, due righe di presentazione.
           </li>
@@ -94,8 +99,9 @@ function TestoItaliano() {
       <Paragrafo titolo="Perché li usiamo">
         <p>
           Per i clienti: preparare e seguire il programma di allenamento e mostrare i progressi. Base giuridica: il
-          servizio richiesto (art. 6.1.b GDPR) e, per peso e massa grassa, il consenso esplicito (art. 9.2.a GDPR), che
-          puoi ritirare quando vuoi: i dati del corpo verranno cancellati, il resto dell’app continua a funzionare.
+          servizio richiesto (art. 6.1.b GDPR) e, per peso, massa grassa e diario alimentare, il consenso esplicito (art.
+          9.2.a GDPR), che puoi ritirare quando vuoi: quei dati verranno cancellati, il resto dell’app continua a
+          funzionare. Il diario lo puoi spegnere e cancellare da solo, dalla sua sezione.
         </p>
         <p>
           Per i trainer: gestire il loro account e, per chi si registra senza codice invito, valutare la richiesta di
@@ -209,6 +215,11 @@ function TestoInglese() {
             <strong>body fat percentage</strong>, which are health-related data.
           </li>
           <li>
+            From clients, only with a separate consent: the <strong>food diary</strong> (meals written in words, oil, water
+            and how they felt), which can say something about health. The trainer reads it and can comment on it. It isn’t a
+            meal plan: Liftio doesn’t prepare diets or count calories.
+          </li>
+          <li>
             From trainers: the programmes, the cardio plan and the exercise and notes library they create; those who sign up without an
             invite code also tell us how many clients they train and, if they like, a short introduction.
           </li>
@@ -222,8 +233,9 @@ function TestoInglese() {
       <Paragrafo titolo="Why we use them">
         <p>
           For clients: to prepare and follow the training programme and show progress. Legal basis: the service requested
-          (Art. 6(1)(b) GDPR) and, for weight and body fat, explicit consent (Art. 9(2)(a) GDPR), which you can withdraw at
-          any time: your body data will be deleted and the rest of the app keeps working.
+          (Art. 6(1)(b) GDPR) and, for weight, body fat and the food diary, explicit consent (Art. 9(2)(a) GDPR), which you
+          can withdraw at any time: that data will be deleted and the rest of the app keeps working. You can turn off and
+          delete the diary yourself, from its section.
         </p>
         <p>
           For trainers: to manage their account and, for those who sign up without an invite code, to review the access

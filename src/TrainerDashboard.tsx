@@ -5,6 +5,7 @@ import TrainerInAttesa from './TrainerInAttesa';
 import StoricoCliente from './StoricoCliente';
 import MisureCorporee from './MisureCorporee';
 import CardioPassi from './CardioPassi';
+import DiarioAlimentare from './DiarioAlimentare';
 import FeedbackCliente, { ChipFatica } from './FeedbackCliente';
 import { gruppiCollegati, sigla, InfoGruppo } from './collegamenti';
 import { CampoNomeEsercizio, PannelloLibreria, SceltaGruppo } from './LibreriaEsercizi';
@@ -1730,6 +1731,9 @@ export default function TrainerDashboard() {
             <FeedbackCliente key={`f${clienteVisto}`} clienteId={clienteVisto} nomeCliente={nomeCliente(clienteVisto)} />
             <div className="mt-4">
               <CardioPassi key={`c${clienteVisto}`} ruolo="TRAINER" clienteId={clienteVisto} nomeCliente={nomeCliente(clienteVisto)} />
+            </div>
+            <div className="mt-4">
+              <DiarioAlimentare key={`d${clienteVisto}`} ruolo="TRAINER" clienteId={clienteVisto} nomeCliente={nomeCliente(clienteVisto)} />
             </div>
           </div>
         )}

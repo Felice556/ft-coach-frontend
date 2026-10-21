@@ -682,3 +682,57 @@ export function eliminaCardio(id: number) {
 export function salvaPassi(data: string, passi: number) {
   return apiFetch<PassiGiorno>('/cardio/passi', { method: 'PUT', body: JSON.stringify({ data, passi }) });
 }
+
+// ---------- Diario alimentare ----------
+// Il cliente scrive i pasti di ogni giorno (con il suo consenso); il trainer legge e commenta.
+
+export type TipoPasto = 'COLAZIONE' | 'SPUNTINO_MATTINA' | 'PRANZO' | 'SPUNTINO_POMERIGGIO' | 'CENA';
+
+export interface PastoDiario {
+  tipo: TipoPasto;
+  testo: string;
+  ora: string | null; // "13:15"
+}
+
+export interface GiornoDiario {
+  id: number;
+  data: string; // "2026-10-21T00:00:00.000Z": conta solo il giorno
+  olioCucchiai: number | null;
+  acquaLitri: number | null;
+  sensazioni: string | null;
+  commentoTrainer: string | null;
+  commentatoIl: string | null;
+  pasti: PastoDiario[];
+}
+
+export interface DatiDiario {
+  consenso: boolean;
+  giorni: GiornoDiario[]; // dal più recente
+}
+
+export type GiornataDaSalvare = {
+  pasti: Partial<Record<TipoPasto, { testo: string; ora?: string | null }>>;
+  olioCucchiai: number | null;
+  acquaLitri: number | null;
+  sensazioni: string;
+};
+
+// Cliente: il proprio. Trainer: quello del cliente indicato.
+export function getDiario(clienteId?: number) {
+  return apiFetch<DatiDiario>(`/diario${clienteId ? `?clienteId=${clienteId}` : ''}`);
+}
+
+// false = ritira il consenso: il diario viene cancellato.
+export function salvaConsensoDiario(consenso: boolean) {
+  return apiFetch<{ consenso: boolean }>('/diario/consenso', { method: 'PUT', body: JSON.stringify({ consenso }) });
+}
+
+// Salva tutta la giornata (data = "AAAA-MM-GG"). Risposta null = giornata vuota, tolta.
+export function salvaGiornataDiario(data: string, giornata: GiornataDaSalvare) {
+  return apiFetch<GiornoDiario | null>(`/diario/${data}`, { method: 'PUT', body: JSON.stringify(giornata) });
+}
+
+// Il trainer commenta una giornata (commento vuoto = tolto).
+export function commentaGiornataDiario(clienteId: number, data: string, commento: string) {
+  return apiFetch<GiornoDiario>(`/diario/${data}/commento`, { method: 'PUT', body: JSON.stringify({ clienteId, commento }) });
+}

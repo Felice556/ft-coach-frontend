@@ -17,6 +17,7 @@ import ProgressoChart, { StrisciaProgressi } from './ProgressoChart';
 import { seriePerGiorno, ultimaVoltaMigliore } from './calcoloProgressi';
 import MisureCorporee from './MisureCorporee';
 import CardioPassi from './CardioPassi';
+import DiarioAlimentare from './DiarioAlimentare';
 import { SceltaFatica } from './FeedbackCliente';
 import { gruppiCollegati, prossimoPasso, sigla } from './collegamenti';
 import { pianoSerie, riassuntoSerie, testoReps, testoRecupero, SerieDaFare } from './serie';
@@ -734,6 +735,7 @@ export default function ClienteDashboard() {
           <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">{tr('Il tuo trainer non ti ha ancora assegnato una scheda. Quando sarà pronta, la troverai in questa pagina.', 'Your trainer hasn’t assigned you a programme yet. When it’s ready, you’ll find it on this page.')}</p>
         </div>
         <CardioPassi ruolo="CLIENTE" />
+        <DiarioAlimentare ruolo="CLIENTE" />
         <MisureCorporee ruolo="CLIENTE" />
       </div>
     );
@@ -923,6 +925,8 @@ export default function ClienteDashboard() {
 
         {/* Cardio e passi: sezione a parte rispetto alle schede (il piano lo decide il trainer) */}
         <CardioPassi ruolo="CLIENTE" />
+        {/* Diario alimentare: lo scrive il cliente (con il suo consenso), il trainer lo legge e commenta */}
+        <DiarioAlimentare ruolo="CLIENTE" />
         {/* Peso corporeo (lo scrive il cliente) e massa grassa (la scrive il trainer) */}
         <MisureCorporee ruolo="CLIENTE" />
       </div>
