@@ -7,9 +7,9 @@ The trainer builds training plans, clients log every set from their phone at the
 
 I'm a junior developer and I prepare personalized training plans: I built Liftio (formerly FT Coach) to manage them, and it's used by my real clients.
 
-🔗 **[Live app](https://ft-coach.pages.dev)** · **[Backend repo](https://github.com/Felice556/ft-coach-backend)**
+🔗 **[Live app: liftio.it](https://liftio.it)** · **[Backend repo](https://github.com/Felice556/ft-coach-backend)**
 
-> Sign-up is invite-only (clients join with a code from their trainer), so the screenshots below show the app with demo data.
+> Clients join with a code from their trainer and new trainers must be approved, so the screenshots below show the app with demo data.
 
 ![Liftio screenshots](docs/screenshots/hero.webp)
 
@@ -33,22 +33,34 @@ I'm a junior developer and I prepare personalized training plans: I built Liftio
 - **Body composition** — log clients' body-fat % and see their body weight, both charted
 - **Skinfold calculator** — 3 or 7 skinfolds (Jackson & Pollock + Siri) give the body-fat %, fat and lean mass in kg; one tap saves it to the client's body fat
 - **Invites** — single-use, expiring codes shared via WhatsApp/SMS with a pre-filled sign-up link
-- **More trainers, kept apart** — the admin invites new trainers with a trainer invite; each trainer has their own area and sees only their own clients
-- **Account management** — change a client's email or set a temporary password without ever seeing their password
+- **More trainers, kept apart** — each trainer has their own area and sees only their own clients; a new trainer joins with an invite from the admin, or signs up on their own and waits for the admin's approval
+- **Admin tools** — approve or reject new trainers (with how many clients they train), an overview of every trainer's activity (numbers only), and suspend/reactivate a trainer without deleting any data
+- **Account management** — change a client's email, set a temporary password without ever seeing their password, or suspend a client's access (nothing is deleted, one tap to reactivate)
 - **Nothing gets lost** — plans and exercises are archived, not deleted, so the history is always kept
 
 ### Everywhere
 - 📱 Installable **PWA**, designed for one-hand use at the gym (big touch targets, sticky timer, safe areas on iPhone)
 - 🌗 **Light / dark / automatic theme**, applied before the first paint (no flash)
 - 🔒 **Sessions that renew themselves**: active users never have to log in again, but a password change logs out every device
-- 🇪🇺 **Privacy**: GDPR notice and explicit consent for health data at sign-up
+- 🇪🇺 **Privacy**: GDPR notice, explicit consent for health data at sign-up, and **delete your own account** from Settings (password + typed confirmation)
 
 ---
 
 ## 📸 Screenshots
 
-| Login | Client home | Workout + rest timer | Body weight |
+| Login | Client home | Workout + rest timer | Load history |
 |:---:|:---:|:---:|:---:|
+| <img src="docs/screenshots/login.webp" width="200" alt="Login"> | <img src="docs/screenshots/client-home.webp" width="200" alt="Client home"> | <img src="docs/screenshots/client-workout-timer.webp" width="200" alt="Workout with rest timer and load history"> | <img src="docs/screenshots/client-load-history.webp" width="200" alt="Load history of an exercise"> |
+
+| Trainer dashboard | History per exercise | History per workout | Body composition |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/screenshots/trainer-dashboard.webp" width="200" alt="Trainer dashboard"> | <img src="docs/screenshots/trainer-history-exercise.webp" width="200" alt="History per exercise"> | <img src="docs/screenshots/trainer-history-workouts.webp" width="200" alt="History per workout"> | <img src="docs/screenshots/trainer-body-composition.webp" width="200" alt="Body composition"> |
+
+| Body weight (client) | New trainer requests (admin) | Trainers overview (admin) |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/client-body.webp" width="200" alt="Body weight"> | <img src="docs/screenshots/admin-trainer-requests.webp" width="200" alt="Trainers waiting for approval"> | <img src="docs/screenshots/admin-trainers-overview.webp" width="200" alt="Trainers overview"> |
+
+---:|:---:|:---:|:---:|
 | <img src="docs/screenshots/login.webp" width="200" alt="Login"> | <img src="docs/screenshots/client-home.webp" width="200" alt="Client home"> | <img src="docs/screenshots/client-workout-timer.webp" width="200" alt="Workout with rest timer"> | <img src="docs/screenshots/client-body.webp" width="200" alt="Body weight"> |
 
 | Trainer dashboard | History per exercise | History per workout | Body composition |
