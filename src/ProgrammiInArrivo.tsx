@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { getAvvisiProgrammi, salvaAvvisoProgramma } from './api';
-import { tr } from './lingua';
+import { AnnuncioProgramma, getAvvisiProgrammi, salvaAvvisoProgramma, segnaAnnunciVisti } from './api';
+import { locale, tr } from './lingua';
 
 // Programmi Liftio "in arrivo", per chi si allena da solo. Una sezione a sé: nessun popup,
 // nessun prezzo, nessun acquisto. "Avvisami" salva solo che il programma interessa.
@@ -40,16 +40,32 @@ export const PROGRAMMI = (): ProgrammaInArrivo[] => [
   },
 ];
 
-export default function ProgrammiInArrivo() {
+// onAnnunciVisti: il cliente ha letto i messaggi nuovi (la barra spegne il pallino su "Programmi").
+export default function ProgrammiInArrivo({ onAnnunciVisti }: { onAnnunciVisti?: () => void }) {
   const [avvisi, setAvvisi] = useState<Set<string> | null>(null);
+  const [annunci, setAnnunci] = useState<AnnuncioProgramma[]>([]);
   const [inInvio, setInInvio] = useState<string | null>(null);
   const [errore, setErrore] = useState('');
 
   useEffect(() => {
     getAvvisiProgrammi()
-      .then((r) => setAvvisi(new Set(r.avvisi)))
+      .then((r) => {
+        setAvvisi(new Set(r.avvisi));
+        setAnnunci(r.annunci ?? []);
+      })
       .catch(() => setAvvisi(new Set())); // se non arriva, i bottoni partono spenti
   }, []);
+
+  async function visti() {
+    setAnnunci([]);
+    onAnnunciVisti?.();
+    try {
+      await segnaAnnunciVisti();
+    } catch {
+      // non importa: al massimo il messaggio ricompare la prossima volta
+    }
+  }
+  const nomeDi = (chiave: string) => PROGRAMMI().find((p) => p.chiave === chiave)?.nome ?? chiave;
 
   async function cambia(chiave: string) {
     if (!avvisi || inInvio) return;
@@ -81,6 +97,20 @@ export default function ProgrammiInArrivo() {
           )}
         </p>
       </div>
+      {/* Messaggi nuovi dell'amministratore sui programmi che aspetti */}
+      {annunci.length > 0 && (
+        <div className="card space-y-3 border-accent-strong/50 bg-accent-soft" role="status">
+          {annunci.map((a) => (
+            <div key={a.id}>
+              <p className="text-xs font-bold tracking-wide text-accent-strong uppercase">
+                {nomeDi(a.programma)} · {new Date(a.creatoIl).toLocaleDateString(locale, { day: 'numeric', month: 'long' })}
+              </p>
+              <p className="mt-0.5 text-sm leading-relaxed break-words whitespace-pre-line">{a.messaggio}</p>
+            </div>
+          ))}
+          <button type="button" className="btn-secondary min-h-10 px-4 text-sm" onClick={visti}>{tr('Ok, visto', 'Ok, got it')}</button>
+        </div>
+      )}
       {errore && <p className="alert-error">{errore}</p>}
       <ul className="grid gap-4 md:grid-cols-2">
         {PROGRAMMI().map((p) => {

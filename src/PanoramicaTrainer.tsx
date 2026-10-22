@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getConteggiProgrammi, getPanoramicaTrainer, PanoramicaTrainer as Dati, riattivaTrainer, RigaTrainer, sospendiTrainer } from './api';
+import { DatiProgrammiAdmin, getConteggiProgrammi, getPanoramicaTrainer, inviaAnnuncioProgramma, PanoramicaTrainer as Dati, riattivaTrainer, RigaTrainer, sospendiTrainer } from './api';
 import { PROGRAMMI } from './ProgrammiInArrivo';
 import { locale, tr } from './lingua';
 
@@ -111,16 +111,98 @@ function SchedaTrainer({ t, onCambiato }: { t: RigaTrainer; onCambiato: () => vo
   );
 }
 
+// Programmi in arrivo: quante persone aspettano ciascuno e, per ognuno, "Avvisa chi aspetta":
+// un messaggio che chi ha toccato "Avvisami" vedrà nell'app (pallino su "Programmi").
+function RiquadroProgrammi({ dati, onInviato }: { dati: DatiProgrammiAdmin; onInviato: () => void }) {
+  const [aperto, setAperto] = useState<string | null>(null);
+  const [messaggio, setMessaggio] = useState('');
+  const [inInvio, setInInvio] = useState(false);
+  const [esito, setEsito] = useState('');
+  const [errore, setErrore] = useState('');
+
+  function apri(chiave: string, nome: string) {
+    setAperto(chiave);
+    setMessaggio(tr(`Il programma ${nome} è pronto!`, `The ${nome} plan is ready!`));
+    setErrore('');
+    setEsito('');
+  }
+
+  async function invia(chiave: string) {
+    if (inInvio || !messaggio.trim()) return;
+    setInInvio(true);
+    setErrore('');
+    try {
+      const r = await inviaAnnuncioProgramma(chiave, messaggio.trim());
+      setEsito(r.destinatari === 1 ? tr('Inviato a 1 persona.', 'Sent to 1 person.') : tr(`Inviato a ${r.destinatari} persone.`, `Sent to ${r.destinatari} people.`));
+      setAperto(null);
+      onInviato();
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : tr('Errore, riprova', 'Error, try again'));
+    } finally {
+      setInInvio(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-line bg-surface-2 px-4 py-3">
+      <p className="text-sm font-semibold">{tr('Programmi in arrivo · chi vuole essere avvisato', 'Upcoming plans · who wants to be notified')}</p>
+      <ul className="mt-2 divide-y divide-line text-sm">
+        {PROGRAMMI().map((p) => {
+          const quanti = dati.conteggi[p.chiave] ?? 0;
+          const ultimo = dati.ultimiAnnunci?.[p.chiave];
+          return (
+            <li key={p.chiave} className="space-y-2 py-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-semibold">{p.nome}</span>
+                <span className="flex items-center gap-3">
+                  <strong className="tabular-nums">{quanti}</strong>
+                  {aperto !== p.chiave && (
+                    <button type="button" className="btn-ghost min-h-9 px-2 text-xs" disabled={quanti === 0} onClick={() => apri(p.chiave, p.nome)}>
+                      {tr('Avvisa chi aspetta', 'Notify those waiting')}
+                    </button>
+                  )}
+                </span>
+              </div>
+              {ultimo && (
+                <p className="text-xs text-muted break-words">
+                  {tr('Ultimo messaggio', 'Last message')} ({dataBreve(ultimo.creatoIl)}): “{ultimo.messaggio}”
+                </p>
+              )}
+              {aperto === p.chiave && (
+                <div className="space-y-2">
+                  <label htmlFor={`annuncio-${p.chiave}`} className="label">
+                    {quanti === 1 ? tr('Messaggio per 1 persona', 'Message for 1 person') : tr(`Messaggio per ${quanti} persone`, `Message for ${quanti} people`)}
+                  </label>
+                  <textarea id={`annuncio-${p.chiave}`} className="input min-h-20" maxLength={300} value={messaggio} onChange={(e) => setMessaggio(e.target.value)} />
+                  <p className="text-xs text-muted">{tr('Lo vedranno nell’app, nella sezione Programmi (con un pallino rosso). Niente email né notifiche sul telefono.', 'They’ll see it in the app, in the Plans section (with a red dot). No emails or phone notifications.')}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className="btn-primary min-h-10 px-4 text-sm" disabled={inInvio || !messaggio.trim()} onClick={() => invia(p.chiave)}>
+                      {inInvio ? tr('Invio…', 'Sending…') : tr('Invia', 'Send')}
+                    </button>
+                    <button type="button" className="btn-ghost min-h-10 px-3 text-sm" onClick={() => setAperto(null)}>{tr('Annulla', 'Cancel')}</button>
+                  </div>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {esito && <p className="mt-2 text-sm font-semibold text-success">{esito}</p>}
+      {errore && <p className="alert-error mt-2">{errore}</p>}
+    </div>
+  );
+}
+
 export default function PanoramicaTrainer() {
   const [dati, setDati] = useState<Dati | null>(null);
   const [errore, setErrore] = useState('');
   // Quante persone hanno chiesto "Avvisami" per ogni programma in arrivo (solo numeri).
-  const [programmi, setProgrammi] = useState<Record<string, number> | null>(null);
+  const [programmi, setProgrammi] = useState<DatiProgrammiAdmin | null>(null);
 
   async function carica() {
     setErrore('');
     getConteggiProgrammi()
-      .then((r) => setProgrammi(r.conteggi))
+      .then(setProgrammi)
       .catch(() => setProgrammi(null)); // backend vecchio: il riquadro semplicemente non compare
     try {
       setDati(await getPanoramicaTrainer());
@@ -164,19 +246,7 @@ export default function PanoramicaTrainer() {
               {tr('Si allenano da soli, senza trainer:', 'Training on their own, without a trainer:')} <strong className="text-ink tabular-nums">{dati.totali.autonomi}</strong>
             </p>
           )}
-          {programmi && (
-            <div className="rounded-xl border border-line bg-surface-2 px-4 py-3">
-              <p className="text-sm font-semibold">{tr('Programmi in arrivo · chi vuole essere avvisato', 'Upcoming plans · who wants to be notified')}</p>
-              <ul className="mt-2 grid gap-1 text-sm text-soft sm:grid-cols-2">
-                {PROGRAMMI().map((p) => (
-                  <li key={p.chiave} className="flex justify-between gap-3">
-                    <span>{p.nome}</span>
-                    <strong className="tabular-nums text-ink">{programmi[p.chiave] ?? 0}</strong>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {programmi && <RiquadroProgrammi dati={programmi} onInviato={carica} />}
           <ul className="space-y-3">
             {dati.trainer.map((t) => (
               <SchedaTrainer key={t.id} t={t} onCambiato={carica} />

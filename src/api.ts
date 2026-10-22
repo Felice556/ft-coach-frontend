@@ -765,8 +765,22 @@ export function commentaGiornataDiario(clienteId: number, data: string, commento
 
 // ---------- Programmi Liftio in arrivo ----------
 // Per ora si guardano soltanto: "Avvisami" salva l'interesse (nessun prezzo, nessun acquisto).
+// Annuncio dell'amministratore a chi aspetta un programma (es. "Il programma Principiante è pronto!").
+export interface AnnuncioProgramma {
+  id: number;
+  programma: string;
+  messaggio: string;
+  creatoIl: string;
+}
+
+// avvisi: i programmi per cui ho toccato "Avvisami"; annunci: quelli nuovi, non ancora visti.
 export function getAvvisiProgrammi() {
-  return apiFetch<{ avvisi: string[] }>('/programmi/avvisi');
+  return apiFetch<{ avvisi: string[]; annunci?: AnnuncioProgramma[] }>('/programmi/avvisi');
+}
+
+// "Ok, visto": spegne il pallino su Programmi.
+export function segnaAnnunciVisti() {
+  return apiFetch<void>('/programmi/annunci/visti', { method: 'POST' });
 }
 
 export function salvaAvvisoProgramma(chiave: string, attivo: boolean) {
@@ -777,6 +791,19 @@ export function salvaAvvisoProgramma(chiave: string, attivo: boolean) {
 }
 
 // Solo amministratore: quante persone aspettano ogni programma.
+export interface DatiProgrammiAdmin {
+  conteggi: Record<string, number>;
+  ultimoAvvisoIl?: string | null; // quando è arrivato l'ultimo "Avvisami" (per il pallino)
+  ultimiAnnunci?: Record<string, { messaggio: string; creatoIl: string }>;
+}
 export function getConteggiProgrammi() {
-  return apiFetch<{ conteggi: Record<string, number> }>('/admin/programmi');
+  return apiFetch<DatiProgrammiAdmin>('/admin/programmi');
+}
+
+// Solo amministratore: manda un messaggio a chi aspetta quel programma.
+export function inviaAnnuncioProgramma(chiave: string, messaggio: string) {
+  return apiFetch<AnnuncioProgramma & { destinatari: number }>(`/admin/programmi/${encodeURIComponent(chiave)}/annuncio`, {
+    method: 'POST',
+    body: JSON.stringify({ messaggio }),
+  });
 }

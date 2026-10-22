@@ -45,6 +45,7 @@ import {
   Esercizio,
   TipoCollegamento,
   getTrainerInAttesa,
+  getConteggiProgrammi,
 } from './api';
 import { riassuntoSerie, testoReps, testoRecupero, leggiReps } from './serie';
 import { locale, tr } from './lingua';
@@ -557,6 +558,12 @@ export default function TrainerDashboard() {
   useEffect(() => {
     if (admin) getTrainerInAttesa().then((l) => setTrainerInAttesa(l.length)).catch(() => {});
   }, [admin]);
+  // Solo amministratore: qualcuno ha toccato "Avvisami" su un programma dopo l'ultima visita alla sezione "Trainer"?
+  const [ultimoAvvisoProgrammi, setUltimoAvvisoProgrammi] = useState<string | null>(null);
+  const [programmiVisti, setProgrammiVisti] = useState(() => ricordaSezione('programmiVistiIl') ?? '');
+  useEffect(() => {
+    if (admin) getConteggiProgrammi().then((r) => setUltimoAvvisoProgrammi(r.ultimoAvvisoIl ?? null)).catch(() => {});
+  }, [admin]);
 
   const [nomeScheda, setNomeScheda] = useState('');
   const [clienteId, setClienteId] = useState('');
@@ -590,6 +597,13 @@ export default function TrainerDashboard() {
     else if (sezione === 'trainer' && adminNoto && !admin) vai('attivita', true);
     else ricordaSezione('sezioneTrainer', sezione);
   });
+  useEffect(() => {
+    if (sezione !== 'trainer' || !admin) return;
+    const adesso = new Date().toISOString();
+    ricordaSezione('programmiVistiIl', adesso);
+    setProgrammiVisti(adesso);
+  }, [sezione, admin]);
+  const nuoviAvvisiProgrammi = !!ultimoAvvisoProgrammi && ultimoAvvisoProgrammi > programmiVisti && sezione !== 'trainer';
 
   // Cambia ogni volta che il form si svuota o carica un'altra scheda: azzera il testo digitato nel campo cliente.
   const [versioneForm, setVersioneForm] = useState(0);
@@ -1198,7 +1212,7 @@ export default function TrainerDashboard() {
           { id: 'attivita', nome: tr('Attività', 'Activity'), icona: ICONE.attivita },
           { id: 'clienti', nome: tr('Clienti', 'Clients'), icona: ICONE.clienti },
           { id: 'inviti', nome: tr('Inviti', 'Invites'), icona: ICONE.inviti },
-          ...(admin ? [{ id: 'trainer' as const, nome: tr('Trainer', 'Trainers'), icona: ICONE.trainer, pallino: trainerInAttesa > 0 }] : []),
+          ...(admin ? [{ id: 'trainer' as const, nome: tr('Trainer', 'Trainers'), icona: ICONE.trainer, pallino: trainerInAttesa > 0 || nuoviAvvisiProgrammi }] : []),
         ]}
       />
 

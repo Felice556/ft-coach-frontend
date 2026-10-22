@@ -8,6 +8,7 @@ import {
   getSessioni,
   getDiario,
   getMe,
+  getAvvisiProgrammi,
   archiviaScheda,
   ripristinaScheda,
   getSchedeArchiviate,
@@ -406,6 +407,15 @@ export default function ClienteDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sezione, indirizzo]);
 
+  // Pallino su Programmi: messaggi nuovi dell'amministratore sui programmi che aspetto.
+  const [annunciNuovi, setAnnunciNuovi] = useState(0);
+  useEffect(() => {
+    if (!autonomo) return;
+    getAvvisiProgrammi()
+      .then((r) => setAnnunciNuovi(r.annunci?.length ?? 0))
+      .catch(() => setAnnunciNuovi(0));
+  }, [autonomo]);
+
   // Pallino sul Diario: il trainer ha commentato dopo l'ultima volta che il cliente l'ha aperto.
   const [ultimoCommento, setUltimoCommento] = useState<string | null>(null);
   const [diarioVisto, setDiarioVisto] = useState(() => ricordaSezione(CHIAVE_DIARIO_VISTO) ?? '');
@@ -426,7 +436,7 @@ export default function ClienteDashboard() {
     { id: 'cardio', nome: tr('Cardio', 'Cardio'), icona: ICONE.cardio },
     { id: 'diario', nome: tr('Diario', 'Diary'), icona: ICONE.diario, pallino: !!ultimoCommento && ultimoCommento > diarioVisto && sezione !== 'diario' },
     { id: 'corpo', nome: tr('Corpo', 'Body'), icona: ICONE.corpo },
-    ...(autonomo ? [{ id: 'programmi' as const, nome: tr('Programmi', 'Plans'), icona: ICONE.programmi }] : []),
+    ...(autonomo ? [{ id: 'programmi' as const, nome: tr('Programmi', 'Plans'), icona: ICONE.programmi, pallino: annunciNuovi > 0 && sezione !== 'programmi' }] : []),
   ];
   const barra = <BarraSezioni voci={vociSezioni} attiva={sezione} onCambia={(s) => vaiA(s)} etichetta={tr('Sezioni', 'Sections')} />;
 
@@ -840,7 +850,7 @@ export default function ClienteDashboard() {
         {/* Peso corporeo (lo scrive il cliente) e massa grassa (la scrive il trainer) */}
         {sezione === 'corpo' && <MisureCorporee ruolo="CLIENTE" autonomo={autonomo} />}
         {/* Programmi Liftio in arrivo: solo da guardare, con "Avvisami" (nessun prezzo, nessun acquisto) */}
-        {sezione === 'programmi' && autonomo && <ProgrammiInArrivo />}
+        {sezione === 'programmi' && autonomo && <ProgrammiInArrivo onAnnunciVisti={() => setAnnunciNuovi(0)} />}
       </div>
     );
   }
