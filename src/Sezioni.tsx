@@ -158,6 +158,11 @@ export const ICONE = {
       <path d="M4 6h16v12H4zM4 7l8 6 8-6" />
     </Svg>
   ),
+  programmi: (
+    <Svg>
+      <path d="M12 3.5 14.6 9l5.9.6-4.4 4 1.3 5.9L12 16.5l-5.4 3 1.3-5.9-4.4-4L9.4 9z" />
+    </Svg>
+  ),
   trainer: (
     <Svg>
       <path d="M12 3 4 6v6c0 4.5 3.4 8 8 9 4.6-1 8-4.5 8-9V6z" />

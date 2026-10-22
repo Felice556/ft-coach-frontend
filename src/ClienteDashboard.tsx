@@ -25,6 +25,7 @@ import MisureCorporee from './MisureCorporee';
 import CardioPassi from './CardioPassi';
 import DiarioAlimentare from './DiarioAlimentare';
 import EditorSchedaPersonale from './EditorSchedaPersonale';
+import ProgrammiInArrivo from './ProgrammiInArrivo';
 import { SceltaFatica } from './FeedbackCliente';
 import { gruppiCollegati, prossimoPasso, sigla } from './collegamenti';
 import { pianoSerie, riassuntoSerie, testoReps, testoRecupero, SerieDaFare } from './serie';
@@ -43,8 +44,9 @@ import { locale, tr } from './lingua';
 import { BarraSezioni, ICONE, ricordaSezione, useIndirizzo, VoceSezione } from './Sezioni';
 
 // Sezioni dell'area cliente: la principale è l'allenamento.
-type SezioneCliente = 'allenamento' | 'cardio' | 'diario' | 'corpo';
-const SEZIONI_CLIENTE: SezioneCliente[] = ['allenamento', 'cardio', 'diario', 'corpo'];
+// "Programmi" (in arrivo) c'è solo per chi si allena da solo: i clienti di un trainer non la vedono.
+type SezioneCliente = 'allenamento' | 'cardio' | 'diario' | 'corpo' | 'programmi';
+const SEZIONI_CLIENTE: SezioneCliente[] = ['allenamento', 'cardio', 'diario', 'corpo', 'programmi'];
 const CHIAVE_SEZIONE = 'sezioneCliente';
 const CHIAVE_DIARIO_VISTO = 'diarioVistoIl'; // ultima volta che il cliente ha aperto il diario
 
@@ -386,17 +388,23 @@ export default function ClienteDashboard() {
   const [suono, setSuono] = useState(suonoAttivo);
   const [volume, setVolume] = useState(leggiVolume);
 
+  // Chi sono: serve a sapere se mi alleno da solo (creo io le schede) o con un trainer.
+  const [me, setMe] = useState<Me | null>(null);
+  const autonomo = me?.ruolo === 'CLIENTE' && me.trainer === null;
+
   // ---- Sezioni (barra in basso) ----
   // La sezione sta nell'indirizzo (#cardio…); senza, si riapre l'ultima usata su questo telefono.
   const [indirizzo, vaiA] = useIndirizzo();
-  const sezione: SezioneCliente = SEZIONI_CLIENTE.includes(indirizzo as SezioneCliente)
+  const sezioneRichiesta: SezioneCliente = SEZIONI_CLIENTE.includes(indirizzo as SezioneCliente)
     ? (indirizzo as SezioneCliente)
     : ((ricordaSezione(CHIAVE_SEZIONE) as SezioneCliente | null) ?? 'allenamento');
+  // "Programmi" solo per chi si allena da solo (finché non sappiamo chi è, la lasciamo com'è).
+  const sezione: SezioneCliente = sezioneRichiesta === 'programmi' && me !== null && !autonomo ? 'allenamento' : sezioneRichiesta;
   useEffect(() => {
     if (indirizzo !== sezione) vaiA(sezione, true); // l'indirizzo mostra sempre la sezione aperta
     ricordaSezione(CHIAVE_SEZIONE, sezione);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sezione]);
+  }, [sezione, indirizzo]);
 
   // Pallino sul Diario: il trainer ha commentato dopo l'ultima volta che il cliente l'ha aperto.
   const [ultimoCommento, setUltimoCommento] = useState<string | null>(null);
@@ -418,12 +426,10 @@ export default function ClienteDashboard() {
     { id: 'cardio', nome: tr('Cardio', 'Cardio'), icona: ICONE.cardio },
     { id: 'diario', nome: tr('Diario', 'Diary'), icona: ICONE.diario, pallino: !!ultimoCommento && ultimoCommento > diarioVisto && sezione !== 'diario' },
     { id: 'corpo', nome: tr('Corpo', 'Body'), icona: ICONE.corpo },
+    ...(autonomo ? [{ id: 'programmi' as const, nome: tr('Programmi', 'Plans'), icona: ICONE.programmi }] : []),
   ];
   const barra = <BarraSezioni voci={vociSezioni} attiva={sezione} onCambia={(s) => vaiA(s)} etichetta={tr('Sezioni', 'Sections')} />;
 
-  // Chi sono: serve a sapere se mi alleno da solo (creo io le schede) o con un trainer.
-  const [me, setMe] = useState<Me | null>(null);
-  const autonomo = me?.ruolo === 'CLIENTE' && me.trainer === null;
   // Editor delle schede personali: 'nuova', la scheda da modificare, oppure chiuso.
   const [editor, setEditor] = useState<'nuova' | Scheda | null>(null);
   const [archiviate, setArchiviate] = useState<Scheda[] | null>(null); // null = archivio chiuso
@@ -833,6 +839,8 @@ export default function ClienteDashboard() {
         {sezione === 'diario' && <DiarioAlimentare ruolo="CLIENTE" autonomo={autonomo} />}
         {/* Peso corporeo (lo scrive il cliente) e massa grassa (la scrive il trainer) */}
         {sezione === 'corpo' && <MisureCorporee ruolo="CLIENTE" autonomo={autonomo} />}
+        {/* Programmi Liftio in arrivo: solo da guardare, con "Avvisami" (nessun prezzo, nessun acquisto) */}
+        {sezione === 'programmi' && autonomo && <ProgrammiInArrivo />}
       </div>
     );
   }

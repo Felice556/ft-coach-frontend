@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { getPanoramicaTrainer, PanoramicaTrainer as Dati, riattivaTrainer, RigaTrainer, sospendiTrainer } from './api';
+import { getConteggiProgrammi, getPanoramicaTrainer, PanoramicaTrainer as Dati, riattivaTrainer, RigaTrainer, sospendiTrainer } from './api';
+import { PROGRAMMI } from './ProgrammiInArrivo';
 import { locale, tr } from './lingua';
 
 // Solo per l'amministratore: quanti trainer usano l'app e quanto la usano i loro clienti.
@@ -113,9 +114,14 @@ function SchedaTrainer({ t, onCambiato }: { t: RigaTrainer; onCambiato: () => vo
 export default function PanoramicaTrainer() {
   const [dati, setDati] = useState<Dati | null>(null);
   const [errore, setErrore] = useState('');
+  // Quante persone hanno chiesto "Avvisami" per ogni programma in arrivo (solo numeri).
+  const [programmi, setProgrammi] = useState<Record<string, number> | null>(null);
 
   async function carica() {
     setErrore('');
+    getConteggiProgrammi()
+      .then((r) => setProgrammi(r.conteggi))
+      .catch(() => setProgrammi(null)); // backend vecchio: il riquadro semplicemente non compare
     try {
       setDati(await getPanoramicaTrainer());
     } catch (err) {
@@ -157,6 +163,19 @@ export default function PanoramicaTrainer() {
             <p className="text-sm text-muted">
               {tr('Si allenano da soli, senza trainer:', 'Training on their own, without a trainer:')} <strong className="text-ink tabular-nums">{dati.totali.autonomi}</strong>
             </p>
+          )}
+          {programmi && (
+            <div className="rounded-xl border border-line bg-surface-2 px-4 py-3">
+              <p className="text-sm font-semibold">{tr('Programmi in arrivo · chi vuole essere avvisato', 'Upcoming plans · who wants to be notified')}</p>
+              <ul className="mt-2 grid gap-1 text-sm text-soft sm:grid-cols-2">
+                {PROGRAMMI().map((p) => (
+                  <li key={p.chiave} className="flex justify-between gap-3">
+                    <span>{p.nome}</span>
+                    <strong className="tabular-nums text-ink">{programmi[p.chiave] ?? 0}</strong>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
           <ul className="space-y-3">
             {dati.trainer.map((t) => (

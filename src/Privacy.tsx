@@ -92,6 +92,7 @@ function TestoItaliano() {
             Dei trainer: le schede, il piano cardio e la libreria di esercizi e note che creano; chi si registra senza codice invito indica
             anche quanti clienti segue e, se vuole, due righe di presentazione.
           </li>
+          <li>Se ti alleni da solo e tocchi “Avvisami” su un programma in arrivo: quale programma ti interessa (lo togli quando vuoi).</li>
         </ul>
         <p>
           Non usiamo pubblicità, cookie di profilazione né strumenti di tracciamento. Sul telefono restano salvati solo
@@ -234,6 +235,7 @@ function TestoInglese() {
             From trainers: the programmes, the cardio plan and the exercise and notes library they create; those who sign up without an
             invite code also tell us how many clients they train and, if they like, a short introduction.
           </li>
+          <li>If you train on your own and tap “Notify me” on an upcoming plan: which plan you’re interested in (you can remove it whenever you like).</li>
         </ul>
         <p>
           We use no advertising, no profiling cookies and no tracking tools. Your phone only stores your sign-in and your

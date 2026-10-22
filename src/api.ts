@@ -762,3 +762,21 @@ export function salvaGiornataDiario(data: string, giornata: GiornataDaSalvare) {
 export function commentaGiornataDiario(clienteId: number, data: string, commento: string) {
   return apiFetch<GiornoDiario>(`/diario/${data}/commento`, { method: 'PUT', body: JSON.stringify({ clienteId, commento }) });
 }
+
+// ---------- Programmi Liftio in arrivo ----------
+// Per ora si guardano soltanto: "Avvisami" salva l'interesse (nessun prezzo, nessun acquisto).
+export function getAvvisiProgrammi() {
+  return apiFetch<{ avvisi: string[] }>('/programmi/avvisi');
+}
+
+export function salvaAvvisoProgramma(chiave: string, attivo: boolean) {
+  return apiFetch<{ programma: string; attivo: boolean }>(`/programmi/${encodeURIComponent(chiave)}/avviso`, {
+    method: 'PUT',
+    body: JSON.stringify({ attivo }),
+  });
+}
+
+// Solo amministratore: quante persone aspettano ogni programma.
+export function getConteggiProgrammi() {
+  return apiFetch<{ conteggi: Record<string, number> }>('/admin/programmi');
+}
