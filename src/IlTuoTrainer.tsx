@@ -122,7 +122,7 @@ export default function IlTuoTrainer({ onCambiato }: { onCambiato: () => void })
             <p className="text-sm text-soft">
               <strong className="text-ink">{tr('Ti alleni da solo', 'You train on your own')}</strong>
               {' · '}
-              {tr(`schede create: ${personali} di ${me.limiteSchede ?? 3} gratis`, `programmes created: ${personali} of ${me.limiteSchede ?? 3} free`)}
+              {tr(`schede create: ${personali} (le prime ${me.limiteSchede ?? 3} sono gratis)`, `programmes created: ${personali} (the first ${me.limiteSchede ?? 3} are free)`)}
             </p>
             {!codiceAperto ? (
               <button type="button" className="btn-secondary mt-3 min-h-10 px-3 text-sm" onClick={() => setCodiceAperto(true)}>{tr('Ho un trainer: inserisci il codice', 'I have a trainer: enter the code')}</button>

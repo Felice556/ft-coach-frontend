@@ -520,7 +520,9 @@ export default function ClienteDashboard() {
   }
   const limite = me?.limiteSchede ?? 3;
   const personali = me?.schedePersonali ?? 0;
-  const puoCreare = autonomo && personali < limite;
+  // Per ora si crea senza limiti: oltre le schede gratis compare solo l'avviso "Liftio Pro".
+  const puoCreare = autonomo;
+  const oltreGratis = autonomo && personali >= limite;
 
   // Finché il timer è attivo, aggiorniamo "ora" 4 volte al secondo.
   useEffect(() => {
@@ -859,15 +861,15 @@ export default function ClienteDashboard() {
     );
   }
 
-  // Avviso "Liftio Pro" quando le schede gratis sono finite.
+  // Avviso "Liftio Pro" (solo un avviso, non blocca niente): compare da 3 schede create in su.
   const cartaPro = (
     <div className="card border-accent-strong/50 bg-accent-soft">
       <p className="eyebrow mb-1">Liftio Pro · {tr('in arrivo', 'coming soon')}</p>
-      <p className="font-bold">{tr(`Hai usato le tue ${limite} schede gratis.`, `You’ve used your ${limite} free programmes.`)}</p>
+      <p className="font-bold">{tr(`Le prime ${limite} schede saranno sempre gratis.`, `Your first ${limite} programmes will always be free.`)}</p>
       <p className="mt-1 text-sm text-soft">
         {tr(
-          'Con Liftio Pro potrai creare tutte le schede che vuoi. Intanto puoi modificare quelle che hai quando vuoi, oppure farti seguire da un trainer (Impostazioni → Il tuo trainer).',
-          'With Liftio Pro you’ll be able to create as many programmes as you like. Meanwhile you can edit the ones you have whenever you like, or get coached by a trainer (Settings → Your trainer).',
+          'Più avanti, dalla quarta in poi servirà Liftio Pro. Per ora puoi crearne quante vuoi.',
+          'Later on, from the fourth onwards you’ll need Liftio Pro. For now you can create as many as you like.',
         )}
       </p>
     </div>
@@ -889,7 +891,7 @@ export default function ClienteDashboard() {
             </p>
             {puoCreare && <button type="button" className="btn-primary mt-5" onClick={() => setEditor('nuova')}>{tr('+ Nuova scheda', '+ New programme')}</button>}
           </div>
-          {!puoCreare && cartaPro}
+          {oltreGratis && cartaPro}
           {personali > 0 && (
             <button type="button" className="btn-link text-sm" onClick={apriArchivio}>{archiviate ? tr('Nascondi le schede archiviate', 'Hide archived programmes') : tr('Schede archiviate', 'Archived programmes')}</button>
           )}
@@ -1029,13 +1031,14 @@ export default function ClienteDashboard() {
             <h2 className="text-2xl font-black uppercase tracking-tight sm:text-3xl">{tr('Il tuo programma', 'Your plan')}</h2>
             <p className="mt-1 text-sm text-muted">
               {autonomo
-                ? tr(`Le schede che ti sei creato · ${personali} di ${limite} gratis`, `The programmes you created · ${personali} of ${limite} free`)
+                ? tr(`Le schede che ti sei creato · le prime ${limite} sono gratis`, `The programmes you created · the first ${limite} are free`)
                 : tr('Le schede preparate dal tuo trainer.', 'The programmes your trainer prepared.')}
             </p>
           </div>
-          {autonomo && (puoCreare ? (
+          {puoCreare && (
             <button type="button" className="btn-primary w-full sm:w-auto" onClick={() => setEditor('nuova')}>{tr('+ Nuova scheda', '+ New programme')}</button>
-          ) : cartaPro)}
+          )}
+          {oltreGratis && cartaPro}
           <div className="grid gap-4 md:grid-cols-2">
           {schede.map((scheda) => {
             const { serieFatte, serieTotali, ultimaData } = statoScheda(scheda);
@@ -1119,7 +1122,7 @@ export default function ClienteDashboard() {
             );
           })}
           </div>
-          {/* Archivio delle schede personali: si ripristinano con un tocco (contano nel limite gratis) */}
+          {/* Archivio delle schede personali: si ripristinano con un tocco */}
           {autonomo && (
             <div className="space-y-2">
               <button type="button" className="btn-link text-sm" onClick={apriArchivio}>
