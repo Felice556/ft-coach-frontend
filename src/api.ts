@@ -225,8 +225,29 @@ export function getInfoRegistrazione() {
 }
 
 // Chi sono: serve, ad esempio, a sapere se mostrare la sezione dell'amministratore.
+// Per i clienti: chi è il loro trainer (null = si allenano da soli) e quante schede si sono creati.
+export interface Me {
+  id: number;
+  nome: string;
+  ruolo: Ruolo;
+  admin: boolean;
+  inAttesa?: boolean;
+  trainer?: { nome: string } | null;
+  schedePersonali?: number;
+  limiteSchede?: number;
+}
 export function getMe() {
-  return apiFetch<{ id: number; nome: string; ruolo: Ruolo; admin: boolean; inAttesa?: boolean }>('/me');
+  return apiFetch<Me>('/me');
+}
+
+// Il cliente si collega a un trainer con il suo codice invito (o cambia trainer).
+export function collegaTrainer(codiceInvito: string) {
+  return apiFetch<Me>('/me/trainer', { method: 'POST', body: JSON.stringify({ codiceInvito }) });
+}
+
+// Il cliente smette di allenarsi con il suo trainer e torna ad allenarsi da solo (serve la password).
+export function lasciaTrainer(password: string) {
+  return apiFetch<Me>('/me/trainer', { method: 'DELETE', body: JSON.stringify({ password }) });
 }
 
 // ---------- Inviti ----------
@@ -289,7 +310,7 @@ export interface RigaTrainer {
 }
 
 export interface PanoramicaTrainer {
-  totali: { trainer: number; clienti: number; clientiAttivi: number; allenamenti30: number };
+  totali: { trainer: number; clienti: number; clientiAttivi: number; allenamenti30: number; autonomi?: number };
   trainer: RigaTrainer[];
 }
 
@@ -384,7 +405,8 @@ export function getSchede(clienteId?: number) {
   return apiFetch<Scheda[]>(`/schede${query}`);
 }
 
-export function creaScheda(nome: string, clienteId: number, esercizi: Omit<Esercizio, 'id' | 'schedaId'>[]) {
+// clienteId: il cliente a cui il trainer la prepara (chi si allena da solo non lo indica).
+export function creaScheda(nome: string, clienteId: number | undefined, esercizi: Omit<Esercizio, 'id' | 'schedaId'>[]) {
   return apiFetch<Scheda>('/schede', {
     method: 'POST',
     body: JSON.stringify({ nome, clienteId, esercizi }),
@@ -396,7 +418,7 @@ export function creaScheda(nome: string, clienteId: number, esercizi: Omit<Eserc
 export function aggiornaScheda(
   id: number,
   nome: string,
-  clienteId: number,
+  clienteId: number | undefined,
   esercizi: (Omit<Esercizio, 'id' | 'schedaId'> & { id?: number })[]
 ) {
   return apiFetch<Scheda>(`/schede/${id}`, {
@@ -643,7 +665,8 @@ export function getCardio(clienteId?: number) {
   return apiFetch<DatiCardio>(`/cardio${clienteId ? `?clienteId=${clienteId}` : ''}`);
 }
 
-export function creaObiettivoCardio(clienteId: number, dati: NuovoObiettivoCardio) {
+// clienteId: il cliente del trainer (chi si allena da solo non lo indica).
+export function creaObiettivoCardio(clienteId: number | undefined, dati: NuovoObiettivoCardio) {
   return apiFetch<ObiettivoCardio>('/cardio/obiettivi', { method: 'POST', body: JSON.stringify({ clienteId, ...dati }) });
 }
 
@@ -656,7 +679,7 @@ export function eliminaObiettivoCardio(id: number) {
 }
 
 // passi = null toglie l'obiettivo.
-export function salvaObiettivoPassi(clienteId: number, passi: number | null) {
+export function salvaObiettivoPassi(clienteId: number | undefined, passi: number | null) {
   return apiFetch<{ obiettivoPassi: number | null }>('/cardio/obiettivo-passi', {
     method: 'PUT',
     body: JSON.stringify({ clienteId, passi }),

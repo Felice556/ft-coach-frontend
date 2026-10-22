@@ -55,7 +55,7 @@ function Puntini({ fatte, totale }: { fatte: number; totale: number }) {
 
 // ---------- Passi ----------
 
-function SchedaPassi({ ruolo, clienteId, dati, onCambiati }: { ruolo: Ruolo; clienteId?: number; dati: DatiCardio; onCambiati: (d: DatiCardio) => void }) {
+function SchedaPassi({ ruolo, clienteId, autonomo, dati, onCambiati }: { ruolo: Ruolo; clienteId?: number; autonomo?: boolean; dati: DatiCardio; onCambiati: (d: DatiCardio) => void }) {
   const id = useId();
   const oggiStr = oggi();
   const giorni = ultimi7Giorni(dati.passi, oggiStr);
@@ -106,7 +106,7 @@ function SchedaPassi({ ruolo, clienteId, dati, onCambiati }: { ruolo: Ruolo; cli
   }
 
   async function salvaObiettivo(nuovo: number | null) {
-    if (inInvio || clienteId === undefined) return;
+    if (inInvio || (clienteId === undefined && !autonomo)) return;
     setErrore('');
     setInInvio(true);
     try {
@@ -170,7 +170,7 @@ function SchedaPassi({ ruolo, clienteId, dati, onCambiati }: { ruolo: Ruolo; cli
         </ul>
       </div>
 
-      {ruolo === 'CLIENTE' ? (
+      {ruolo === 'CLIENTE' && (
         <form onSubmit={salva} className="space-y-3" noValidate>
           <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] gap-3">
             <div>
@@ -193,9 +193,11 @@ function SchedaPassi({ ruolo, clienteId, dati, onCambiati }: { ruolo: Ruolo; cli
           </button>
           <p className="text-xs text-muted">{tr('Li trovi nell’app Salute o del contapassi del telefono.', 'You’ll find them in your phone’s health or step-counter app.')}</p>
         </form>
-      ) : (
+      )}
+      {/* L'obiettivo lo decide il trainer; chi si allena da solo se lo sceglie */}
+      {(ruolo === 'TRAINER' || autonomo) && (
         <form
-          className="space-y-3"
+          className={`space-y-3 ${autonomo ? 'border-t border-line pt-4' : ''}`}
           noValidate
           onSubmit={(e) => {
             e.preventDefault();
@@ -221,8 +223,8 @@ function SchedaPassi({ ruolo, clienteId, dati, onCambiati }: { ruolo: Ruolo; cli
               {tr('Togli l’obiettivo', 'Remove the target')}
             </button>
           )}
-          {errore && <p className="alert-error">{errore}</p>}
-          <p className="text-xs text-muted">{tr('I passi li inserisce il cliente dalla sua app.', 'The client enters their steps from their app.')}</p>
+          {ruolo === 'TRAINER' && errore && <p className="alert-error">{errore}</p>}
+          {ruolo === 'TRAINER' && <p className="text-xs text-muted">{tr('I passi li inserisce il cliente dalla sua app.', 'The client enters their steps from their app.')}</p>}
         </form>
       )}
     </article>
@@ -442,7 +444,9 @@ function RigaSessione({ s, eliminabile, onElimina }: { s: CardioFatto; eliminabi
 
 // ---------- Cardio: piano + sessioni ----------
 
-function SchedaCardio({ ruolo, clienteId, dati, onCambiati }: { ruolo: Ruolo; clienteId?: number; dati: DatiCardio; onCambiati: (d: DatiCardio) => void }) {
+function SchedaCardio({ ruolo, clienteId, autonomo, dati, onCambiati }: { ruolo: Ruolo; clienteId?: number; autonomo?: boolean; dati: DatiCardio; onCambiati: (d: DatiCardio) => void }) {
+  // Il piano lo decide il trainer, oppure chi si allena da solo.
+  const pianoMio = ruolo === 'TRAINER' || !!autonomo;
   const oggiStr = oggi();
   const [aggiungi, setAggiungi] = useState(false);
   const [inModifica, setInModifica] = useState<number | null>(null);
@@ -482,7 +486,7 @@ function SchedaCardio({ ruolo, clienteId, dati, onCambiati }: { ruolo: Ruolo; cl
           <h3 className="text-lg font-extrabold tracking-tight">{tr('Cardio', 'Cardio')}</h3>
           <p className="mt-0.5 text-sm text-muted">{tr(`Questa settimana: ${minuti} min`, `This week: ${minuti} min`)}</p>
         </div>
-        {ruolo === 'TRAINER' && !aggiungi && dati.obiettivi.length < 10 && (
+        {pianoMio && !aggiungi && dati.obiettivi.length < 10 && (
           <button type="button" className="btn-secondary shrink-0 px-3 text-sm" onClick={() => { setAggiungi(true); setInModifica(null); }}>
             {tr('+ Attività', '+ Activity')}
           </button>
@@ -494,6 +498,8 @@ function SchedaCardio({ ruolo, clienteId, dati, onCambiati }: { ruolo: Ruolo; cl
         <p className="rounded-xl bg-surface-2 px-4 py-3 text-sm text-muted">
           {ruolo === 'TRAINER'
             ? tr('Nessuna attività nel piano. Tocca “+ Attività” per assegnare il cardio da fare.', 'No activities in the plan. Tap “+ Activity” to assign the cardio to do.')
+            : autonomo
+            ? tr('Nessuna attività nel piano. Tocca “+ Attività” per decidere il tuo cardio della settimana.', 'No activities in the plan. Tap “+ Activity” to set your weekly cardio.')
             : tr('Il tuo trainer non ti ha ancora assegnato del cardio: puoi comunque segnare quello che fai.', 'Your trainer hasn’t assigned you any cardio yet: you can still log what you do.')}
         </p>
       )}
@@ -524,7 +530,7 @@ function SchedaCardio({ ruolo, clienteId, dati, onCambiati }: { ruolo: Ruolo; cl
                     <p className="text-sm text-muted">{o.minuti} min · {testoVolte(o.volteSettimana)}</p>
                     {o.nota && <p className="mt-0.5 text-sm text-soft break-words">{o.nota}</p>}
                   </div>
-                  {ruolo === 'TRAINER' && (
+                  {pianoMio && (
                     <div className="flex shrink-0 gap-1">
                       <button type="button" className="btn-ghost min-h-9 px-2 text-xs" onClick={() => { setInModifica(o.id); setAggiungi(false); }}>
                         {tr('Modifica', 'Edit')}
@@ -546,7 +552,7 @@ function SchedaCardio({ ruolo, clienteId, dati, onCambiati }: { ruolo: Ruolo; cl
           })}
         </ul>
       )}
-      {aggiungi && clienteId !== undefined && (
+      {aggiungi && (clienteId !== undefined || autonomo) && (
         <ModuloObiettivo
           onAnnulla={() => setAggiungi(false)}
           onSalva={async (d) => {
@@ -606,7 +612,8 @@ function SchedaCardio({ ruolo, clienteId, dati, onCambiati }: { ruolo: Ruolo; cl
   );
 }
 
-export default function CardioPassi({ ruolo, clienteId, nomeCliente }: { ruolo: Ruolo; clienteId?: number; nomeCliente?: string }) {
+// autonomo: cliente che si allena da solo (decide anche il suo piano e l'obiettivo di passi).
+export default function CardioPassi({ ruolo, clienteId, nomeCliente, autonomo }: { ruolo: Ruolo; clienteId?: number; nomeCliente?: string; autonomo?: boolean }) {
   const [dati, setDati] = useState<DatiCardio | null>(null);
   const [errore, setErrore] = useState('');
 
@@ -634,8 +641,8 @@ export default function CardioPassi({ ruolo, clienteId, nomeCliente }: { ruolo: 
       {!dati && !errore && <p className="py-6 text-center text-sm text-muted">{tr('Carico il cardio…', 'Loading cardio…')}</p>}
       {dati && (
         <div className="grid gap-4 md:grid-cols-2">
-          <SchedaCardio ruolo={ruolo} clienteId={clienteId} dati={dati} onCambiati={setDati} />
-          <SchedaPassi key={dati.obiettivoPassi ?? 0} ruolo={ruolo} clienteId={clienteId} dati={dati} onCambiati={setDati} />
+          <SchedaCardio ruolo={ruolo} clienteId={clienteId} autonomo={autonomo} dati={dati} onCambiati={setDati} />
+          <SchedaPassi key={dati.obiettivoPassi ?? 0} ruolo={ruolo} clienteId={clienteId} autonomo={autonomo} dati={dati} onCambiati={setDati} />
         </div>
       )}
     </section>

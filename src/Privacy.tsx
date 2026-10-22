@@ -64,6 +64,9 @@ function TestoItaliano() {
             funzionare l’app (responsabile del trattamento, art. 28 GDPR).
           </li>
           <li>
+            <strong>Se ti alleni da solo</strong> (senza trainer): il titolare dei tuoi dati è {GESTORE}.
+          </li>
+          <li>
             <strong>Se sei un trainer:</strong> per i dati del tuo account il titolare è {GESTORE}.
           </li>
         </ul>
@@ -113,7 +116,12 @@ function TestoItaliano() {
         <ul className="list-disc space-y-1 pl-5">
           <li>
             I dati di un cliente li vedono solo il cliente stesso e il suo trainer. Gli altri trainer non vedono mai i
-            clienti che non sono loro.
+            clienti che non sono loro. Chi si allena da solo è l’unico a vedere i propri dati.
+          </li>
+          <li>
+            Se ti colleghi a un trainer (con il suo codice), lui vede allenamenti, misure, cardio, passi e diario solo da
+            quel giorno in poi, non quelli di prima. Se smetti di allenarti con lui, non vede più niente; i tuoi dati
+            restano tuoi.
           </li>
           <li>
             L’amministratore, nell’app, vede dei clienti degli altri trainer solo numeri complessivi (quanti clienti, quanti
@@ -198,6 +206,9 @@ function TestoInglese() {
             the app (data processor, Art. 28 GDPR).
           </li>
           <li>
+            <strong>If you train on your own</strong> (without a trainer): {GESTORE} is the data controller for your data.
+          </li>
+          <li>
             <strong>If you’re a trainer:</strong> {GESTORE} is the data controller for your account data.
           </li>
         </ul>
@@ -247,7 +258,12 @@ function TestoInglese() {
         <ul className="list-disc space-y-1 pl-5">
           <li>
             A client’s data can be seen only by the client and their trainer. Other trainers never see clients who aren’t
-            theirs.
+            theirs. If you train on your own, you’re the only one who sees your data.
+          </li>
+          <li>
+            If you link up with a trainer (using their code), they see workouts, measurements, cardio, steps and diary only
+            from that day on, not earlier ones. If you stop training with them, they no longer see anything; your data stays
+            yours.
           </li>
           <li>
             In the app, the administrator sees only overall numbers about other trainers’ clients (how many clients, how

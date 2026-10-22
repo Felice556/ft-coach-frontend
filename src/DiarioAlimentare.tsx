@@ -17,11 +17,16 @@ const dataEstesa = (giorno: string) =>
   new Date(`${giorno}T12:00:00Z`).toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
 const numero = (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 2 });
 
-const AVVISO_CLIENTE = () =>
-  tr(
-    'Il diario serve a te e al tuo trainer per vedere le tue abitudini. Non è un piano alimentare: per una dieta personalizzata rivolgiti a un nutrizionista, un dietista o un medico.',
-    'The diary helps you and your trainer see your habits. It isn’t a meal plan: for a personalised diet, see a nutritionist, a dietitian or a doctor.',
-  );
+const AVVISO_CLIENTE = (autonomo?: boolean) =>
+  autonomo
+    ? tr(
+        'Il diario serve a te per vedere le tue abitudini. Non è un piano alimentare: per una dieta personalizzata rivolgiti a un nutrizionista, un dietista o un medico.',
+        'The diary helps you see your habits. It isn’t a meal plan: for a personalised diet, see a nutritionist, a dietitian or a doctor.',
+      )
+    : tr(
+        'Il diario serve a te e al tuo trainer per vedere le tue abitudini. Non è un piano alimentare: per una dieta personalizzata rivolgiti a un nutrizionista, un dietista o un medico.',
+        'The diary helps you and your trainer see your habits. It isn’t a meal plan: for a personalised diet, see a nutritionist, a dietitian or a doctor.',
+      );
 
 // Il commento del trainer a una giornata, come lo vede il cliente.
 function Commento({ g }: { g: GiornoDiario }) {
@@ -36,7 +41,7 @@ function Commento({ g }: { g: GiornoDiario }) {
 
 // ---------- Cliente: consenso ----------
 
-function Consenso({ onDato }: { onDato: () => void }) {
+function Consenso({ onDato, autonomo }: { onDato: () => void; autonomo?: boolean }) {
   const [aperto, setAperto] = useState(true);
   const [spuntato, setSpuntato] = useState(false);
   const [inInvio, setInInvio] = useState(false);
@@ -74,13 +79,24 @@ function Consenso({ onDato }: { onDato: () => void }) {
         )}
       </p>
       <ul className="list-disc space-y-1 pl-5 text-sm text-soft">
-        <li>{tr('Lo vedete solo tu e il tuo trainer, che può lasciare dei commenti.', 'Only you and your trainer can see it, and your trainer can leave comments.')}</li>
+        {autonomo ? (
+          <li>
+            {tr(
+              'Lo vedi solo tu. Se un giorno ti colleghi a un trainer, vedrà le giornate da quel giorno in poi e potrà commentarle.',
+              'Only you can see it. If you link up with a trainer one day, they’ll see the days from then on and can comment on them.',
+            )}
+          </li>
+        ) : (
+          <li>{tr('Lo vedete solo tu e il tuo trainer, che può lasciare dei commenti.', 'Only you and your trainer can see it, and your trainer can leave comments.')}</li>
+        )}
         <li>{tr('Non è un piano alimentare né un consiglio medico.', 'It isn’t a meal plan or medical advice.')}</li>
         <li>{tr('Puoi ritirare il consenso quando vuoi: il diario viene cancellato.', 'You can withdraw your consent at any time: the diary is deleted.')}</li>
       </ul>
       <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-field p-3 text-sm leading-snug text-soft">
         <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-accent-strong" checked={spuntato} onChange={(e) => setSpuntato(e.target.checked)} />
-        {tr('Acconsento all’uso del mio diario alimentare per seguire le mie abitudini con il mio trainer.', 'I consent to my food diary being used to follow my habits with my trainer.')}
+        {autonomo
+          ? tr('Acconsento all’uso del mio diario alimentare per seguire le mie abitudini.', 'I consent to my food diary being used to follow my habits.')
+          : tr('Acconsento all’uso del mio diario alimentare per seguire le mie abitudini con il mio trainer.', 'I consent to my food diary being used to follow my habits with my trainer.')}
       </label>
       {errore && <p className="alert-error">{errore}</p>}
       <div className="grid gap-2 sm:grid-cols-2">
@@ -136,7 +152,7 @@ function Contatore({ etichetta, valore, unita, passo, massimo, onChange }: { eti
   );
 }
 
-function DiarioCliente({ dati, onCambiati }: { dati: DatiDiario; onCambiati: (d: DatiDiario) => void }) {
+function DiarioCliente({ dati, onCambiati, autonomo }: { dati: DatiDiario; onCambiati: (d: DatiDiario) => void; autonomo?: boolean }) {
   const id = useId();
   const oggiStr = oggi();
   const [giorno, setGiorno] = useState(oggiStr);
@@ -341,7 +357,7 @@ function DiarioCliente({ dati, onCambiati }: { dati: DatiDiario; onCambiati: (d:
 
       {salvata && <Commento g={salvata} />}
 
-      <p className="text-xs leading-relaxed text-muted">{AVVISO_CLIENTE()}</p>
+      <p className="text-xs leading-relaxed text-muted">{AVVISO_CLIENTE(autonomo)}</p>
       <div className="border-t border-line pt-3">
         <button type="button" className={`btn-link text-sm ${ritiro ? 'text-danger' : 'text-muted'}`} onClick={ritira} onBlur={() => setRitiro(false)}>
           {ritiro ? tr('Sicuro? Tocca di nuovo: il diario viene cancellato', 'Sure? Tap again: the diary will be deleted') : tr('Ritira il consenso e cancella il diario', 'Withdraw consent and delete the diary')}
@@ -486,7 +502,7 @@ function DiarioTrainer({ clienteId, nomeCliente, dati, onCambiati }: { clienteId
   );
 }
 
-export default function DiarioAlimentare({ ruolo, clienteId, nomeCliente }: { ruolo: Ruolo; clienteId?: number; nomeCliente?: string }) {
+export default function DiarioAlimentare({ ruolo, clienteId, nomeCliente, autonomo }: { ruolo: Ruolo; clienteId?: number; nomeCliente?: string; autonomo?: boolean }) {
   const [dati, setDati] = useState<DatiDiario | null>(null);
   const [errore, setErrore] = useState('');
 
@@ -512,8 +528,8 @@ export default function DiarioAlimentare({ ruolo, clienteId, nomeCliente }: { ru
       </div>
       {errore && <p className="alert-error">{errore}</p>}
       {!dati && !errore && <p className="py-6 text-center text-sm text-muted">{tr('Carico il diario…', 'Loading the diary…')}</p>}
-      {dati && ruolo === 'CLIENTE' && !dati.consenso && <Consenso onDato={() => setDati({ consenso: true, giorni: [] })} />}
-      {dati && ruolo === 'CLIENTE' && dati.consenso && <DiarioCliente dati={dati} onCambiati={setDati} />}
+      {dati && ruolo === 'CLIENTE' && !dati.consenso && <Consenso autonomo={autonomo} onDato={() => setDati({ consenso: true, giorni: [] })} />}
+      {dati && ruolo === 'CLIENTE' && dati.consenso && <DiarioCliente autonomo={autonomo} dati={dati} onCambiati={setDati} />}
       {dati && ruolo === 'TRAINER' && !dati.consenso && (
         <p className="card text-sm text-muted">
           {tr(`${nomeCliente ?? 'Il cliente'} non ha ancora attivato il diario alimentare: può farlo dalla sua app.`, `${nomeCliente ?? 'The client'} hasn’t turned on the food diary yet: they can do it from their app.`)}

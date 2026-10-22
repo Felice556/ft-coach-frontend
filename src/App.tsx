@@ -1,10 +1,11 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { EVENTO_CAMBIO_PASSWORD, EVENTO_IN_ATTESA, EVENTO_SESSIONE_SCADUTA, EVENTO_SOSPESO, FASCE_CLIENTI, getInfoRegistrazione, login, register, Ruolo } from './api';
+import { EVENTO_CAMBIO_PASSWORD, EVENTO_IN_ATTESA, EVENTO_SESSIONE_SCADUTA, EVENTO_SOSPESO, FASCE_CLIENTI, login, register, Ruolo } from './api';
 import AttesaApprovazione from './AttesaApprovazione';
 import TrainerDashboard from './TrainerDashboard';
 import ClienteDashboard from './ClienteDashboard';
 import CambioPassword from './CambioPassword';
 import EliminaAccount from './EliminaAccount';
+import IlTuoTrainer from './IlTuoTrainer';
 import InformativaPrivacy from './Privacy';
 import { leggiSceltaTema, salvaSceltaTema, SceltaTema } from './tema';
 import { cambiaLingua, lingua, Lingua, tr } from './lingua';
@@ -61,7 +62,7 @@ function SceltaLingua({ piccola = false }: { piccola?: boolean }) {
 }
 
 // Impostazioni: lingua e tema dell'app (salvati su questo telefono) e cambio password.
-function Impostazioni({ onCambiaPassword, onEliminaAccount, onPrivacy, onChiudi }: { onCambiaPassword: () => void; onEliminaAccount: () => void; onPrivacy: () => void; onChiudi: () => void }) {
+function Impostazioni({ cliente, onCambiaPassword, onEliminaAccount, onPrivacy, onChiudi, onTrainerCambiato }: { cliente: boolean; onCambiaPassword: () => void; onEliminaAccount: () => void; onPrivacy: () => void; onChiudi: () => void; onTrainerCambiato: () => void }) {
   const [tema, setTema] = useState<SceltaTema>(leggiSceltaTema);
   const opzioni: { valore: SceltaTema; nome: string; descrizione: string }[] = [
     { valore: 'automatico', nome: tr('Automatico', 'Automatic'), descrizione: tr('Come il telefono', 'Like your phone') },
@@ -103,6 +104,8 @@ function Impostazioni({ onCambiaPassword, onEliminaAccount, onPrivacy, onChiudi 
         </div>
         <p className="mt-2 text-xs text-muted">{tr('Lingua e tema valgono per questo telefono o computer.', 'Language and theme apply to this phone or computer.')}</p>
       </fieldset>
+      {/* Solo clienti: allenarsi da soli o con un trainer */}
+      {cliente && <IlTuoTrainer onCambiato={onTrainerCambiato} />}
       <div>
         <p className="label">Account</p>
         <button type="button" className="btn-secondary w-full" onClick={onCambiaPassword}>{tr('Cambia password', 'Change password')}</button>
@@ -201,13 +204,14 @@ export default function App() {
   }, [daVecchioIndirizzo]);
   const [modalitaRegistrazione, setModalitaRegistrazione] = useState(invitoDalLink !== '');
   const [codiceInvito, setCodiceInvito] = useState(invitoDalLink);
-  const [invitoObbligatorio, setInvitoObbligatorio] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nomeInput, setNomeInput] = useState('');
-  // Un link d'invito trainer (…&ruolo=trainer) apre la registrazione con "Sono un trainer" già scelto.
-  const [ruoloScelto, setRuoloScelto] = useState<Ruolo>(
-    new URLSearchParams(window.location.search).get('ruolo') === 'trainer' ? 'TRAINER' : 'CLIENTE',
+  // Come userà Liftio chi si registra: da solo, con un trainer (serve il suo codice), oppure da trainer.
+  // Un link d'invito trainer (…&ruolo=trainer) apre la registrazione con "Sono un trainer" già scelto;
+  // un link d'invito cliente con "Mi segue un trainer".
+  const [ruoloScelto, setRuoloScelto] = useState<Ruolo | 'AUTONOMO'>(
+    new URLSearchParams(window.location.search).get('ruolo') === 'trainer' ? 'TRAINER' : invitoDalLink ? 'CLIENTE' : 'AUTONOMO',
   );
   const [errore, setErrore] = useState('');
   const [inInvio, setInInvio] = useState(false);
@@ -300,14 +304,6 @@ export default function App() {
     }
   }
 
-  // Quando si apre la registrazione chiediamo al server se serve l'invito (per il campo obbligatorio).
-  useEffect(() => {
-    if (!modalitaRegistrazione) return;
-    getInfoRegistrazione()
-      .then((info) => setInvitoObbligatorio(info.invitoObbligatorio))
-      .catch(() => setInvitoObbligatorio(false)); // server vecchio o irraggiungibile: il campo resta facoltativo
-  }, [modalitaRegistrazione]);
-
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
     if (inInvio) return;
@@ -319,13 +315,14 @@ export default function App() {
     setInInvio(true);
     try {
       // Un trainer usa il codice solo se il campo è visibile (non uno scritto prima come cliente e poi nascosto).
-      const codiceDaUsare = ruoloScelto === 'TRAINER' && !mostraCodiceTrainer ? '' : codiceInvito;
+      // Chi si allena da solo non usa codici: si collegherà a un trainer più avanti, se vorrà.
+      const codiceDaUsare = (ruoloScelto === 'TRAINER' && !mostraCodiceTrainer) || ruoloScelto === 'AUTONOMO' ? '' : codiceInvito;
       const senzaInvito = ruoloScelto === 'TRAINER' && !codiceDaUsare.trim();
       const esito = await register(
         nomeInput,
         email,
         password,
-        ruoloScelto,
+        ruoloScelto === 'TRAINER' ? 'TRAINER' : 'CLIENTE',
         codiceDaUsare,
         senzaInvito ? presentazione : undefined,
         senzaInvito ? fasciaClienti : undefined,
@@ -443,7 +440,18 @@ export default function App() {
                       <button type="button" className="absolute inset-y-0 right-1 rounded-lg px-3 text-xs font-semibold text-muted hover:text-accent-strong focus-visible:outline-accent-strong" aria-label={mostraPassword ? tr('Nascondi password', 'Hide password') : tr('Mostra password', 'Show password')} aria-pressed={mostraPassword} onClick={() => setMostraPassword(!mostraPassword)}>{mostraPassword ? tr('Nascondi', 'Hide') : tr('Mostra', 'Show')}</button>
                     </div>
                   </div>
-                  {modalitaRegistrazione && <div><label htmlFor="auth-role" className="label">{tr('Come userai Liftio?', 'How will you use Liftio?')}</label><select id="auth-role" name="role" className="input" value={ruoloScelto} onChange={(e) => setRuoloScelto(e.target.value as Ruolo)}><option value="CLIENTE">{tr('Sono un cliente', 'I’m a client')}</option><option value="TRAINER">{tr('Sono un trainer', 'I’m a trainer')}</option></select></div>}
+                  {modalitaRegistrazione && <div><label htmlFor="auth-role" className="label">{tr('Come userai Liftio?', 'How will you use Liftio?')}</label><select id="auth-role" name="role" className="input" value={ruoloScelto} onChange={(e) => setRuoloScelto(e.target.value as Ruolo | 'AUTONOMO')}><option value="AUTONOMO">{tr('Mi alleno da solo', 'I train on my own')}</option><option value="CLIENTE">{tr('Mi segue un trainer (ho il suo codice)', 'A trainer coaches me (I have their code)')}</option><option value="TRAINER">{tr('Sono un trainer', 'I’m a trainer')}</option></select></div>}
+                  {modalitaRegistrazione && ruoloScelto === 'AUTONOMO' && (
+                    <div className="rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm leading-6 text-soft">
+                      <p>
+                        <strong className="text-ink">{tr('Crei tu le tue schede: le prime 3 sono gratis.', 'You create your own programmes: the first 3 are free.')}</strong>{' '}
+                        {tr(
+                          'Se un giorno ti segue un trainer, inserisci il suo codice in Impostazioni: le tue schede restano salvate.',
+                          'If a trainer coaches you one day, enter their code in Settings: your programmes stay saved.',
+                        )}
+                      </p>
+                    </div>
+                  )}
                   {modalitaRegistrazione && ruoloScelto === 'TRAINER' && !mostraCodiceTrainer && (
                     <div className="rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm leading-6 text-soft">
                       <p>
@@ -462,7 +470,7 @@ export default function App() {
                     <div>
                       <label htmlFor="auth-invite" className="label">
                         {ruoloScelto === 'TRAINER' ? tr('Codice invito trainer', 'Trainer invite code') : tr('Codice invito', 'Invite code')}
-                        {ruoloScelto === 'CLIENTE' && !invitoObbligatorio && <span className="font-normal text-muted">{tr(' (se te l’ha dato il tuo trainer)', ' (if your trainer gave you one)')}</span>}
+                        {ruoloScelto === 'CLIENTE' && <span className="font-normal text-muted">{tr(' (te lo dà il tuo trainer)', ' (your trainer gives it to you)')}</span>}
                         {ruoloScelto === 'TRAINER' && <span className="font-normal text-muted">{tr(' (se ce l’hai)', ' (if you have one)')}</span>}
                       </label>
                       <input
@@ -475,7 +483,7 @@ export default function App() {
                         placeholder={tr('Es. K7M3-Q9TX', 'E.g. K7M3-Q9TX')}
                         value={codiceInvito}
                         onChange={(e) => setCodiceInvito(e.target.value)}
-                        required={ruoloScelto === 'CLIENTE' && invitoObbligatorio}
+                        required={ruoloScelto === 'CLIENTE'}
                       />
                       {ruoloScelto === 'TRAINER' && <p className="mt-1.5 text-xs text-muted">{tr('Con un codice invito entri subito. Senza, scrivi due righe su di te e la tua richiesta viene approvata dall’amministratore di Liftio.', 'With an invite code you get in straight away. Without one, write a couple of lines about yourself and your request is approved by the Liftio administrator.')}</p>}
                     </div>
@@ -598,6 +606,12 @@ export default function App() {
       {impostazioniAperte && !cambioPasswordAperto && !devoCambiarePassword && (
         <Modal titleId="settings-title" onClose={() => setImpostazioniAperte(false)}>
           <Impostazioni
+            cliente={ruolo === 'CLIENTE'}
+            onTrainerCambiato={() => {
+              // La dashboard si ricarica: schede, sezioni e dati cambiano con il trainer.
+              setImpostazioniAperte(false);
+              setChiaveUtente((k) => k + 1);
+            }}
             onChiudi={() => setImpostazioniAperte(false)}
             onCambiaPassword={() => {
               setImpostazioniAperte(false);

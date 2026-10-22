@@ -152,6 +152,12 @@ export default function PanoramicaTrainer() {
             <Riquadro valore={dati.totali.clientiAttivi} etichetta={tr('Clienti attivi (30 giorni)', 'Active clients (30 days)')} />
             <Riquadro valore={dati.totali.allenamenti30} etichetta={tr('Allenamenti (30 giorni)', 'Workouts (30 days)')} />
           </div>
+          {/* Solo il numero: di chi si allena da solo l'amministratore non vede nomi né dati */}
+          {dati.totali.autonomi !== undefined && (
+            <p className="text-sm text-muted">
+              {tr('Si allenano da soli, senza trainer:', 'Training on their own, without a trainer:')} <strong className="text-ink tabular-nums">{dati.totali.autonomi}</strong>
+            </p>
+          )}
           <ul className="space-y-3">
             {dati.trainer.map((t) => (
               <SchedaTrainer key={t.id} t={t} onCambiato={carica} />

@@ -144,6 +144,7 @@ function SchedaMisura({
   clienteId,
   nomeCliente,
   pesoAttuale,
+  autonomo,
   onCambiate,
 }: {
   tipo: TipoMisura;
@@ -152,10 +153,11 @@ function SchedaMisura({
   clienteId?: number;
   nomeCliente?: string;
   pesoAttuale?: number | null; // ultimo peso del cliente: serve alla plicometria
+  autonomo?: boolean; // si allena da solo: inserisce anche la sua massa grassa
   onCambiate: (nuove: MisuraCorporea[]) => void;
 }) {
   const info = TIPI[tipo];
-  const modificabile = ruolo === info.chiScrive;
+  const modificabile = ruolo === info.chiScrive || (!!autonomo && tipo === 'MASSA_GRASSA');
   const [valore, setValore] = useState('');
   const [giorno, setGiorno] = useState(oggi);
   const [errore, setErrore] = useState('');
@@ -342,7 +344,7 @@ function SchedaMisura({
   );
 }
 
-export default function MisureCorporee({ ruolo, clienteId, nomeCliente }: { ruolo: Ruolo; clienteId?: number; nomeCliente?: string }) {
+export default function MisureCorporee({ ruolo, clienteId, nomeCliente, autonomo }: { ruolo: Ruolo; clienteId?: number; nomeCliente?: string; autonomo?: boolean }) {
   const [misure, setMisure] = useState<MisuraCorporea[] | null>(null);
   const [errore, setErrore] = useState('');
 
@@ -383,6 +385,7 @@ export default function MisureCorporee({ ruolo, clienteId, nomeCliente }: { ruol
               clienteId={clienteId}
               nomeCliente={nomeCliente}
               pesoAttuale={perTipo('PESO').at(-1)?.valore ?? null}
+              autonomo={autonomo}
               onCambiate={aggiorna(tipo)}
             />
           ))}

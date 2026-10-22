@@ -7,6 +7,11 @@ import {
   eliminaSerie,
   getSessioni,
   getDiario,
+  getMe,
+  archiviaScheda,
+  ripristinaScheda,
+  getSchedeArchiviate,
+  Me,
   completaAllenamento,
   salvaFeedback,
   SessioneAllenamento,
@@ -19,6 +24,7 @@ import { seriePerGiorno, ultimaVoltaMigliore } from './calcoloProgressi';
 import MisureCorporee from './MisureCorporee';
 import CardioPassi from './CardioPassi';
 import DiarioAlimentare from './DiarioAlimentare';
+import EditorSchedaPersonale from './EditorSchedaPersonale';
 import { SceltaFatica } from './FeedbackCliente';
 import { gruppiCollegati, prossimoPasso, sigla } from './collegamenti';
 import { pianoSerie, riassuntoSerie, testoReps, testoRecupero, SerieDaFare } from './serie';
@@ -415,7 +421,26 @@ export default function ClienteDashboard() {
   ];
   const barra = <BarraSezioni voci={vociSezioni} attiva={sezione} onCambia={(s) => vaiA(s)} etichetta={tr('Sezioni', 'Sections')} />;
 
+  // Chi sono: serve a sapere se mi alleno da solo (creo io le schede) o con un trainer.
+  const [me, setMe] = useState<Me | null>(null);
+  const autonomo = me?.ruolo === 'CLIENTE' && me.trainer === null;
+  // Editor delle schede personali: 'nuova', la scheda da modificare, oppure chiuso.
+  const [editor, setEditor] = useState<'nuova' | Scheda | null>(null);
+  const [archiviate, setArchiviate] = useState<Scheda[] | null>(null); // null = archivio chiuso
+  const [daArchiviare, setDaArchiviare] = useState<number | null>(null);
   useEffect(() => {
+    if (daArchiviare === null) return;
+    const t = setTimeout(() => setDaArchiviare(null), 4000);
+    return () => clearTimeout(t);
+  }, [daArchiviare]);
+  const caricaMe = () => getMe().then(setMe).catch(() => setMe(null));
+
+  useEffect(() => {
+    caricaMe();
+    carica();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
     async function carica() {
       try {
         const [dati, sessioniSalvate] = await Promise.all([getSchede(), getSessioni()]);
@@ -460,8 +485,42 @@ export default function ClienteDashboard() {
         setCaricamento(false);
       }
     }
-    carica();
-  }, []);
+
+  // Schede personali: dopo una creazione/modifica/archiviazione si ricarica tutto.
+  async function dopoModificaSchede() {
+    setEditor(null);
+    setDaArchiviare(null);
+    await Promise.all([carica(), caricaMe(), archiviate ? getSchedeArchiviate().then(setArchiviate) : null]);
+    vaiInCima();
+  }
+  async function archivia(id: number) {
+    if (daArchiviare !== id) return setDaArchiviare(id);
+    try {
+      await archiviaScheda(id);
+      await dopoModificaSchede();
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : tr('Errore nell’archiviazione', 'Error archiving'));
+    }
+  }
+  async function ripristina(id: number) {
+    try {
+      await ripristinaScheda(id);
+      await dopoModificaSchede();
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : tr('Errore nel ripristino', 'Error restoring'));
+    }
+  }
+  async function apriArchivio() {
+    if (archiviate) return setArchiviate(null);
+    try {
+      setArchiviate(await getSchedeArchiviate());
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : tr('Errore nel caricamento dell’archivio', 'Error loading the archive'));
+    }
+  }
+  const limite = me?.limiteSchede ?? 3;
+  const personali = me?.schedePersonali ?? 0;
+  const puoCreare = autonomo && personali < limite;
 
   // Finché il timer è attivo, aggiorniamo "ora" 4 volte al secondo.
   useEffect(() => {
@@ -767,11 +826,11 @@ export default function ClienteDashboard() {
     return (
       <div className="pb-24 sm:pb-0">
         {barra}
-        {sezione === 'cardio' && <CardioPassi ruolo="CLIENTE" />}
+        {sezione === 'cardio' && <CardioPassi ruolo="CLIENTE" autonomo={autonomo} />}
         {/* Diario alimentare: lo scrive il cliente (con il suo consenso), il trainer lo legge e commenta */}
-        {sezione === 'diario' && <DiarioAlimentare ruolo="CLIENTE" />}
+        {sezione === 'diario' && <DiarioAlimentare ruolo="CLIENTE" autonomo={autonomo} />}
         {/* Peso corporeo (lo scrive il cliente) e massa grassa (la scrive il trainer) */}
-        {sezione === 'corpo' && <MisureCorporee ruolo="CLIENTE" />}
+        {sezione === 'corpo' && <MisureCorporee ruolo="CLIENTE" autonomo={autonomo} />}
       </div>
     );
   }
@@ -785,7 +844,64 @@ export default function ClienteDashboard() {
     );
   }
 
+  // Editor delle schede personali (chi si allena da solo)
+  if (editor !== null && schedaAperta === null) {
+    return (
+      <div className="pb-24 sm:pb-0">
+        {barra}
+        <EditorSchedaPersonale
+          key={editor === 'nuova' ? 'nuova' : editor.id}
+          scheda={editor === 'nuova' ? undefined : editor}
+          onSalvata={dopoModificaSchede}
+          onChiudi={() => setEditor(null)}
+        />
+      </div>
+    );
+  }
+
+  // Avviso "Liftio Pro" quando le schede gratis sono finite.
+  const cartaPro = (
+    <div className="card border-accent-strong/50 bg-accent-soft">
+      <p className="eyebrow mb-1">Liftio Pro · {tr('in arrivo', 'coming soon')}</p>
+      <p className="font-bold">{tr(`Hai usato le tue ${limite} schede gratis.`, `You’ve used your ${limite} free programmes.`)}</p>
+      <p className="mt-1 text-sm text-soft">
+        {tr(
+          'Con Liftio Pro potrai creare tutte le schede che vuoi. Intanto puoi modificare quelle che hai quando vuoi, oppure farti seguire da un trainer (Impostazioni → Il tuo trainer).',
+          'With Liftio Pro you’ll be able to create as many programmes as you like. Meanwhile you can edit the ones you have whenever you like, or get coached by a trainer (Settings → Your trainer).',
+        )}
+      </p>
+    </div>
+  );
+
   if (schede.length === 0) {
+    if (autonomo) {
+      return (
+        <div className="space-y-4 pb-24 sm:pb-0">
+          {barra}
+          {errore && <p className="alert-error">{errore}</p>}
+          <div className="card py-14 text-center">
+            <span className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-accent-strong" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-7 w-7"><rect x="6" y="4" width="12" height="17" rx="2" /><path d="M12 9v6M9 12h6" /></svg>
+            </span>
+            <h2 className="text-2xl font-black uppercase tracking-tight">{tr('Crea la tua prima scheda', 'Create your first programme')}</h2>
+            <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">
+              {tr(`Scegli gli esercizi, le serie e il recupero: poi ti alleni segnando i pesi, come in palestra. Le prime ${limite} schede sono gratis.`, `Choose the exercises, sets and rest: then you train logging your weights, like at the gym. The first ${limite} programmes are free.`)}
+            </p>
+            {puoCreare && <button type="button" className="btn-primary mt-5" onClick={() => setEditor('nuova')}>{tr('+ Nuova scheda', '+ New programme')}</button>}
+          </div>
+          {!puoCreare && cartaPro}
+          {personali > 0 && (
+            <button type="button" className="btn-link text-sm" onClick={apriArchivio}>{archiviate ? tr('Nascondi le schede archiviate', 'Hide archived programmes') : tr('Schede archiviate', 'Archived programmes')}</button>
+          )}
+          {archiviate && archiviate.map((a) => (
+            <div key={a.id} className="card flex items-center justify-between gap-3 py-3">
+              <span className="min-w-0 truncate font-semibold">{a.nome}</span>
+              <button type="button" className="btn-secondary shrink-0 px-3 text-sm" onClick={() => ripristina(a.id)}>{tr('Ripristina', 'Restore')}</button>
+            </div>
+          ))}
+        </div>
+      );
+    }
     return (
       <div className="space-y-4 pb-24 sm:pb-0">
         {barra}
@@ -796,6 +912,11 @@ export default function ClienteDashboard() {
           </span>
           <h2 className="text-2xl font-black uppercase tracking-tight">{tr('Il tuo percorso inizia qui', 'Your journey starts here')}</h2>
           <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">{tr('Il tuo trainer non ti ha ancora assegnato una scheda. Quando sarà pronta, la troverai in questa pagina.', 'Your trainer hasn’t assigned you a programme yet. When it’s ready, you’ll find it on this page.')}</p>
+          {personali > 0 && (
+            <p className="mx-auto mt-3 max-w-sm text-xs text-muted">
+              {tr('Le schede che ti eri creato da solo sono in pausa e restano salvate.', 'The programmes you created yourself are on pause and stay saved.')}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -845,14 +966,14 @@ export default function ClienteDashboard() {
                 <p className="text-xs text-muted">{tr('sollevati in totale', 'lifted in total')}</p>
               </div>
             </div>
-            <p className="mt-3 text-sm text-soft">{tr('Il tuo trainer vedrà che hai concluso l’allenamento.', 'Your trainer will see that you finished the workout.')}</p>
+            {!autonomo && <p className="mt-3 text-sm text-soft">{tr('Il tuo trainer vedrà che hai concluso l’allenamento.', 'Your trainer will see that you finished the workout.')}</p>}
 
             {/* Feedback per il trainer: com'è andata oggi */}
             <div className="mt-4 space-y-3 rounded-xl bg-bg/40 p-3">
               <p className="font-bold">{tr('Com’è andato l’allenamento?', 'How did the workout go?')}</p>
               {statoFeedback === 'salvato' ? (
                 <div className="space-y-2">
-                  <p className="text-sm text-success">{tr('✓ Inviato al tuo trainer', '✓ Sent to your trainer')}</p>
+                  <p className="text-sm text-success">{autonomo ? tr('✓ Salvato', '✓ Saved') : tr('✓ Inviato al tuo trainer', '✓ Sent to your trainer')}</p>
                   {riepilogo.fatica != null && (
                     <p className="text-sm">
                       {tr('Fatica', 'Effort')}: <span className="font-bold">{riepilogo.fatica}/10</span>
@@ -870,7 +991,7 @@ export default function ClienteDashboard() {
                     <SceltaFatica valore={fatica} onChange={setFatica} />
                   </div>
                   <div>
-                    <label className="label" htmlFor="nota-finale">{tr('Nota per il trainer (facoltativa)', 'Note for your trainer (optional)')}</label>
+                    <label className="label" htmlFor="nota-finale">{autonomo ? tr('Nota (facoltativa)', 'Note (optional)') : tr('Nota per il trainer (facoltativa)', 'Note for your trainer (optional)')}</label>
                     <textarea
                       id="nota-finale"
                       className="input min-h-[72px] resize-y"
@@ -886,7 +1007,7 @@ export default function ClienteDashboard() {
                     disabled={statoFeedback === 'salvo' || (fatica === null && !notaFinale.trim() && riepilogo.fatica == null && !riepilogo.nota)}
                     onClick={inviaFeedback}
                   >
-                    {statoFeedback === 'salvo' ? tr('Invio…', 'Sending…') : tr('Invia al trainer', 'Send to trainer')}
+                    {statoFeedback === 'salvo' ? tr('Invio…', 'Sending…') : autonomo ? tr('Salva', 'Save') : tr('Invia al trainer', 'Send to trainer')}
                   </button>
                 </>
               )}
@@ -906,8 +1027,15 @@ export default function ClienteDashboard() {
         <div className="space-y-4">
           <div>
             <h2 className="text-2xl font-black uppercase tracking-tight sm:text-3xl">{tr('Il tuo programma', 'Your plan')}</h2>
-            <p className="mt-1 text-sm text-muted">{tr('Le schede preparate dal tuo trainer.', 'The programmes your trainer prepared.')}</p>
+            <p className="mt-1 text-sm text-muted">
+              {autonomo
+                ? tr(`Le schede che ti sei creato · ${personali} di ${limite} gratis`, `The programmes you created · ${personali} of ${limite} free`)
+                : tr('Le schede preparate dal tuo trainer.', 'The programmes your trainer prepared.')}
+            </p>
           </div>
+          {autonomo && (puoCreare ? (
+            <button type="button" className="btn-primary w-full sm:w-auto" onClick={() => setEditor('nuova')}>{tr('+ Nuova scheda', '+ New programme')}</button>
+          ) : cartaPro)}
           <div className="grid gap-4 md:grid-cols-2">
           {schede.map((scheda) => {
             const { serieFatte, serieTotali, ultimaData } = statoScheda(scheda);
@@ -943,6 +1071,15 @@ export default function ClienteDashboard() {
                     <div className="h-full rounded-full bg-accent" style={{ width: `${serieTotali ? (serieFatte / serieTotali) * 100 : 0}%` }} />
                   </div>
                 </div>
+
+                {autonomo && (
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className="btn-ghost min-h-10 px-3 text-sm" onClick={() => setEditor(scheda)}>{tr('Modifica', 'Edit')}</button>
+                    <button type="button" className={daArchiviare === scheda.id ? 'btn-danger min-h-10 px-3 text-sm' : 'btn-ghost min-h-10 px-3 text-sm'} onClick={() => archivia(scheda.id)}>
+                      {daArchiviare === scheda.id ? tr('Sicuro? Tocca ancora', 'Sure? Tap again') : tr('Archivia', 'Archive')}
+                    </button>
+                  </div>
+                )}
 
                 <p className="mt-auto text-sm text-muted">
                   {ultimaData
@@ -982,6 +1119,21 @@ export default function ClienteDashboard() {
             );
           })}
           </div>
+          {/* Archivio delle schede personali: si ripristinano con un tocco (contano nel limite gratis) */}
+          {autonomo && (
+            <div className="space-y-2">
+              <button type="button" className="btn-link text-sm" onClick={apriArchivio}>
+                {archiviate ? tr('Nascondi le schede archiviate', 'Hide archived programmes') : tr('Schede archiviate', 'Archived programmes')}
+              </button>
+              {archiviate && archiviate.length === 0 && <p className="text-sm text-muted">{tr('Nessuna scheda archiviata.', 'No archived programmes.')}</p>}
+              {archiviate && archiviate.map((a) => (
+                <div key={a.id} className="card flex items-center justify-between gap-3 py-3">
+                  <span className="min-w-0 truncate font-semibold">{a.nome}</span>
+                  <button type="button" className="btn-secondary shrink-0 px-3 text-sm" onClick={() => ripristina(a.id)}>{tr('Ripristina', 'Restore')}</button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     );
