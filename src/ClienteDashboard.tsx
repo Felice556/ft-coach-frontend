@@ -29,7 +29,7 @@ import EditorSchedaPersonale from './EditorSchedaPersonale';
 import ProgrammiInArrivo from './ProgrammiInArrivo';
 import { SceltaFatica } from './FeedbackCliente';
 import { gruppiCollegati, prossimoPasso, sigla } from './collegamenti';
-import { pianoSerie, riassuntoSerie, testoReps, testoRecupero, SerieDaFare, SPIEGAZIONE_PIU_MAX } from './serie';
+import { pianoSerie, riassuntoSerie, testoReps, testoRecupero, SerieDaFare, SPIEGAZIONE_PIU_MAX, SPIEGAZIONE_RP } from './serie';
 import {
   impostaSuono,
   impostaVolume,
@@ -54,7 +54,7 @@ const CHIAVE_DIARIO_VISTO = 'diarioVistoIl'; // ultima volta che il cliente ha a
 // Valore di partenza del campo reps per una serie: il numero se è fisso,
 // vuoto se è "Max", un intervallo (6-9) o un drop set (+ max): lì il cliente scrive quante ne ha fatte davvero.
 function repsDiPartenza(serie: SerieDaFare | undefined): string {
-  if (!serie || serie.reps == null || serie.repsMax != null || serie.piuMax) return '';
+  if (!serie || serie.reps == null || serie.repsMax != null || serie.piuMax || serie.rpSecondi != null) return '';
   return String(serie.reps);
 }
 
@@ -1198,6 +1198,9 @@ export default function ClienteDashboard() {
               const piano = pianoSerie(es);
               const completato = oggi >= piano.length;
               const prossima = piano[oggi]; // undefined se l'esercizio è finito
+              // Recupero da far partire a mano: quello dell'ultima serie fatta (o dell'esercizio, prima di iniziare).
+              const recuperoManuale = (oggi > 0 ? piano[oggi - 1]?.recuperoSecondi : undefined) ?? es.recuperoSecondi;
+              const recuperoInCorso = timer !== null && timer.nome === es.nome;
               // La serie migliore dell'ultimo allenamento (non l'ultima serie, che può essere una extra più leggera).
               const ultimaVolta = ultimaVoltaMigliore(storico);
               // Tutte le note scritte su questo esercizio, dalla più recente.
@@ -1324,16 +1327,24 @@ export default function ClienteDashboard() {
                     <>
                       {/* Se la prossima serie ha valori propri (aggiunta dal trainer) o è "Max",
                           lo diciamo chiaramente prima dei campi */}
-                      {prossima && (prossima.aggiunta || prossima.reps == null || prossima.piuMax) && (
+                      {prossima && (prossima.aggiunta || prossima.reps == null || prossima.piuMax || prossima.rpSecondi != null) && (
                         <div className="rounded-xl border border-dashed border-accent-strong/70 bg-accent-soft px-3 py-2.5">
                           <p className="text-xs font-semibold tracking-wide text-accent-strong uppercase">
                             {tr('Serie', 'Set')} {prossima.numero}
                           </p>
                           <p className="mt-0.5 text-sm text-ink">
                             <span className="font-bold">
-                              {prossima.reps == null ? tr('Max ripetizioni', 'Max reps') : `${testoReps(prossima.reps, prossima.repsMax, prossima.piuMax)} reps`}
+                              {prossima.reps == null && prossima.rpSecondi == null
+                                ? tr('Max ripetizioni', 'Max reps')
+                                : prossima.piuMax || prossima.rpSecondi != null
+                                  ? testoReps(prossima.reps, prossima.repsMax, prossima.piuMax, prossima.rpSecondi)
+                                  : `${testoReps(prossima.reps, prossima.repsMax)} reps`}
                             </span>
-                            {prossima.piuMax && <span className="text-soft"> · {SPIEGAZIONE_PIU_MAX()}</span>}
+                            {prossima.rpSecondi != null ? (
+                              <span className="text-soft"> · {SPIEGAZIONE_RP(prossima.rpSecondi)}</span>
+                            ) : (
+                              prossima.piuMax && <span className="text-soft"> · {SPIEGAZIONE_PIU_MAX()}</span>
+                            )}
                             {!superset && <span className="text-soft"> · {testoRecupero(prossima.recuperoSecondi)}</span>}
                             {prossima.nota && <span className="text-soft"> · {prossima.nota}</span>}
                           </p>
@@ -1406,6 +1417,24 @@ export default function ClienteDashboard() {
                       >
                         {inInvio.has(es.id) ? tr('Salvo…', 'Saving…') : tr(`Registra serie ${oggi + 1} di ${piano.length}`, `Log set ${oggi + 1} of ${piano.length}`)}
                       </button>
+                      {/* Recupero anche a mano: ben visibile, per ricordare di rispettarlo tra una serie e l'altra.
+                          (Dopo "Registra serie" parte comunque da solo.) */}
+                      {recuperoManuale > 0 && !superset && (
+                        <button
+                          type="button"
+                          className="btn-secondary min-h-12 w-full gap-2"
+                          disabled={recuperoInCorso}
+                          onClick={() => avviaRecupero(es.nome, recuperoManuale)}
+                        >
+                          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="13" r="8" />
+                            <path d="M12 9v4l2.5 2.5M9.5 2.5h5" />
+                          </svg>
+                          {recuperoInCorso
+                            ? tr('Recupero in corso…', 'Rest in progress…')
+                            : tr(`Avvia recupero · ${formattaTempo(recuperoManuale)}`, `Start rest · ${formattaTempo(recuperoManuale)}`)}
+                        </button>
+                      )}
                     </>
                   )}
 

@@ -7,20 +7,24 @@ const esercizio = (dati: Partial<Esercizio>) =>
 
 describe('Ripetizioni scritte dal trainer', () => {
   it.each([
-    ['12', { reps: 12, repsMax: null, piuMax: false }],
-    ['6-9', { reps: 6, repsMax: 9, piuMax: false }],
-    ['6 / 9', { reps: 6, repsMax: 9, piuMax: false }],
-    ['6–9', { reps: 6, repsMax: 9, piuMax: false }],
-    ['max', { reps: null, repsMax: null, piuMax: false }],
-    ['MAX', { reps: null, repsMax: null, piuMax: false }],
-    ['6-9 + max', { reps: 6, repsMax: 9, piuMax: true }],
-    ['6-9+MAX', { reps: 6, repsMax: 9, piuMax: true }],
-    ['10 + Max', { reps: 10, repsMax: null, piuMax: true }],
+    ['12', { reps: 12, repsMax: null, piuMax: false, rpSecondi: null }],
+    ['6-9', { reps: 6, repsMax: 9, piuMax: false, rpSecondi: null }],
+    ['6 / 9', { reps: 6, repsMax: 9, piuMax: false, rpSecondi: null }],
+    ['6–9', { reps: 6, repsMax: 9, piuMax: false, rpSecondi: null }],
+    ['max', { reps: null, repsMax: null, piuMax: false, rpSecondi: null }],
+    ['MAX', { reps: null, repsMax: null, piuMax: false, rpSecondi: null }],
+    ['6-9 + max', { reps: 6, repsMax: 9, piuMax: true, rpSecondi: null }],
+    ['6-9+MAX', { reps: 6, repsMax: 9, piuMax: true, rpSecondi: null }],
+    ['10 + Max', { reps: 10, repsMax: null, piuMax: true, rpSecondi: null }],
+    ['6-9 + rp 20', { reps: 6, repsMax: 9, piuMax: false, rpSecondi: 20 }],
+    ['6-9 + rp 20s', { reps: 6, repsMax: 9, piuMax: false, rpSecondi: 20 }],
+    ['8+RP', { reps: 8, repsMax: null, piuMax: false, rpSecondi: 15 }],
+    ['max + rp 10', { reps: null, repsMax: null, piuMax: false, rpSecondi: 10 }],
   ])('"%s" è valido', (testo, atteso) => {
     expect(leggiReps(testo)).toEqual(atteso);
   });
 
-  it.each(['9-6', '0-5', '0', '-3', '2.5', 'dieci', '', 'max + max', '+ max'])('"%s" non è valido', (testo) => {
+  it.each(['9-6', '0-5', '0', '-3', '2.5', 'dieci', '', 'max + max', '+ max', '6-9 + rp 3', '6-9 + rp 500', '6-9 + rp 15 + max'])('"%s" non è valido', (testo) => {
     expect(leggiReps(testo)).toBeUndefined();
   });
 });
@@ -33,6 +37,9 @@ describe('Testi mostrati', () => {
     expect(testoReps(8, 8)).toBe('8'); // intervallo "finto"
     expect(testoReps(6, 9, true)).toBe('6-9 + max');
     expect(testoReps(10, null, true)).toBe('10 + max');
+    expect(testoReps(6, 9, false, 15)).toBe('6-9 + rp 15s');
+    expect(testoReps(null, null, false, 10)).toBe('Max + rp 10s');
+    expect(testoReps(6, 9, true, 15)).toBe('6-9 + rp 15s'); // una tecnica sola: vince il rest-pause
   });
 
   it('recupero', () => {

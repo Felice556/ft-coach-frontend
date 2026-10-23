@@ -620,10 +620,10 @@ export default function TrainerDashboard() {
       videoUrl: es.videoUrl || '',
       descrizione: es.descrizione || '',
       serieTarget: String(es.serieTarget),
-      repsTarget: testoReps(es.repsTarget, es.repsMax, es.piuMax),
+      repsTarget: testoReps(es.repsTarget, es.repsMax, es.piuMax, es.rpSecondi),
       recuperoSecondi: String(es.recuperoSecondi),
       serieExtra: (es.serieExtra || []).map((x) => ({
-        reps: testoReps(x.reps, x.repsMax, x.piuMax),
+        reps: testoReps(x.reps, x.repsMax, x.piuMax, x.rpSecondi),
         recuperoSecondi: String(x.recuperoSecondi),
         nota: x.nota || '',
       })),
@@ -978,7 +978,7 @@ export default function TrainerDashboard() {
         const valore = leggiReps(testo);
         if (valore === undefined) {
           throw new Error(
-            tr(`${dove}: reps non valide. Scrivi un numero (10), un intervallo (6-9), Max, oppure 6-9 + max`, `${dove}: invalid reps. Enter a number (10), a range (6-9), Max, or 6-9 + max`),
+            tr(`${dove}: reps non valide. Scrivi un numero (10), un intervallo (6-9), Max, oppure 6-9 + max o 6-9 + rp 15 (pausa tra 5 e 120 secondi)`, `${dove}: invalid reps. Enter a number (10), a range (6-9), Max, or 6-9 + max or 6-9 + rp 15 (break between 5 and 120 seconds)`),
           );
         }
         return valore;
@@ -1023,7 +1023,7 @@ export default function TrainerDashboard() {
         serieTarget: intero(es.serieTarget, es.nome || tr(`Esercizio ${indice + 1}`, `Exercise ${indice + 1}`), tr('numero di serie', 'number of sets'), 1),
         ...(() => {
           const r = reps(es.repsTarget, es.nome || tr('Esercizio', 'Exercise'));
-          return { repsTarget: r.reps, repsMax: r.repsMax, piuMax: r.piuMax };
+          return { repsTarget: r.reps, repsMax: r.repsMax, piuMax: r.piuMax, rpSecondi: r.rpSecondi };
         })(),
         recuperoSecondi: superset
           ? recuperoNascosto(es.recuperoSecondi)
@@ -1488,7 +1488,7 @@ export default function TrainerDashboard() {
                       {gruppoPer === es.chiave && (
                         <SceltaGruppo onScegli={(gruppo) => salvaComePreset(i, gruppo)} onAnnulla={() => setGruppoPer(null)} />
                       )}
-                      <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+                      <div className="grid grid-cols-[minmax(0,0.7fr)_minmax(0,1.3fr)_minmax(0,1fr)] gap-3 sm:grid-cols-6">
                         <div className="col-span-3 sm:col-span-3">
                           <label className="label">{tr('Esercizio', 'Exercise')}</label>
                           <CampoNomeEsercizio
@@ -1926,7 +1926,7 @@ export default function TrainerDashboard() {
                               </div>
                               {(es.serieExtra || []).map((x, j) => (
                                 <p key={j} className="mt-1 text-xs text-accent-strong">
-                                  + {tr('Serie', 'Set')} {es.serieTarget + j + 1}: {testoReps(x.reps, x.repsMax, x.piuMax)} reps{superset ? '' : ` · ${testoRecupero(x.recuperoSecondi)}`}
+                                  + {tr('Serie', 'Set')} {es.serieTarget + j + 1}: {testoReps(x.reps, x.repsMax, x.piuMax, x.rpSecondi)} reps{superset ? '' : ` · ${testoRecupero(x.recuperoSecondi)}`}
                                   {x.nota ? ` · ${x.nota}` : ''}
                                 </p>
                               ))}
