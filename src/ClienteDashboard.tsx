@@ -1198,8 +1198,10 @@ export default function ClienteDashboard() {
               const piano = pianoSerie(es);
               const completato = oggi >= piano.length;
               const prossima = piano[oggi]; // undefined se l'esercizio è finito
-              // Recupero da far partire a mano: quello dell'ultima serie fatta (o dell'esercizio, prima di iniziare).
-              const recuperoManuale = (oggi > 0 ? piano[oggi - 1]?.recuperoSecondi : undefined) ?? es.recuperoSecondi;
+              // Recupero da far partire a mano. Se la serie da fare è un rest-pause, è la sua pausa
+              // (si tocca arrivati a cedimento); altrimenti il recupero dell'ultima serie fatta.
+              const pausaRp = prossima?.rpSecondi ?? null;
+              const recuperoManuale = pausaRp ?? (oggi > 0 ? piano[oggi - 1]?.recuperoSecondi : undefined) ?? es.recuperoSecondi;
               const recuperoInCorso = timer !== null && timer.nome === es.nome;
               // La serie migliore dell'ultimo allenamento (non l'ultima serie, che può essere una extra più leggera).
               const ultimaVolta = ultimaVoltaMigliore(storico);
@@ -1419,7 +1421,7 @@ export default function ClienteDashboard() {
                       </button>
                       {/* Recupero anche a mano: ben visibile, per ricordare di rispettarlo tra una serie e l'altra.
                           (Dopo "Registra serie" parte comunque da solo.) */}
-                      {recuperoManuale > 0 && !superset && (
+                      {recuperoManuale > 0 && (!superset || pausaRp !== null) && (
                         <button
                           type="button"
                           className="btn-secondary min-h-12 w-full gap-2"
@@ -1432,7 +1434,9 @@ export default function ClienteDashboard() {
                           </svg>
                           {recuperoInCorso
                             ? tr('Recupero in corso…', 'Rest in progress…')
-                            : tr(`Avvia recupero · ${formattaTempo(recuperoManuale)}`, `Start rest · ${formattaTempo(recuperoManuale)}`)}
+                            : pausaRp !== null
+                              ? tr(`Avvia pausa rp · ${formattaTempo(recuperoManuale)}`, `Start RP break · ${formattaTempo(recuperoManuale)}`)
+                              : tr(`Avvia recupero · ${formattaTempo(recuperoManuale)}`, `Start rest · ${formattaTempo(recuperoManuale)}`)}
                         </button>
                       )}
                     </>
