@@ -750,7 +750,9 @@ export default function ClienteDashboard() {
       // Finito il rest-pause, dalla barra si fa partire il recupero della serie con un tocco.
       const rpAppenaFatta = piano[fatteOggi - 1]?.rpSecondi;
       if (rpAppenaFatta != null) {
-        avviaPausaRp(es.nome, rpAppenaFatta, piano[fatteOggi - 1]?.recuperoSecondi ?? es.recuperoSecondi);
+        // Era l'ultima serie dell'esercizio? Allora dopo il rest-pause niente recupero: si passa al prossimo esercizio.
+        const altreSerie = fatteOggi < piano.length;
+        avviaPausaRp(es.nome, rpAppenaFatta, altreSerie ? (piano[fatteOggi - 1]?.recuperoSecondi ?? es.recuperoSecondi) : undefined);
         return;
       }
       const recuperoSerie = piano[fatteOggi - 1]?.recuperoSecondi ?? es.recuperoSecondi;
