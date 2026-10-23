@@ -29,7 +29,7 @@ import EditorSchedaPersonale from './EditorSchedaPersonale';
 import ProgrammiInArrivo from './ProgrammiInArrivo';
 import { SceltaFatica } from './FeedbackCliente';
 import { gruppiCollegati, prossimoPasso, sigla } from './collegamenti';
-import { pianoSerie, riassuntoSerie, testoReps, testoRecupero, SerieDaFare } from './serie';
+import { pianoSerie, riassuntoSerie, testoReps, testoRecupero, SerieDaFare, SPIEGAZIONE_PIU_MAX } from './serie';
 import {
   impostaSuono,
   impostaVolume,
@@ -52,9 +52,9 @@ const CHIAVE_SEZIONE = 'sezioneCliente';
 const CHIAVE_DIARIO_VISTO = 'diarioVistoIl'; // ultima volta che il cliente ha aperto il diario
 
 // Valore di partenza del campo reps per una serie: il numero se è fisso,
-// vuoto se è "Max" o un intervallo (6-9): lì il cliente scrive quante ne ha fatte davvero.
+// vuoto se è "Max", un intervallo (6-9) o un drop set (+ max): lì il cliente scrive quante ne ha fatte davvero.
 function repsDiPartenza(serie: SerieDaFare | undefined): string {
-  if (!serie || serie.reps == null || serie.repsMax != null) return '';
+  if (!serie || serie.reps == null || serie.repsMax != null || serie.piuMax) return '';
   return String(serie.reps);
 }
 
@@ -1324,15 +1324,16 @@ export default function ClienteDashboard() {
                     <>
                       {/* Se la prossima serie ha valori propri (aggiunta dal trainer) o è "Max",
                           lo diciamo chiaramente prima dei campi */}
-                      {prossima && (prossima.aggiunta || prossima.reps == null) && (
+                      {prossima && (prossima.aggiunta || prossima.reps == null || prossima.piuMax) && (
                         <div className="rounded-xl border border-dashed border-accent-strong/70 bg-accent-soft px-3 py-2.5">
                           <p className="text-xs font-semibold tracking-wide text-accent-strong uppercase">
                             {tr('Serie', 'Set')} {prossima.numero}
                           </p>
                           <p className="mt-0.5 text-sm text-ink">
                             <span className="font-bold">
-                              {prossima.reps == null ? tr('Max ripetizioni', 'Max reps') : `${testoReps(prossima.reps, prossima.repsMax)} reps`}
+                              {prossima.reps == null ? tr('Max ripetizioni', 'Max reps') : `${testoReps(prossima.reps, prossima.repsMax, prossima.piuMax)} reps`}
                             </span>
+                            {prossima.piuMax && <span className="text-soft"> · {SPIEGAZIONE_PIU_MAX()}</span>}
                             {!superset && <span className="text-soft"> · {testoRecupero(prossima.recuperoSecondi)}</span>}
                             {prossima.nota && <span className="text-soft"> · {prossima.nota}</span>}
                           </p>

@@ -27,6 +27,7 @@ export interface SerieExtra {
   id?: number;
   reps: number | null;
   repsMax?: number | null; // per gli intervalli: "6-9" → reps 6, repsMax 9
+  piuMax?: boolean; // "+ max" (drop set): "6-9 + max"
   recuperoSecondi: number;
   nota?: string | null;
 }
@@ -43,6 +44,7 @@ export interface Esercizio {
   serieTarget: number;
   repsTarget: number | null; // null = "Max"; negli intervalli è il minimo
   repsMax?: number | null; // per gli intervalli: "6-9" → repsTarget 6, repsMax 9
+  piuMax?: boolean; // "+ max" (drop set): fatte le reps, si scala il peso e si va a cedimento
   recuperoSecondi: number;
   schedaId: number;
   serieExtra: SerieExtra[];

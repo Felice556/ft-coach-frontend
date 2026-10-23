@@ -50,35 +50,7 @@ import {
 import { riassuntoSerie, testoReps, testoRecupero, leggiReps } from './serie';
 import { locale, tr } from './lingua';
 import { BarraSezioni, ICONE, ricordaSezione, useIndirizzo } from './Sezioni';
-
-// Campo ripetizioni: numero dalla tastiera numerica, oppure "Max" con un tocco sul bottone.
-function CampoReps({ valore, onChange }: { valore: string; onChange: (v: string) => void }) {
-  const eMax = /^max$/i.test(valore.trim());
-  return (
-    // Il bottone sta DENTRO il campo (a destra), così funziona anche nelle colonne strette del telefono.
-    <div className="relative">
-      <input
-        className="input pr-12"
-        type="text"
-        // Niente tastierino numerico: sul telefono non ha il trattino per scrivere "6-9".
-        placeholder={tr('10 o 6-9', '10 or 6-9')}
-        value={eMax ? 'Max' : valore}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      <button
-        type="button"
-        aria-pressed={eMax}
-        title={tr('Ripetizioni massime (a cedimento)', 'Max reps (to failure)')}
-        className={`absolute top-1/2 right-1.5 h-8 -translate-y-1/2 rounded-lg px-2 text-[11px] font-bold transition ${
-          eMax ? 'bg-accent text-accent-ink' : 'bg-surface-2 text-muted hover:text-ink'
-        }`}
-        onClick={() => onChange(eMax ? '' : 'Max')}
-      >
-        Max
-      </button>
-    </div>
-  );
-}
+import CampoReps from './CampoReps';
 
 // Da quanto tempo esiste una scheda, in parole: "oggi", "3 giorni fa", "2 mesi fa".
 function etaScheda(iso: string): string {
@@ -648,10 +620,10 @@ export default function TrainerDashboard() {
       videoUrl: es.videoUrl || '',
       descrizione: es.descrizione || '',
       serieTarget: String(es.serieTarget),
-      repsTarget: testoReps(es.repsTarget, es.repsMax),
+      repsTarget: testoReps(es.repsTarget, es.repsMax, es.piuMax),
       recuperoSecondi: String(es.recuperoSecondi),
       serieExtra: (es.serieExtra || []).map((x) => ({
-        reps: testoReps(x.reps, x.repsMax),
+        reps: testoReps(x.reps, x.repsMax, x.piuMax),
         recuperoSecondi: String(x.recuperoSecondi),
         nota: x.nota || '',
       })),
@@ -1001,12 +973,12 @@ export default function TrainerDashboard() {
     }
     setSalvando(true);
     try {
-      // Reps: "10", "6-9" oppure "Max". Se è altro, fermiamo il salvataggio con un messaggio chiaro.
+      // Reps: "10", "6-9", "Max" oppure con il drop set "6-9 + max". Se è altro, fermiamo il salvataggio con un messaggio chiaro.
       const reps = (testo: string, dove: string) => {
         const valore = leggiReps(testo);
         if (valore === undefined) {
           throw new Error(
-            tr(`${dove}: reps non valide. Scrivi un numero (10), un intervallo (6-9) o Max`, `${dove}: invalid reps. Enter a number (10), a range (6-9) or Max`),
+            tr(`${dove}: reps non valide. Scrivi un numero (10), un intervallo (6-9), Max, oppure 6-9 + max`, `${dove}: invalid reps. Enter a number (10), a range (6-9), Max, or 6-9 + max`),
           );
         }
         return valore;
@@ -1051,7 +1023,7 @@ export default function TrainerDashboard() {
         serieTarget: intero(es.serieTarget, es.nome || tr(`Esercizio ${indice + 1}`, `Exercise ${indice + 1}`), tr('numero di serie', 'number of sets'), 1),
         ...(() => {
           const r = reps(es.repsTarget, es.nome || tr('Esercizio', 'Exercise'));
-          return { repsTarget: r.reps, repsMax: r.repsMax };
+          return { repsTarget: r.reps, repsMax: r.repsMax, piuMax: r.piuMax };
         })(),
         recuperoSecondi: superset
           ? recuperoNascosto(es.recuperoSecondi)
@@ -1954,7 +1926,7 @@ export default function TrainerDashboard() {
                               </div>
                               {(es.serieExtra || []).map((x, j) => (
                                 <p key={j} className="mt-1 text-xs text-accent-strong">
-                                  + {tr('Serie', 'Set')} {es.serieTarget + j + 1}: {testoReps(x.reps, x.repsMax)} reps{superset ? '' : ` · ${testoRecupero(x.recuperoSecondi)}`}
+                                  + {tr('Serie', 'Set')} {es.serieTarget + j + 1}: {testoReps(x.reps, x.repsMax, x.piuMax)} reps{superset ? '' : ` · ${testoRecupero(x.recuperoSecondi)}`}
                                   {x.nota ? ` · ${x.nota}` : ''}
                                 </p>
                               ))}

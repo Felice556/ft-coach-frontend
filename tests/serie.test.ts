@@ -7,17 +7,20 @@ const esercizio = (dati: Partial<Esercizio>) =>
 
 describe('Ripetizioni scritte dal trainer', () => {
   it.each([
-    ['12', { reps: 12, repsMax: null }],
-    ['6-9', { reps: 6, repsMax: 9 }],
-    ['6 / 9', { reps: 6, repsMax: 9 }],
-    ['6–9', { reps: 6, repsMax: 9 }],
-    ['max', { reps: null, repsMax: null }],
-    ['MAX', { reps: null, repsMax: null }],
+    ['12', { reps: 12, repsMax: null, piuMax: false }],
+    ['6-9', { reps: 6, repsMax: 9, piuMax: false }],
+    ['6 / 9', { reps: 6, repsMax: 9, piuMax: false }],
+    ['6–9', { reps: 6, repsMax: 9, piuMax: false }],
+    ['max', { reps: null, repsMax: null, piuMax: false }],
+    ['MAX', { reps: null, repsMax: null, piuMax: false }],
+    ['6-9 + max', { reps: 6, repsMax: 9, piuMax: true }],
+    ['6-9+MAX', { reps: 6, repsMax: 9, piuMax: true }],
+    ['10 + Max', { reps: 10, repsMax: null, piuMax: true }],
   ])('"%s" è valido', (testo, atteso) => {
     expect(leggiReps(testo)).toEqual(atteso);
   });
 
-  it.each(['9-6', '0-5', '0', '-3', '2.5', 'dieci', ''])('"%s" non è valido', (testo) => {
+  it.each(['9-6', '0-5', '0', '-3', '2.5', 'dieci', '', 'max + max', '+ max'])('"%s" non è valido', (testo) => {
     expect(leggiReps(testo)).toBeUndefined();
   });
 });
@@ -28,6 +31,8 @@ describe('Testi mostrati', () => {
     expect(testoReps(6, 9)).toBe('6-9');
     expect(testoReps(null)).toBe('Max');
     expect(testoReps(8, 8)).toBe('8'); // intervallo "finto"
+    expect(testoReps(6, 9, true)).toBe('6-9 + max');
+    expect(testoReps(10, null, true)).toBe('10 + max');
   });
 
   it('recupero', () => {
@@ -38,6 +43,12 @@ describe('Testi mostrati', () => {
   it('riassunto di un esercizio con serie aggiunte', () => {
     const es = esercizio({ serieTarget: 2, repsTarget: 6, repsMax: 9, serieExtra: [{ reps: null, recuperoSecondi: 60 }] });
     expect(riassuntoSerie(es)).toBe('2 × 6-9 + 1 × Max');
+  });
+
+  it('riassunto con drop set', () => {
+    const es = esercizio({ serieTarget: 2, repsTarget: 6, repsMax: 9, serieExtra: [{ reps: 6, repsMax: 9, piuMax: true, recuperoSecondi: 60 }] });
+    expect(riassuntoSerie(es)).toBe('2 × 6-9 + 1 × 6-9 + max');
+    expect(pianoSerie(es)[2].piuMax).toBe(true);
   });
 });
 
