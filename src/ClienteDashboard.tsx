@@ -296,7 +296,9 @@ function SerieRiga({ serie, etichetta, onModificata, onEliminata }: SerieRigaPro
 // ---------- Vista cliente ----------
 
 // `poi`: in superset/jumpset, l'esercizio da fare dopo il recupero (es. "A2 · Rematore").
-type Timer = { nome: string; fine: number; totale: number; poi?: string };
+// rp = true: è la pausa del rest-pause (non il recupero tra le serie);
+// recuperoDopo = recupero normale da far partire finito il rest-pause (bottone nella barra).
+type Timer = { nome: string; fine: number; totale: number; poi?: string; rp?: boolean; recuperoDopo?: number };
 
 // Icona altoparlante: con le onde se il suono è attivo, con la X se è silenziato.
 function IconaVolume({ muto }: { muto: boolean }) {
@@ -583,13 +585,16 @@ export default function ClienteDashboard() {
   }, [timerAttivo]);
 
   // Il recupero dipende dalla serie appena fatta: una serie aggiunta può averne uno diverso.
-  function avviaRecupero(nome: string, secondi: number, poi?: string) {
+  function avviaRecupero(nome: string, secondi: number, poi?: string, rp?: boolean, recuperoDopo?: number) {
     if (secondi <= 0) return;
     const adesso = Date.now();
     setOra(adesso);
     setAvviso(null);
-    setTimer({ nome, fine: adesso + secondi * 1000, totale: secondi * 1000, poi });
+    setTimer({ nome, fine: adesso + secondi * 1000, totale: secondi * 1000, poi, rp, recuperoDopo });
   }
+  // Pausa del rest-pause: dopo si riprende con lo stesso peso; finito, dalla barra parte il recupero normale.
+  const avviaPausaRp = (nome: string, secondi: number, recuperoDopo?: number) =>
+    avviaRecupero(nome, secondi, tr('stesso peso, di nuovo fino a cedimento', 'same weight, again to failure'), true, recuperoDopo);
 
   // Superset: dopo una serie si passa subito al prossimo esercizio, senza timer.
   // Al posto della barra del recupero compare un avviso "Ora: A2 · Rematore".
@@ -741,6 +746,13 @@ export default function ClienteDashboard() {
         const fatte = e.id === es.id ? fatteOggi : (storici[e.id] || []).filter((x) => eOggi(x.data)).length;
         return fatte < pianoSerie(e).length;
       };
+      // Serie con rest-pause appena registrata: parte subito la sua pausa (non il recupero normale).
+      // Finito il rest-pause, dalla barra si fa partire il recupero della serie con un tocco.
+      const rpAppenaFatta = piano[fatteOggi - 1]?.rpSecondi;
+      if (rpAppenaFatta != null) {
+        avviaPausaRp(es.nome, rpAppenaFatta, piano[fatteOggi - 1]?.recuperoSecondi ?? es.recuperoSecondi);
+        return;
+      }
       const recuperoSerie = piano[fatteOggi - 1]?.recuperoSecondi ?? es.recuperoSecondi;
       const passo = prossimoPasso(lista, indice, restano, recuperoSerie);
       if (passo.prossimo === indice) {
@@ -1163,7 +1175,7 @@ export default function ClienteDashboard() {
   // ---------- ALLENAMENTO sulla scheda aperta ----------
   return (
     // Spazio in fondo quando c'è la barra del timer, così non copre l'ultimo esercizio.
-    <div className={`mx-auto max-w-3xl space-y-6 ${timer ? 'pb-64' : avviso ? 'pb-32' : ''}`}>
+    <div className={`mx-auto max-w-3xl space-y-6 ${timer ? (timer.rp ? 'pb-80' : 'pb-64') : avviso ? 'pb-32' : ''}`}>
       {errore && <p className="alert-error">{errore}</p>}
 
       <button className="btn-ghost -mt-2" onClick={tornaAllaHome}>
@@ -1426,7 +1438,9 @@ export default function ClienteDashboard() {
                           type="button"
                           className="btn-secondary min-h-12 w-full gap-2"
                           disabled={recuperoInCorso}
-                          onClick={() => avviaRecupero(es.nome, recuperoManuale)}
+                          onClick={() =>
+                            pausaRp !== null ? avviaPausaRp(es.nome, recuperoManuale, prossima?.recuperoSecondi) : avviaRecupero(es.nome, recuperoManuale)
+                          }
                         >
                           <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <circle cx="12" cy="13" r="8" />
@@ -1587,7 +1601,14 @@ export default function ClienteDashboard() {
           {/* Riga del suono: altoparlante per silenziare e slider del volume */}
           <div className="mx-auto flex max-w-3xl items-center gap-2">
             <p className="min-w-0 flex-1 truncate text-xs text-muted">
-              {recuperoFinito ? tr('Recupero finito', 'Rest over') : tr('Recupero', 'Rest')} · {timer.nome}
+              {timer.rp
+                ? recuperoFinito
+                  ? tr('Pausa rp finita', 'RP break over')
+                  : tr('Pausa rp', 'RP break')
+                : recuperoFinito
+                  ? tr('Recupero finito', 'Rest over')
+                  : tr('Recupero', 'Rest')}{' '}
+              · {timer.nome}
             </p>
             <button
               type="button"
@@ -1630,6 +1651,14 @@ export default function ClienteDashboard() {
               {recuperoFinito ? tr('Chiudi', 'Close') : tr('Salta', 'Skip')}
             </button>
           </div>
+          {/* Rest-pause: fatto il mini-set (anche prima che finisca la pausa), parte il recupero vero */}
+          {timer.rp && timer.recuperoDopo ? (
+            <div className="mx-auto mt-2 max-w-3xl">
+              <button className={`${recuperoFinito ? 'btn-primary' : 'btn-secondary'} min-h-11 w-full`} onClick={() => avviaRecupero(timer.nome, timer.recuperoDopo!)}>
+                {tr(`Fatto il rest-pause · avvia recupero ${formattaTempo(timer.recuperoDopo)}`, `Rest-pause done · start rest ${formattaTempo(timer.recuperoDopo)}`)}
+              </button>
+            </div>
+          ) : null}
           {!recuperoFinito && (
             <div className="mx-auto mt-3 grid max-w-3xl grid-cols-4 gap-2">
               {[-15, -10, 10, 15].map((s) => (
