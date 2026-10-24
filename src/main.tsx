@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
+import { paginaPubblica } from './PaginePubbliche';
 import './index.css';
 import { applicaTema, leggiSceltaTema, seguiTemaDelTelefono } from './tema';
 
@@ -10,6 +11,7 @@ seguiTemaDelTelefono();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    {/* liftio.it/privacy e liftio.it/elimina-account: pagine pubbliche, senza accesso */}
+    {paginaPubblica(window.location.pathname) ?? <App />}
   </StrictMode>
 );

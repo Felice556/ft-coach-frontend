@@ -6,6 +6,13 @@ export type Lingua = 'it' | 'en';
 const CHIAVE = 'lingua';
 
 export function linguaIniziale(): Lingua {
+  // Un link con ?lang=en o ?lang=it (es. le pagine pubbliche linkate da Google Play) sceglie la lingua.
+  try {
+    const daLink = new URLSearchParams(window.location.search).get('lang');
+    if (daLink === 'it' || daLink === 'en') return daLink;
+  } catch {
+    // nessun indirizzo (es. nei test)
+  }
   try {
     const salvata = localStorage.getItem(CHIAVE);
     if (salvata === 'it' || salvata === 'en') return salvata;
