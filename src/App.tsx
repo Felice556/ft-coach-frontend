@@ -219,6 +219,8 @@ export default function App() {
   // Informativa privacy aperta, e consenso dato in registrazione (serve per peso e massa grassa).
   const [privacyAperta, setPrivacyAperta] = useState(false);
   const [consensoPrivacy, setConsensoPrivacy] = useState(false);
+  // Liftio è solo per maggiorenni: chi si registra lo dichiara (vedi informativa, "Solo per maggiorenni").
+  const [maggiorenne, setMaggiorenne] = useState(false);
 
   // Sessione scaduta mentre l'app è aperta: invece di buttare fuori l'utente (e fargli
   // perdere quello che stava scrivendo) mostriamo un login in sovrimpressione.
@@ -308,6 +310,10 @@ export default function App() {
     e.preventDefault();
     if (inInvio) return;
     setErrore('');
+    if (!maggiorenne) {
+      setErrore(tr('Liftio è solo per maggiorenni: conferma di avere almeno 18 anni', 'Liftio is for adults only: confirm you are at least 18'));
+      return;
+    }
     if (!consensoPrivacy) {
       setErrore(tr('Per registrarti devi accettare l’informativa privacy', 'To sign up you need to accept the privacy notice'));
       return;
@@ -510,6 +516,21 @@ export default function App() {
                       />
                     </div>
                     </>
+                  )}
+                  {modalitaRegistrazione && (
+                    <div className="flex items-start gap-3 rounded-xl border border-line bg-field p-3">
+                      <input
+                        id="auth-maggiorenne"
+                        type="checkbox"
+                        className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-accent-strong"
+                        checked={maggiorenne}
+                        onChange={(e) => setMaggiorenne(e.target.checked)}
+                        required
+                      />
+                      <label htmlFor="auth-maggiorenne" className="text-sm leading-snug text-soft">
+                        {tr('Dichiaro di avere almeno 18 anni.', 'I confirm I am at least 18 years old.')}
+                      </label>
+                    </div>
                   )}
                   {modalitaRegistrazione && (
                     <div className="flex items-start gap-3 rounded-xl border border-line bg-field p-3">

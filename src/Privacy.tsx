@@ -11,7 +11,7 @@ import { lingua, tr } from './lingua';
 
 export const GESTORE = 'Felice Russo'; // nome e cognome di chi gestisce l'app (e ne è l'amministratore)
 export const EMAIL_PRIVACY = 'felice.lgg@gmail.com'; // email per tutte le richieste sulla privacy
-export const AGGIORNATA_IL = '21/10/2026';
+export const AGGIORNATA_IL = '24/10/2026';
 
 function Paragrafo({ titolo, children }: { titolo: string; children: React.ReactNode }) {
   return (
@@ -145,6 +145,14 @@ function TestoItaliano() {
             dall’UE, con le garanzie previste dalla legge (EU-US Data Privacy Framework e clausole contrattuali standard).
           </li>
         </ul>
+      </Paragrafo>
+
+      <Paragrafo titolo="Solo per maggiorenni">
+        <p>
+          Liftio è riservata a chi ha almeno 18 anni: registrandoti dichiari di essere maggiorenne. Se scopriamo che un
+          account appartiene a un minore, lo eliminiamo con tutti i suoi dati. Un genitore può chiederlo scrivendo a{' '}
+          {EMAIL_PRIVACY}.
+        </p>
       </Paragrafo>
 
       <Paragrafo titolo="Sospensione dell’accesso">
@@ -285,6 +293,14 @@ function TestoInglese() {
             with the safeguards required by law (EU-US Data Privacy Framework and standard contractual clauses).
           </li>
         </ul>
+      </Paragrafo>
+
+      <Paragrafo titolo="Adults only">
+        <p>
+          Liftio is only for people aged 18 or over: by signing up you confirm you are an adult. If we find out that an
+          account belongs to a minor, we delete it along with all its data. A parent can ask us to do so by writing to{' '}
+          {EMAIL_PRIVACY}.
+        </p>
       </Paragrafo>
 
       <Paragrafo titolo="Suspended access">
