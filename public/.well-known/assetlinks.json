@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "it.liftio.app",
+      "sha256_cert_fingerprints": [
+        "CB:8F:0E:13:8B:50:51:98:8A:E9:47:51:24:6B:5F:5A:9D:39:B4:86:36:2F:57:23:23:F7:09:DF:18:26:48:66"
+      ]
+    }
+  }
+]
