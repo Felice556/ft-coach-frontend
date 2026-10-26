@@ -919,7 +919,7 @@ export default function ClienteDashboard() {
             </span>
             <h2 className="text-2xl font-black uppercase tracking-tight">{tr('Crea la tua prima scheda', 'Create your first programme')}</h2>
             <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted">
-              {tr(`Scegli gli esercizi, le serie e il recupero: poi ti alleni segnando i pesi, come in palestra. Le prime ${limite} schede sono gratis.`, `Choose the exercises, sets and rest: then you train logging your weights, like at the gym. The first ${limite} programmes are free.`)}
+              {tr(`Scegli gli esercizi, le serie e il recupero: poi ti alleni segnando i pesi, come in palestra.`, `Choose the exercises, sets and rest: then you train logging your weights, like at the gym.`)}
             </p>
             {puoCreare && <button type="button" className="btn-primary mt-5" onClick={() => setEditor('nuova')}>{tr('+ Nuova scheda', '+ New programme')}</button>}
           </div>
@@ -1063,7 +1063,7 @@ export default function ClienteDashboard() {
             <h2 className="text-2xl font-black uppercase tracking-tight sm:text-3xl">{tr('Il tuo programma', 'Your plan')}</h2>
             <p className="mt-1 text-sm text-muted">
               {autonomo
-                ? tr(`Le schede che ti sei creato · le prime ${limite} sono gratis`, `The programmes you created · the first ${limite} are free`)
+                ? tr('Le schede che ti sei creato', 'The programmes you created')
                 : tr('Le schede preparate dal tuo trainer.', 'The programmes your trainer prepared.')}
             </p>
           </div>

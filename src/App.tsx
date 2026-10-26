@@ -463,7 +463,7 @@ export default function App() {
                   {modalitaRegistrazione && ruoloScelto === 'AUTONOMO' && (
                     <div className="rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm leading-6 text-soft">
                       <p>
-                        <strong className="text-ink">{tr('Crei tu le tue schede: le prime 3 sono gratis.', 'You create your own programmes: the first 3 are free.')}</strong>{' '}
+                        <strong className="text-ink">{tr('Crei tu le tue schede, gratis.', 'You create your own programmes, for free.')}</strong>{' '}
                         {tr(
                           'Se un giorno ti segue un trainer, inserisci il suo codice in Impostazioni: le tue schede restano salvate.',
                           'If a trainer coaches you one day, enter their code in Settings: your programmes stay saved.',
