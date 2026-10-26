@@ -206,7 +206,10 @@ export default function App() {
   const [codiceInvito, setCodiceInvito] = useState(invitoDalLink);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // Nome e cognome separati in registrazione: si salvano insieme ("Marco Rossi"),
+  // così due persone con lo stesso nome non si confondono.
   const [nomeInput, setNomeInput] = useState('');
+  const [cognomeInput, setCognomeInput] = useState('');
   // Come userà Liftio chi si registra: da solo, con un trainer (serve il suo codice), oppure da trainer.
   // Un link d'invito trainer (…&ruolo=trainer) apre la registrazione con "Sono un trainer" già scelto;
   // un link d'invito cliente con "Mi segue un trainer".
@@ -310,6 +313,10 @@ export default function App() {
     e.preventDefault();
     if (inInvio) return;
     setErrore('');
+    if (nomeInput.trim().length < 2 || cognomeInput.trim().length < 2) {
+      setErrore(tr('Scrivi nome e cognome (almeno 2 lettere ciascuno)', 'Enter your first and last name (at least 2 letters each)'));
+      return;
+    }
     if (!maggiorenne) {
       setErrore(tr('Liftio è solo per maggiorenni: conferma di avere almeno 18 anni', 'Liftio is for adults only: confirm you are at least 18'));
       return;
@@ -324,8 +331,9 @@ export default function App() {
       // Chi si allena da solo non usa codici: si collegherà a un trainer più avanti, se vorrà.
       const codiceDaUsare = (ruoloScelto === 'TRAINER' && !mostraCodiceTrainer) || ruoloScelto === 'AUTONOMO' ? '' : codiceInvito;
       const senzaInvito = ruoloScelto === 'TRAINER' && !codiceDaUsare.trim();
+      const nomeCompleto = `${nomeInput.trim()} ${cognomeInput.trim()}`.replace(/\s+/g, ' ');
       const esito = await register(
-        nomeInput,
+        nomeCompleto,
         email,
         password,
         ruoloScelto === 'TRAINER' ? 'TRAINER' : 'CLIENTE',
@@ -434,7 +442,12 @@ export default function App() {
                   </div>
                 )}
                 <form onSubmit={modalitaRegistrazione ? handleRegister : handleLogin} className="space-y-5" aria-busy={inInvio}>
-                  {modalitaRegistrazione && <div><label htmlFor="auth-name" className="label">{tr('Nome', 'Name')}</label><input id="auth-name" name="name" className="input" autoComplete="name" placeholder={tr('Il tuo nome', 'Your name')} value={nomeInput} onChange={(e) => setNomeInput(e.target.value)} required /></div>}
+                  {modalitaRegistrazione && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><label htmlFor="auth-name" className="label">{tr('Nome', 'First name')}</label><input id="auth-name" name="given-name" className="input" autoComplete="given-name" autoCapitalize="words" placeholder={tr('Mario', 'John')} maxLength={30} value={nomeInput} onChange={(e) => setNomeInput(e.target.value)} required /></div>
+                      <div><label htmlFor="auth-surname" className="label">{tr('Cognome', 'Last name')}</label><input id="auth-surname" name="family-name" className="input" autoComplete="family-name" autoCapitalize="words" placeholder={tr('Rossi', 'Smith')} maxLength={29} value={cognomeInput} onChange={(e) => setCognomeInput(e.target.value)} required /></div>
+                    </div>
+                  )}
                   <div>
                     <label htmlFor="auth-email" className="label">{tr('Indirizzo email', 'Email address')}</label>
                     <input id="auth-email" name="email" className="input" type="email" autoComplete="email" autoCapitalize="none" placeholder={tr('nome@esempio.it', 'name@example.com')} value={email} onChange={(e) => setEmail(e.target.value)} required />

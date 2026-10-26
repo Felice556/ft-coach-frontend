@@ -1259,7 +1259,8 @@ export default function TrainerDashboard() {
                 >
                   {clientiConSessioni.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.nome} · {c.quanti === 1 ? tr('1 allenamento', '1 workout') : tr(`${c.quanti} allenamenti`, `${c.quanti} workouts`)}
+                      {/* Due clienti con lo stesso nome: si distinguono dall'email */}
+                      {c.nome}{clientiConSessioni.some((a) => a.id !== c.id && a.nome.trim().toLowerCase() === c.nome.trim().toLowerCase()) ? ` (${clienti.find((x) => x.id === c.id)?.email ?? ''})` : ''} · {c.quanti === 1 ? tr('1 allenamento', '1 workout') : tr(`${c.quanti} allenamenti`, `${c.quanti} workouts`)}
                     </option>
                   ))}
                 </select>
@@ -1784,6 +1785,8 @@ export default function TrainerDashboard() {
                               <span className="truncate">{c.nome}</span>
                               {c.sospeso && <span className="shrink-0 rounded-md bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning">{tr('Sospeso', 'Suspended')}</span>}
                             </span>
+                            {/* L'email distingue due clienti con lo stesso nome */}
+                            <span className="block truncate text-xs text-muted">{c.email}</span>
                             <span className="block text-xs text-muted">
                               {numero === 1 ? tr('1 scheda', '1 programme') : tr(`${numero} schede`, `${numero} programmes`)}
                             </span>
