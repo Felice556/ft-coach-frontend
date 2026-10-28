@@ -75,8 +75,9 @@ function TestoItaliano() {
       <Paragrafo titolo="Quali dati raccogliamo">
         <ul className="list-disc space-y-1 pl-5">
           <li>
-            Di tutti: nome, email e password, salvata solo in forma cifrata (nessuno può leggerla). L’email serve anche a
-            mandarti il link per reimpostare la password, solo quando lo chiedi tu.
+            Di tutti: nome, email e password, salvata solo in forma cifrata (nessuno può leggerla). L’email serve anche per
+            le email di servizio: la conferma dell’indirizzo quando ti iscrivi e il link per reimpostare la password, solo
+            quando lo chiedi tu.
           </li>
           <li>
             Dei clienti: schede, serie, carichi, ripetizioni, date degli allenamenti, note e voto di fatica che scrivi,
@@ -148,7 +149,7 @@ function TestoItaliano() {
             dall’UE, con le garanzie previste dalla legge (EU-US Data Privacy Framework e clausole contrattuali standard).
           </li>
           <li>
-            Resend: invio delle email di servizio (il link per reimpostare la password). Riceve solo il tuo nome, la tua
+            Resend: invio delle email di servizio (conferma dell’indirizzo e link per reimpostare la password). Riceve solo il tuo nome, la tua
             email e il testo del messaggio; è un’azienda statunitense, con le garanzie previste dalla legge (clausole
             contrattuali standard).
           </li>
@@ -235,7 +236,8 @@ function TestoInglese() {
         <ul className="list-disc space-y-1 pl-5">
           <li>
             From everyone: name, email and password, stored only in encrypted form (nobody can read it). Your email is also
-            used to send you a link to reset your password, only when you ask for it.
+            used for service emails: confirming your address when you sign up, and the link to reset your password, only
+            when you ask for it.
           </li>
           <li>
             From clients: programmes, sets, loads, reps, workout dates, the notes and effort ratings you write, cardio done
@@ -304,7 +306,7 @@ function TestoInglese() {
             with the safeguards required by law (EU-US Data Privacy Framework and standard contractual clauses).
           </li>
           <li>
-            Resend: sending service emails (the password reset link). It only receives your name, your email and the
+            Resend: sending service emails (address confirmation and the password reset link). It only receives your name, your email and the
             message text; it is a US company, with the safeguards required by law (standard contractual clauses).
           </li>
         </ul>

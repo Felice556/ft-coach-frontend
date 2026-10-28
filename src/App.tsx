@@ -8,6 +8,7 @@ import EliminaAccount from './EliminaAccount';
 import IlTuoTrainer from './IlTuoTrainer';
 import InformativaPrivacy from './Privacy';
 import RecuperoPassword from './RecuperoPassword';
+import AvvisoEmail from './AvvisoEmail';
 import { leggiSceltaTema, salvaSceltaTema, SceltaTema } from './tema';
 import { cambiaLingua, lingua, Lingua, tr } from './lingua';
 
@@ -356,7 +357,7 @@ export default function App() {
               'Registrazione completata: la tua richiesta è stata inviata all’amministratore. Accedi per vedere quando viene approvata.',
               'Registration complete: your request has been sent to the administrator. Sign in to see when it is approved.',
             )
-          : tr('Registrazione completata, ora accedi', 'Registration complete, now sign in'),
+          : tr('Registrazione completata: ora accedi. Ti abbiamo mandato un’email per confermare l’indirizzo.', 'Registration complete: now sign in. We’ve sent you an email to confirm your address.'),
       );
     } catch (err) {
       setErrore(err instanceof Error ? err.message : tr('Errore di registrazione', 'Registration error'));
@@ -636,6 +637,9 @@ export default function App() {
               : tr('Scegli la scheda. Registra le serie. Costruisci il prossimo risultato.', 'Pick your programme. Log your sets. Build your next result.')}
           </p>
         </div>
+
+        {/* Email non ancora confermata: un avviso, niente di bloccato */}
+        {!devoCambiarePassword && !inAttesa && <AvvisoEmail key={chiaveUtente} />}
 
         {devoCambiarePassword ? (
           // Dopo un reset del trainer: prima la nuova password, poi l'app.

@@ -2,13 +2,15 @@
 // - liftio.it/privacy          → informativa privacy
 // - liftio.it/elimina-account  → come eliminare l'account e i dati
 // - liftio.it/nuova-password   → il link "Password dimenticata?" arrivato per email
+// - liftio.it/conferma-email e /annulla-registrazione → i due link dell'email di conferma
 // Lingua: quella del telefono, oppure ?lang=en / ?lang=it nell'indirizzo.
 import { ReactNode } from 'react';
 import InformativaPrivacy, { EMAIL_PRIVACY } from './Privacy';
 import { cambiaLingua, lingua, tr } from './lingua';
 import NuovaPassword from './NuovaPassword';
+import { AnnullaRegistrazione, ConfermaEmail } from './PaginaEmail';
 
-export const PERCORSI_PUBBLICI = ['/privacy', '/elimina-account', '/delete-account', '/nuova-password'] as const;
+export const PERCORSI_PUBBLICI = ['/privacy', '/elimina-account', '/delete-account', '/nuova-password', '/conferma-email', '/annulla-registrazione'] as const;
 
 function Cornice({ children }: { children: ReactNode }) {
   return (
@@ -137,5 +139,7 @@ export function paginaPubblica(percorso: string) {
   if (p === '/privacy') return <PaginaPrivacy />;
   if (p === '/elimina-account' || p === '/delete-account') return <PaginaEliminaAccount />;
   if (p === '/nuova-password') return <Cornice><NuovaPassword /></Cornice>;
+  if (p === '/conferma-email') return <Cornice><ConfermaEmail /></Cornice>;
+  if (p === '/annulla-registrazione') return <Cornice><AnnullaRegistrazione /></Cornice>;
   return null;
 }

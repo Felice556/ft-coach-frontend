@@ -180,6 +180,27 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   return risposta.json();
 }
 
+// Conferma dell'email: cosa dice il link (nome, email, se è già confermata, se si può annullare).
+export interface LinkEmail { nome: string; email: string; confermata: boolean; annullabile: boolean }
+export function leggiLinkEmail(token: string) {
+  return apiFetch<LinkEmail>(`/email/link?token=${encodeURIComponent(token)}`);
+}
+export function confermaEmail(token: string) {
+  return apiFetch<{ confermata: boolean; nome: string }>('/email/conferma', { method: 'POST', body: JSON.stringify({ token }) });
+}
+// "Non sono stato io": cancella un'iscrizione mai confermata fatta con la propria email.
+export function annullaRegistrazione(token: string) {
+  return apiFetch<void>('/email/annulla', { method: 'POST', body: JSON.stringify({ token }) });
+}
+// Dall'app: manda di nuovo l'email di conferma.
+export function rimandaConfermaEmail() {
+  return apiFetch<void>('/email/rimanda', { method: 'POST' });
+}
+// Dall'app: cambia la propria email (serve la password); la nuova va confermata.
+export function cambiaEmail(email: string, password: string) {
+  return apiFetch<{ email: string; emailConfermata: boolean }>('/me/email', { method: 'PUT', body: JSON.stringify({ email, password }) });
+}
+
 // "Password dimenticata?": se l'email è registrata arriva un link per sceglierne una nuova.
 // La risposta è sempre la stessa (204), che l'email esista o no.
 export function chiediLinkPassword(email: string) {
@@ -250,6 +271,9 @@ export interface Me {
   trainer?: { nome: string } | null;
   schedePersonali?: number;
   limiteSchede?: number;
+  email?: string;
+  // false = non ha ancora cliccato il link di conferma (l'app mostra un avviso).
+  emailConfermata?: boolean;
 }
 export function getMe() {
   return apiFetch<Me>('/me');
@@ -368,6 +392,7 @@ export interface Cliente {
   nome: string;
   email: string;
   sospeso?: boolean; // sospeso dal trainer: non può accedere, i dati restano
+  emailConfermata?: boolean; // false = non ha ancora confermato l'email (forse è scritta male)
 }
 
 // Il trainer sospende o riattiva l'accesso di un suo cliente (nessun dato viene cancellato).

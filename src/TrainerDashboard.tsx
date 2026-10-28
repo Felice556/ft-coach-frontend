@@ -1786,7 +1786,10 @@ export default function TrainerDashboard() {
                               {c.sospeso && <span className="shrink-0 rounded-md bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning">{tr('Sospeso', 'Suspended')}</span>}
                             </span>
                             {/* L'email distingue due clienti con lo stesso nome */}
-                            <span className="block truncate text-xs text-muted">{c.email}</span>
+                            <span className="block truncate text-xs text-muted">
+                              {c.email}
+                              {c.emailConfermata === false && <span className="font-semibold text-warning"> · {tr('email da confermare', 'email not confirmed')}</span>}
+                            </span>
                             <span className="block text-xs text-muted">
                               {numero === 1 ? tr('1 scheda', '1 programme') : tr(`${numero} schede`, `${numero} programmes`)}
                             </span>
