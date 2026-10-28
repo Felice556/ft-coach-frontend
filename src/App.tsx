@@ -7,6 +7,7 @@ import CambioPassword from './CambioPassword';
 import EliminaAccount from './EliminaAccount';
 import IlTuoTrainer from './IlTuoTrainer';
 import InformativaPrivacy from './Privacy';
+import RecuperoPassword from './RecuperoPassword';
 import { leggiSceltaTema, salvaSceltaTema, SceltaTema } from './tema';
 import { cambiaLingua, lingua, Lingua, tr } from './lingua';
 
@@ -219,6 +220,8 @@ export default function App() {
   const [errore, setErrore] = useState('');
   const [inInvio, setInInvio] = useState(false);
   const [mostraPassword, setMostraPassword] = useState(false);
+  // "Password dimenticata?": al posto del modulo di accesso compare quello per chiedere il link.
+  const [recupero, setRecupero] = useState(false);
   // Informativa privacy aperta, e consenso dato in registrazione (serve per peso e massa grassa).
   const [privacyAperta, setPrivacyAperta] = useState(false);
   const [consensoPrivacy, setConsensoPrivacy] = useState(false);
@@ -395,6 +398,7 @@ export default function App() {
   }
 
   function cambiaModalita() {
+    setRecupero(false);
     setModalitaRegistrazione((attuale) => !attuale);
     setErrore('');
     setMostraPassword(false);
@@ -441,6 +445,9 @@ export default function App() {
                     </p>
                   </div>
                 )}
+                {recupero && !modalitaRegistrazione ? (
+                  <RecuperoPassword emailIniziale={email} onIndietro={() => setRecupero(false)} />
+                ) : (
                 <form onSubmit={modalitaRegistrazione ? handleRegister : handleLogin} className="space-y-5" aria-busy={inInvio}>
                   {modalitaRegistrazione && (
                     <div className="grid grid-cols-2 gap-3">
@@ -459,6 +466,13 @@ export default function App() {
                       <button type="button" className="absolute inset-y-0 right-1 rounded-lg px-3 text-xs font-semibold text-muted hover:text-accent-strong focus-visible:outline-accent-strong" aria-label={mostraPassword ? tr('Nascondi password', 'Hide password') : tr('Mostra password', 'Show password')} aria-pressed={mostraPassword} onClick={() => setMostraPassword(!mostraPassword)}>{mostraPassword ? tr('Nascondi', 'Hide') : tr('Mostra', 'Show')}</button>
                     </div>
                   </div>
+                  {!modalitaRegistrazione && (
+                    <p className="-mt-3 text-right">
+                      <button type="button" className="btn-link text-sm" onClick={() => { setErrore(''); setRecupero(true); }} disabled={inInvio}>
+                        {tr('Password dimenticata?', 'Forgot your password?')}
+                      </button>
+                    </p>
+                  )}
                   {modalitaRegistrazione && <div><label htmlFor="auth-role" className="label">{tr('Come userai Liftio?', 'How will you use Liftio?')}</label><select id="auth-role" name="role" className="input" value={ruoloScelto} onChange={(e) => setRuoloScelto(e.target.value as Ruolo | 'AUTONOMO')}><option value="AUTONOMO">{tr('Mi alleno da solo', 'I train on my own')}</option><option value="CLIENTE">{tr('Mi segue un trainer (ho il suo codice)', 'A trainer coaches me (I have their code)')}</option><option value="TRAINER">{tr('Sono un trainer', 'I’m a trainer')}</option></select></div>}
                   {modalitaRegistrazione && ruoloScelto === 'AUTONOMO' && (
                     <div className="rounded-xl border border-line bg-surface-2 px-4 py-3 text-sm leading-6 text-soft">
@@ -569,6 +583,7 @@ export default function App() {
                   </button>
                   <p className="pt-1 text-center text-sm text-muted">{modalitaRegistrazione ? tr('Hai già un account?', 'Already have an account?') : tr('Sei nuovo qui?', 'New here?')}{' '}<button type="button" className="btn-link" onClick={cambiaModalita} disabled={inInvio}>{modalitaRegistrazione ? tr('Accedi', 'Sign in') : tr('Crea un account', 'Create an account')}</button></p>
                 </form>
+                )}
                 <div className="mt-6">
                   <SceltaLingua piccola />
                 </div>

@@ -180,6 +180,17 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   return risposta.json();
 }
 
+// "Password dimenticata?": se l'email è registrata arriva un link per sceglierne una nuova.
+// La risposta è sempre la stessa (204), che l'email esista o no.
+export function chiediLinkPassword(email: string) {
+  return apiFetch<void>('/password/dimenticata', { method: 'POST', body: JSON.stringify({ email }) });
+}
+
+// Nuova password dal link dell'email (token = il codice nel link).
+export function reimpostaPasswordDaLink(token: string, nuovaPassword: string) {
+  return apiFetch<void>('/password/reimposta', { method: 'POST', body: JSON.stringify({ token, nuovaPassword }) });
+}
+
 export function login(email: string, password: string) {
   // passwordTemporanea = true: il trainer ha reimpostato la password, va scelta una nuova.
   // inAttesa = true: trainer registrato da solo, non ancora approvato dall'amministratore.

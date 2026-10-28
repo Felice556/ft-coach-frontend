@@ -40,5 +40,17 @@ export function cambiaLingua(nuova: Lingua) {
   } catch {
     // senza localStorage la scelta vale solo fino alla chiusura
   }
+  // Se la lingua arrivava da un link (?lang=…), la togliamo: altrimenti vincerebbe di nuovo lei.
+  // Il resto dell'indirizzo resta com'è (es. il codice del link "nuova password").
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('lang')) {
+      url.searchParams.delete('lang');
+      window.location.replace(url.toString());
+      return;
+    }
+  } catch {
+    // indirizzo non leggibile: si ricarica e basta
+  }
   window.location.reload();
 }

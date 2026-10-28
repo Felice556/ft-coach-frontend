@@ -1,12 +1,14 @@
 // Pagine pubbliche, aperte a tutti senza accesso (servono anche a Google Play):
 // - liftio.it/privacy          → informativa privacy
 // - liftio.it/elimina-account  → come eliminare l'account e i dati
+// - liftio.it/nuova-password   → il link "Password dimenticata?" arrivato per email
 // Lingua: quella del telefono, oppure ?lang=en / ?lang=it nell'indirizzo.
 import { ReactNode } from 'react';
 import InformativaPrivacy, { EMAIL_PRIVACY } from './Privacy';
 import { cambiaLingua, lingua, tr } from './lingua';
+import NuovaPassword from './NuovaPassword';
 
-export const PERCORSI_PUBBLICI = ['/privacy', '/elimina-account', '/delete-account'] as const;
+export const PERCORSI_PUBBLICI = ['/privacy', '/elimina-account', '/delete-account', '/nuova-password'] as const;
 
 function Cornice({ children }: { children: ReactNode }) {
   return (
@@ -134,5 +136,6 @@ export function paginaPubblica(percorso: string) {
   const p = percorso.replace(/\/+$/, '').toLowerCase();
   if (p === '/privacy') return <PaginaPrivacy />;
   if (p === '/elimina-account' || p === '/delete-account') return <PaginaEliminaAccount />;
+  if (p === '/nuova-password') return <Cornice><NuovaPassword /></Cornice>;
   return null;
 }
