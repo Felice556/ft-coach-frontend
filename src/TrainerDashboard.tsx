@@ -51,6 +51,7 @@ import { riassuntoSerie, testoReps, testoRecupero, leggiReps } from './serie';
 import { locale, tr } from './lingua';
 import { BarraSezioni, ICONE, ricordaSezione, useIndirizzo } from './Sezioni';
 import CampoReps from './CampoReps';
+import RiordinoEsercizi from './RiordinoEsercizi';
 
 // Da quanto tempo esiste una scheda, in parole: "oggi", "3 giorni fa", "2 mesi fa".
 function etaScheda(iso: string): string {
@@ -593,6 +594,7 @@ export default function TrainerDashboard() {
     setEsercizi([esercizioVuoto()]);
     setEserciziRimossi([]);
     setConfermaRimuovi(null);
+    setRiordino(false);
     setNoteAperte(null);
   }
 
@@ -606,6 +608,7 @@ export default function TrainerDashboard() {
     setNomeScheda(scheda.nome);
     setClienteId(String(scheda.clienteId));
     setEsercizi(scheda.esercizi.map(daEsercizioABozza));
+    setRiordino(false);
     setConfermaRimuovi(null);
     setNoteAperte(null);
     caricaEserciziRimossi(scheda.id);
@@ -635,6 +638,11 @@ export default function TrainerDashboard() {
   const [eserciziRimossi, setEserciziRimossi] = useState<EsercizioArchiviato[]>([]);
   // Riga per cui è stato toccato "Rimuovi" una volta: serve un secondo tocco per confermare.
   const [confermaRimuovi, setConfermaRimuovi] = useState<number | null>(null);
+  // Elenco compatto per cambiare l'ordine degli esercizi (trascinandoli o con le frecce).
+  const [riordino, setRiordino] = useState(false);
+  function riordina(chiavi: number[]) {
+    setEsercizi((prima) => chiavi.map((k) => prima.find((e) => e.chiave === k)!).filter(Boolean));
+  }
 
   useEffect(() => {
     if (confermaRimuovi === null) return;
@@ -1438,8 +1446,24 @@ export default function TrainerDashboard() {
                   Su telefono: la libreria si apre dal bottone "Libreria" in basso. */}
               <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start lg:gap-6">
               <div className="min-w-0">
-                <h3 className="mb-3 text-lg font-bold text-ink">{tr('Esercizi della scheda', 'Programme exercises')}</h3>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h3 className="text-lg font-bold text-ink">{tr('Esercizi della scheda', 'Programme exercises')}</h3>
+                  {esercizi.length > 1 && !riordino && (
+                    <button type="button" className="btn-secondary shrink-0 px-3 py-1 text-xs" onClick={() => setRiordino(true)}>
+                      {tr('↕ Cambia ordine', '↕ Reorder')}
+                    </button>
+                  )}
+                </div>
 
+                {riordino ? (
+                  <RiordinoEsercizi
+                    voci={esercizi.map((es) => ({ chiave: es.chiave, nome: es.nome, dettaglio: `${es.serieTarget} × ${es.repsTarget}` }))}
+                    onCambia={riordina}
+                    onFatto={() => setRiordino(false)}
+                    avvisoCollegamenti={esercizi.some((es) => es.collegamento)}
+                  />
+                ) : (
+                <>
                 <div>
                   {esercizi.map((es, i) => {
                     const g = gruppiBozza[i];
@@ -1672,6 +1696,8 @@ export default function TrainerDashboard() {
                 <button type="button" className="btn-secondary mt-3 w-full border-dashed sm:w-auto" onClick={aggiungiRigaEsercizio}>
                   {tr('+ Aggiungi esercizio', '+ Add exercise')}
                 </button>
+                </>
+                )}
 
                 {/* Solo in modifica: esercizi tolti in passato da questa scheda, con le serie del cliente
                     ancora salvate. "Rimetti" li riporta nella scheda con tutto il loro storico. */}
@@ -1735,7 +1761,7 @@ export default function TrainerDashboard() {
                 </div>
               )}
               {/* Bottone "Libreria" sempre a portata mentre scorri l'editor (solo telefono) */}
-              {mostraEditor && !libreriaAperta && !scrivendo && (
+              {mostraEditor && !libreriaAperta && !scrivendo && !riordino && (
                 <button
                   type="button"
                   className="btn-primary fixed right-4 bottom-[calc(4rem+env(safe-area-inset-bottom))] sm:bottom-4 z-30 min-h-12 px-4 shadow-lg lg:hidden"

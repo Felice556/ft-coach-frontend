@@ -3,6 +3,7 @@ import { aggiornaScheda, creaScheda, Esercizio, Scheda } from './api';
 import { leggiReps, testoReps } from './serie';
 import { tr } from './lingua';
 import CampoReps from './CampoReps';
+import RiordinoEsercizi from './RiordinoEsercizi';
 
 // Editor semplice per chi si allena da solo: nome della scheda e, per ogni esercizio,
 // serie, ripetizioni ("10", "8-12", "Max", "8-12 + max" o "8-12 + rp 15"), recupero, una nota facoltativa
@@ -52,6 +53,8 @@ export default function EditorSchedaPersonale({ scheda, onSalvata, onChiudi }: {
   const id = useId();
   const [nome, setNome] = useState(scheda?.nome ?? '');
   const [righe, setRighe] = useState<Riga[]>(scheda ? scheda.esercizi.map(daEsercizio) : [nuovaRiga()]);
+  // Elenco compatto per cambiare l'ordine degli esercizi (trascinandoli o con le frecce).
+  const [riordino, setRiordino] = useState(false);
   const [errore, setErrore] = useState('');
   const [inInvio, setInInvio] = useState(false);
 
@@ -126,6 +129,23 @@ export default function EditorSchedaPersonale({ scheda, onSalvata, onChiudi }: {
         <input id={`${id}-nome`} className="input" maxLength={100} placeholder={tr('Es. Giorno A, Gambe, Total body', 'E.g. Day A, Legs, Full body')} value={nome} onChange={(e) => setNome(e.target.value)} />
       </div>
 
+      {righe.length > 1 && !riordino && (
+        <div className="flex justify-end">
+          <button type="button" className="btn-secondary px-3 py-1 text-xs" onClick={() => setRiordino(true)}>
+            {tr('↕ Cambia ordine', '↕ Reorder')}
+          </button>
+        </div>
+      )}
+
+      {riordino ? (
+        <RiordinoEsercizi
+          voci={righe.map((r) => ({ chiave: r.chiave, nome: r.nome, dettaglio: `${r.serie} × ${r.reps}` }))}
+          onCambia={(chiavi) => setRighe((prima) => chiavi.map((k) => prima.find((r) => r.chiave === k)!).filter(Boolean))}
+          onFatto={() => setRiordino(false)}
+          avvisoCollegamenti={righe.some((r) => r.originale?.collegamento)}
+        />
+      ) : (
+      <>
       <ol className="space-y-3">
         {righe.map((r, i) => (
           <li key={r.chiave} className="space-y-3 rounded-xl border border-line bg-surface-2 p-3">
@@ -220,6 +240,8 @@ export default function EditorSchedaPersonale({ scheda, onSalvata, onChiudi }: {
       </ol>
       {righe.length < 30 && (
         <button type="button" className="btn-secondary w-full" onClick={() => setRighe((r) => [...r, nuovaRiga()])}>{tr('+ Aggiungi esercizio', '+ Add exercise')}</button>
+      )}
+      </>
       )}
       {scheda && (
         <p className="text-xs text-muted">{tr('Gli esercizi che togli spariscono dalla scheda, ma le serie che hai già registrato restano salvate.', 'Exercises you remove leave the programme, but the sets you already logged stay saved.')}</p>
