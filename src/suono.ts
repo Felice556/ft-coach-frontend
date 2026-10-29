@@ -7,6 +7,9 @@
 // - Su iPhone con il tasto silenzioso attivo il suono non si sente (resta la scritta "Via!").
 // - Se lo schermo si spegne il browser si addormenta: per questo, mentre il timer
 //   è attivo, chiediamo al telefono di tenere lo schermo acceso (vedi tieniSchermoAcceso).
+// - iPhone: dopo lo standby (schermo spento con il tasto) l'audio della pagina resta "rotto":
+//   a volte dice di funzionare ma non suona più nulla, anche nei timer dopo. Per questo,
+//   quando la pagina torna visibile, al primo tocco creiamo un audio nuovo (vedi daRicreare).
 
 const CHIAVE = 'suonoTimer'; // 'no' = silenziato
 const CHIAVE_VOLUME = 'volumeTimer'; // da 0 a 100
@@ -14,6 +17,13 @@ const VOLUME_PREDEFINITO = 80;
 
 type ContestoAudio = AudioContext;
 let contesto: ContestoAudio | null = null;
+// true dopo che la pagina è andata in background (standby, cambio app): l'audio va rifatto.
+let daRicreare = false;
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) daRicreare = true;
+  });
+}
 
 export function suonoAttivo(): boolean {
   try {
@@ -59,8 +69,16 @@ export function sbloccaAudio() {
     const Classe =
       window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Classe) return;
+    // Audio "rotto" dallo standby (su iPhone lo stato diventa "interrupted" o resta muto):
+    // lo buttiamo e ne creiamo uno nuovo. Siamo dentro un tocco, quindi il telefono lo permette.
+    const stato = contesto?.state as string | undefined;
+    if (contesto && (daRicreare || (stato !== 'running' && stato !== 'suspended'))) {
+      void contesto.close().catch(() => undefined);
+      contesto = null;
+    }
+    daRicreare = false;
     if (!contesto) contesto = new Classe();
-    if (contesto.state === 'suspended') void contesto.resume();
+    if (contesto.state !== 'running') void contesto.resume().catch(() => undefined);
     // Un suono "vuoto" di un istante: su iPhone serve a sbloccare davvero l'audio.
     const vuoto = contesto.createBuffer(1, 1, 22050);
     const sorgente = contesto.createBufferSource();
@@ -79,7 +97,7 @@ function bip(frequenza: number, durata: number, ritardo = 0, forza = 0.18) {
   // così la metà dello slider suona davvero come metà volume.
   const volume = forza * 1.5 * (leggiVolume() / 100) ** 2; // al 100% un po' più forte di prima
   if (volume <= 0.0002) return;
-  if (contesto.state === 'suspended') void contesto.resume();
+  if (contesto.state !== 'running') void contesto.resume().catch(() => undefined);
   const inizio = contesto.currentTime + ritardo;
   const oscillatore = contesto.createOscillator();
   const guadagno = contesto.createGain();

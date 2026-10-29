@@ -574,12 +574,20 @@ export default function ClienteDashboard() {
     if (!timerAttivo) return;
     let blocco: Awaited<ReturnType<typeof tieniSchermoAcceso>> = null;
     let finito = false;
-    tieniSchermoAcceso().then((b) => {
-      if (finito) void b?.release();
-      else blocco = b;
-    });
+    const chiedi = () =>
+      tieniSchermoAcceso().then((b) => {
+        if (finito) void b?.release();
+        else blocco = b;
+      });
+    void chiedi();
+    // Se il telefono va in standby il blocco si perde: tornando nell'app lo richiediamo.
+    const alRitorno = () => {
+      if (!document.hidden && !finito) void chiedi();
+    };
+    document.addEventListener('visibilitychange', alRitorno);
     return () => {
       finito = true;
+      document.removeEventListener('visibilitychange', alRitorno);
       void blocco?.release();
     };
   }, [timerAttivo]);
