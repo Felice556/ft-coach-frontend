@@ -1,27 +1,35 @@
 import { useId, useState } from 'react';
 import type { EsercizioPreset, GruppoMuscolare } from './api';
-import { cercaEsercizi, GRUPPI, nomeGruppo, perGruppo } from './libreria';
+import { cercaConGenerali, cercaEsercizi, GRUPPI, nomeGruppo, perGruppo } from './libreria';
+import IconaGruppo from './IconaGruppo';
 import { tr } from './lingua';
 
 // ---------- Nome esercizio con suggerimenti dalla libreria ----------
-// Scrivi qualche lettera ("pan pi") e sotto compaiono gli esercizi salvati che corrispondono.
+// Scrivi qualche lettera ("pan pi") e sotto compaiono gli esercizi salvati che corrispondono
+// (prima i tuoi, poi quelli della libreria generale di Liftio).
 // Toccandone uno si riempiono nome, video e note (se erano vuoti).
 
 export function CampoNomeEsercizio({
   valore,
   preset,
+  generali = [],
   onChange,
   onScegli,
+  idCampo,
+  placeholder = tr('Nome esercizio', 'Exercise name'),
 }: {
   valore: string;
   preset: EsercizioPreset[];
+  generali?: EsercizioPreset[];
   onChange: (v: string) => void;
   onScegli: (p: EsercizioPreset) => void;
+  idCampo?: string;
+  placeholder?: string;
 }) {
   const id = useId();
   const [aperto, setAperto] = useState(false);
   const [attivo, setAttivo] = useState(0);
-  const suggerimenti = cercaEsercizi(preset, valore).filter((p) => p.nome !== valore.trim());
+  const suggerimenti = cercaConGenerali(preset, generali, valore).filter((p) => p.nome !== valore.trim());
   const mostra = aperto && suggerimenti.length > 0;
 
   function scegli(p: EsercizioPreset) {
@@ -32,8 +40,9 @@ export function CampoNomeEsercizio({
   return (
     <div className="relative">
       <input
+        id={idCampo}
         className="input"
-        placeholder={tr('Nome esercizio', 'Exercise name')}
+        placeholder={placeholder}
         maxLength={100}
         required
         role="combobox"
@@ -86,7 +95,10 @@ export function CampoNomeEsercizio({
                   scegli(p);
                 }}
               >
-                <span className="min-w-0 truncate font-medium">{p.nome}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <IconaGruppo gruppo={p.gruppo} className="h-5 w-5 text-accent-strong" />
+                  <span className="min-w-0 truncate font-medium">{p.nome}</span>
+                </span>
                 <span className="shrink-0 text-xs text-muted">{nomeGruppo(p.gruppo)}</span>
               </button>
             </li>
@@ -105,7 +117,8 @@ export function SceltaGruppo({ onScegli, onAnnulla }: { onScegli: (g: GruppoMusc
       <p className="mb-2 text-sm font-semibold">{tr('In che gruppo muscolare lo salvo?', 'Which muscle group should I save it in?')}</p>
       <div className="flex flex-wrap gap-2">
         {GRUPPI.map((g) => (
-          <button key={g.valore} type="button" className="btn-secondary min-h-10 px-3 text-sm" onClick={() => onScegli(g.valore)}>
+          <button key={g.valore} type="button" className="btn-secondary min-h-10 gap-1.5 px-3 text-sm" onClick={() => onScegli(g.valore)}>
+            <IconaGruppo gruppo={g.valore} className="h-5 w-5 text-accent-strong" />
             {g.nome}
           </button>
         ))}
@@ -119,21 +132,32 @@ export function SceltaGruppo({ onScegli, onAnnulla }: { onScegli: (g: GruppoMusc
 
 // ---------- Libreria laterale, divisa per gruppi muscolari ----------
 
+// Con "generali": due schede, "I miei" (la libreria del trainer) e "Liftio" (quella generale).
+// Senza onCambiaGruppo/onElimina (chi si allena da solo) c'è solo la libreria generale, da sfogliare.
 export function PannelloLibreria({
   preset,
+  generali,
   onAggiungi,
   onCambiaGruppo,
   onElimina,
 }: {
   preset: EsercizioPreset[];
+  generali?: EsercizioPreset[];
   onAggiungi: (p: EsercizioPreset) => void;
-  onCambiaGruppo: (p: EsercizioPreset, g: GruppoMuscolare | null) => void;
-  onElimina: (p: EsercizioPreset) => void;
+  onCambiaGruppo?: (p: EsercizioPreset, g: GruppoMuscolare | null) => void;
+  onElimina?: (p: EsercizioPreset) => void;
 }) {
   const [cerca, setCerca] = useState('');
   const [gestisci, setGestisci] = useState(false);
   const [chiusi, setChiusi] = useState<Set<string>>(new Set());
-  const filtrati = cerca.trim() ? cercaEsercizi(preset, cerca, 100) : preset;
+  const conGenerali = !!generali && generali.length > 0;
+  const soloGenerale = !onCambiaGruppo || !onElimina;
+  // Si parte dai propri esercizi se ce ne sono, altrimenti dalla libreria generale.
+  const [vista, setVista] = useState<'miei' | 'generale'>(soloGenerale || preset.length === 0 ? 'generale' : 'miei');
+  const suGenerale = conGenerali && (soloGenerale || vista === 'generale');
+  const elenco = suGenerale ? generali! : preset;
+  const gestibile = !suGenerale && !soloGenerale;
+  const filtrati = cerca.trim() ? cercaEsercizi(elenco, cerca, 200) : elenco;
   const sezioni = perGruppo(filtrati);
 
   const apriChiudi = (nome: string) =>
@@ -148,14 +172,46 @@ export function PannelloLibreria({
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between gap-2">
         <p className="font-bold">{tr('Libreria esercizi', 'Exercise library')}</p>
-        {preset.length > 0 && (
+        {gestibile && preset.length > 0 && (
           <button type="button" className="btn-ghost min-h-9 px-2 text-xs" aria-pressed={gestisci} onClick={() => setGestisci(!gestisci)}>
             {gestisci ? tr('Fatto', 'Done') : tr('Gestisci', 'Manage')}
           </button>
         )}
       </div>
-      <p className="mt-0.5 text-xs text-muted">{gestisci ? tr('Cambia gruppo o togli un esercizio.', 'Change the group or remove an exercise.') : tr('Tocca un esercizio per aggiungerlo alla scheda.', 'Tap an exercise to add it to the programme.')}</p>
-      {preset.length > 0 && (
+      {conGenerali && !soloGenerale && (
+        <div className="mt-2 flex gap-1.5" role="tablist">
+          {(
+            [
+              ['miei', tr(`I miei (${preset.length})`, `Mine (${preset.length})`)],
+              ['generale', `Liftio (${generali!.length})`],
+            ] as const
+          ).map(([v, testo]) => (
+            <button
+              key={v}
+              type="button"
+              role="tab"
+              aria-selected={vista === v}
+              className={`min-h-9 flex-1 rounded-lg border px-2 text-xs font-bold transition ${
+                vista === v ? 'border-accent-strong bg-accent text-accent-ink' : 'border-line bg-field text-ink hover:border-accent-strong'
+              }`}
+              onClick={() => {
+                setVista(v);
+                setGestisci(false);
+              }}
+            >
+              {testo}
+            </button>
+          ))}
+        </div>
+      )}
+      <p className="mt-1.5 text-xs text-muted">
+        {gestisci
+          ? tr('Cambia gruppo o togli un esercizio.', 'Change the group or remove an exercise.')
+          : suGenerale
+            ? tr('Esercizi comuni, già pronti. Tocca un esercizio per aggiungerlo alla scheda.', 'Common exercises, ready to use. Tap one to add it to the programme.')
+            : tr('Tocca un esercizio per aggiungerlo alla scheda.', 'Tap an exercise to add it to the programme.')}
+      </p>
+      {elenco.length > 0 && (
         <input
           className="input mt-3"
           type="search"
@@ -166,7 +222,7 @@ export function PannelloLibreria({
         />
       )}
       <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-        {preset.length === 0 ? (
+        {elenco.length === 0 ? (
           <p className="text-sm text-muted">
             {tr('Vuota. Scrivi un esercizio nella scheda e premi “Salva esercizio” per riusarlo le prossime volte.', 'Empty. Type an exercise in the programme and press “Save exercise” to reuse it next time.')}
           </p>
@@ -183,8 +239,11 @@ export function PannelloLibreria({
                   aria-expanded={!chiuso}
                   onClick={() => apriChiudi(s.nome)}
                 >
-                  <span>
-                    {s.nome} <span className="font-medium text-muted">({s.esercizi.length})</span>
+                  <span className="flex items-center gap-2">
+                    <IconaGruppo gruppo={s.valore} className="h-5 w-5" />
+                    <span>
+                      {s.nome} <span className="font-medium text-muted">({s.esercizi.length})</span>
+                    </span>
                   </span>
                   <span aria-hidden>{chiuso ? '▸' : '▾'}</span>
                 </button>
@@ -192,16 +251,18 @@ export function PannelloLibreria({
                   <ul className="space-y-1">
                     {s.esercizi.map((p) => (
                       <li key={p.id}>
-                        {gestisci ? (
+                        {gestisci && gestibile ? (
                           <div className="flex items-center gap-1.5 rounded-lg border border-line bg-surface-2 p-1.5">
                             <span className="min-w-0 flex-1 truncate px-1 text-sm">{p.nome}</span>
                             <select
                               className="min-h-9 shrink-0 rounded-md border border-line bg-surface px-1 text-xs"
                               aria-label={tr(`Gruppo di ${p.nome}`, `Group of ${p.nome}`)}
                               value={p.gruppo ?? ''}
-                              onChange={(e) => onCambiaGruppo(p, (e.target.value || null) as GruppoMuscolare | null)}
+                              onChange={(e) => onCambiaGruppo!(p, (e.target.value || null) as GruppoMuscolare | null)}
                             >
                               <option value="">{tr('Senza gruppo', 'No group')}</option>
+                              {/* Il vecchio "Braccia" compare solo per gli esercizi che sono ancora lì */}
+                              {p.gruppo === 'BRACCIA' && <option value="BRACCIA">{nomeGruppo('BRACCIA')}</option>}
                               {GRUPPI.map((g) => (
                                 <option key={g.valore} value={g.valore}>
                                   {g.nome}
@@ -212,7 +273,7 @@ export function PannelloLibreria({
                               type="button"
                               aria-label={tr(`Togli ${p.nome} dalla libreria`, `Remove ${p.nome} from the library`)}
                               className="min-h-9 w-9 shrink-0 rounded-md text-muted transition hover:bg-danger-soft hover:text-danger"
-                              onClick={() => onElimina(p)}
+                              onClick={() => onElimina!(p)}
                             >
                               ×
                             </button>

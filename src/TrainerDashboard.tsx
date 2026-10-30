@@ -10,6 +10,7 @@ import DiarioAlimentare from './DiarioAlimentare';
 import FeedbackCliente, { ChipFatica } from './FeedbackCliente';
 import { gruppiCollegati, sigla, InfoGruppo } from './collegamenti';
 import { CampoNomeEsercizio, PannelloLibreria, SceltaGruppo } from './LibreriaEsercizi';
+import { LIBRERIA_GENERALE } from './libreria';
 import {
   getMe,
   creaScheda,
@@ -1437,6 +1438,7 @@ export default function TrainerDashboard() {
                           <CampoNomeEsercizio
                             valore={es.nome}
                             preset={preset}
+                            generali={LIBRERIA_GENERALE}
                             onChange={(v) => aggiornaEsercizio(i, 'nome', v)}
                             onScegli={(p) => scegliSuggerimento(i, p)}
                           />
@@ -1650,6 +1652,7 @@ export default function TrainerDashboard() {
                 >
                   <PannelloLibreria
                     preset={preset}
+                    generali={LIBRERIA_GENERALE}
                     onAggiungi={aggiungiDaPreset}
                     onCambiaGruppo={handleCambiaGruppo}
                     onElimina={(p) => handleCancellaPreset(p.id)}
@@ -1670,6 +1673,7 @@ export default function TrainerDashboard() {
                     <div className="min-h-0 flex-1">
                       <PannelloLibreria
                         preset={preset}
+                        generali={LIBRERIA_GENERALE}
                         onAggiungi={aggiungiDaPreset}
                         onCambiaGruppo={handleCambiaGruppo}
                         onElimina={(p) => handleCancellaPreset(p.id)}

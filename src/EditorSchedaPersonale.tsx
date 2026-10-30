@@ -6,6 +6,8 @@ import { leggiReps, testoReps } from './serie';
 import { tr } from './lingua';
 import CampoReps from './CampoReps';
 import RiordinoEsercizi from './RiordinoEsercizi';
+import { CampoNomeEsercizio, PannelloLibreria } from './LibreriaEsercizi';
+import { LIBRERIA_GENERALE } from './libreria';
 
 // Editor semplice per chi si allena da solo: nome della scheda e, per ogni esercizio,
 // serie, ripetizioni ("10", "8-12", "Max", "8-12 + max" o "8-12 + rp 15"), recupero, una nota facoltativa
@@ -60,6 +62,16 @@ export default function EditorSchedaPersonale({ scheda, onSalvata, onChiudi }: {
   const [righe, setRighe] = useState<Riga[]>(scheda ? scheda.esercizi.map(daEsercizio) : [nuovaRiga()]);
   // Elenco compatto per cambiare l'ordine degli esercizi (trascinandoli o con le frecce).
   const [riordino, setRiordino] = useState(false);
+  // Libreria generale di Liftio, da sfogliare per gruppo muscolare.
+  const [libreria, setLibreria] = useState(false);
+  function aggiungiDaLibreria(nomeEsercizio: string) {
+    const ultima = righe[righe.length - 1];
+    // Riempiamo l'ultima riga solo se è vuota e nuova (mai una già salvata: ha il suo storico).
+    const riga = ultima && !ultima.nome.trim() && !ultima.originale ? { ...ultima, nome: nomeEsercizio } : { ...nuovaRiga(), nome: nomeEsercizio };
+    setRighe((prima) => (riga.chiave === ultima?.chiave ? [...prima.slice(0, -1), riga] : [...prima, riga]));
+    setLibreria(false);
+    setTimeout(() => document.getElementById(`${id}-es-${riga.chiave}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
+  }
   // Superset/jumpset: in che gruppo sta ogni esercizio (A1, A2…), come nell'editor del trainer.
   const gruppi = gruppiCollegati(righe);
   // Passando a jumpset il recupero serve: se era "No" lo portiamo a 60 secondi.
@@ -167,14 +179,18 @@ export default function EditorSchedaPersonale({ scheda, onSalvata, onChiudi }: {
             <div className="flex items-center gap-2">
               <span className="flex h-7 min-w-7 shrink-0 items-center justify-center rounded-lg bg-accent px-1 text-xs font-bold text-accent-ink" aria-hidden="true">{g ? sigla(g) : i + 1}</span>
               <label htmlFor={`${id}-es-${r.chiave}`} className="sr-only">{tr(`Esercizio ${i + 1}`, `Exercise ${i + 1}`)}</label>
-              <input
-                id={`${id}-es-${r.chiave}`}
-                className="input min-w-0 flex-1"
-                maxLength={100}
-                placeholder={tr('Esercizio (es. Squat)', 'Exercise (e.g. Squat)')}
-                value={r.nome}
-                onChange={(e) => cambia(r.chiave, { nome: e.target.value })}
-              />
+              {/* Scrivendo compaiono gli esercizi della libreria generale (icona e gruppo accanto) */}
+              <div className="min-w-0 flex-1">
+                <CampoNomeEsercizio
+                  idCampo={`${id}-es-${r.chiave}`}
+                  placeholder={tr('Esercizio (es. Squat)', 'Exercise (e.g. Squat)')}
+                  valore={r.nome}
+                  preset={[]}
+                  generali={LIBRERIA_GENERALE}
+                  onChange={(v) => cambia(r.chiave, { nome: v })}
+                  onScegli={(p) => cambia(r.chiave, { nome: p.nome })}
+                />
+              </div>
             </div>
             {/* Ripetizioni più larghe: ci deve stare anche "6-9 + max" con il suo bottone */}
             <div className="grid grid-cols-[minmax(0,0.7fr)_minmax(0,1.6fr)_minmax(0,1.1fr)] gap-2">
@@ -271,7 +287,17 @@ export default function EditorSchedaPersonale({ scheda, onSalvata, onChiudi }: {
         })}
       </ol>
       {righe.length < 30 && (
-        <button type="button" className="btn-secondary w-full" onClick={() => setRighe((r) => [...r, nuovaRiga()])}>{tr('+ Aggiungi esercizio', '+ Add exercise')}</button>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <button type="button" className="btn-secondary w-full" onClick={() => setRighe((r) => [...r, nuovaRiga()])}>{tr('+ Aggiungi esercizio', '+ Add exercise')}</button>
+          <button type="button" className="btn-secondary w-full" aria-expanded={libreria} onClick={() => setLibreria((v) => !v)}>
+            {libreria ? tr('Chiudi la libreria', 'Close the library') : tr('📚 Scegli dalla libreria', '📚 Pick from the library')}
+          </button>
+        </div>
+      )}
+      {libreria && righe.length < 30 && (
+        <div className="h-[28rem] max-h-[70vh] rounded-2xl border border-line bg-surface p-4">
+          <PannelloLibreria preset={[]} generali={LIBRERIA_GENERALE} onAggiungi={(p) => aggiungiDaLibreria(p.nome)} />
+        </div>
       )}
       </>
       )}

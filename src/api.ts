@@ -497,7 +497,7 @@ export function registraAllenamento(
   });
 }
 
-export type GruppoMuscolare = 'PETTO' | 'DORSO' | 'SPALLE' | 'BRACCIA' | 'GAMBE' | 'ADDOME' | 'CARDIO' | 'ALTRO';
+export type GruppoMuscolare = 'PETTO' | 'DORSO' | 'SPALLE' | 'BICIPITI' | 'TRICIPITI' | 'BRACCIA' | 'GAMBE' | 'ADDOME' | 'CARDIO' | 'ALTRO';
 
 export interface EsercizioPreset {
   id: number;
