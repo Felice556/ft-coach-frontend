@@ -1,5 +1,7 @@
-import { useId, useState } from 'react';
-import { aggiornaScheda, creaScheda, Esercizio, Scheda } from './api';
+import { Fragment, useId, useState } from 'react';
+import { aggiornaScheda, creaScheda, Esercizio, Scheda, TipoCollegamento } from './api';
+import { gruppiCollegati, sigla } from './collegamenti';
+import { ChipGruppo, Collegamento, RecuperoAssente, spiegaRecupero } from './EditorCollegamenti';
 import { leggiReps, testoReps } from './serie';
 import { tr } from './lingua';
 import CampoReps from './CampoReps';
@@ -24,8 +26,10 @@ interface SerieInPiu {
 
 interface Riga {
   chiave: number;
-  originale?: Esercizio; // esercizio già salvato: serve a non perdere serie extra, video, collegamenti
+  originale?: Esercizio; // esercizio già salvato: serve a non perdere il video
   nome: string;
+  // Collegato all'esercizio successivo: superset (senza recupero in mezzo) o jumpset. '' = singolo.
+  collegamento: TipoCollegamento | '';
   serie: string;
   reps: string;
   recupero: number;
@@ -34,11 +38,12 @@ interface Riga {
 }
 
 let contatore = 0;
-const nuovaRiga = (): Riga => ({ chiave: ++contatore, nome: '', serie: '3', reps: '10', recupero: 90, nota: '', extra: [] });
+const nuovaRiga = (): Riga => ({ chiave: ++contatore, nome: '', collegamento: '', serie: '3', reps: '10', recupero: 90, nota: '', extra: [] });
 const daEsercizio = (e: Esercizio): Riga => ({
   chiave: ++contatore,
   originale: e,
   nome: e.nome,
+  collegamento: e.collegamento ?? '',
   serie: String(e.serieTarget),
   reps: testoReps(e.repsTarget, e.repsMax, e.piuMax, e.rpSecondi),
   recupero: e.recuperoSecondi,
@@ -55,6 +60,11 @@ export default function EditorSchedaPersonale({ scheda, onSalvata, onChiudi }: {
   const [righe, setRighe] = useState<Riga[]>(scheda ? scheda.esercizi.map(daEsercizio) : [nuovaRiga()]);
   // Elenco compatto per cambiare l'ordine degli esercizi (trascinandoli o con le frecce).
   const [riordino, setRiordino] = useState(false);
+  // Superset/jumpset: in che gruppo sta ogni esercizio (A1, A2…), come nell'editor del trainer.
+  const gruppi = gruppiCollegati(righe);
+  // Passando a jumpset il recupero serve: se era "No" lo portiamo a 60 secondi.
+  const collega = (r: Riga, tipo: TipoCollegamento | '') =>
+    cambia(r.chiave, { collegamento: tipo, recupero: tipo === 'JUMPSET' && r.recupero === 0 ? 60 : r.recupero });
   const [errore, setErrore] = useState('');
   const [inInvio, setInInvio] = useState(false);
 
@@ -100,7 +110,7 @@ export default function EditorSchedaPersonale({ scheda, onSalvata, onChiudi }: {
         serieExtra,
         // Quello che questo editor non mostra resta com'era
         videoUrl: o?.videoUrl || undefined,
-        collegamento: o?.collegamento ?? null,
+        collegamento: r.collegamento || null,
       });
     }
     setInInvio(true);
@@ -142,15 +152,20 @@ export default function EditorSchedaPersonale({ scheda, onSalvata, onChiudi }: {
           voci={righe.map((r) => ({ chiave: r.chiave, nome: r.nome, dettaglio: `${r.serie} × ${r.reps}` }))}
           onCambia={(chiavi) => setRighe((prima) => chiavi.map((k) => prima.find((r) => r.chiave === k)!).filter(Boolean))}
           onFatto={() => setRiordino(false)}
-          avvisoCollegamenti={righe.some((r) => r.originale?.collegamento)}
+          avvisoCollegamenti={righe.some((r) => r.collegamento)}
         />
       ) : (
       <>
-      <ol className="space-y-3">
-        {righe.map((r, i) => (
-          <li key={r.chiave} className="space-y-3 rounded-xl border border-line bg-surface-2 p-3">
+      <ol>
+        {righe.map((r, i) => {
+          const g = gruppi[i];
+          const ultimo = i === righe.length - 1;
+          const superset = r.collegamento === 'SUPERSET' && !ultimo;
+          return (
+          <Fragment key={r.chiave}>
+          <li className={`space-y-3 rounded-xl border bg-surface-2 p-3 ${g ? 'border-accent-strong/60' : 'border-line'}`}>
             <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent text-xs font-bold text-accent-ink" aria-hidden="true">{i + 1}</span>
+              <span className="flex h-7 min-w-7 shrink-0 items-center justify-center rounded-lg bg-accent px-1 text-xs font-bold text-accent-ink" aria-hidden="true">{g ? sigla(g) : i + 1}</span>
               <label htmlFor={`${id}-es-${r.chiave}`} className="sr-only">{tr(`Esercizio ${i + 1}`, `Exercise ${i + 1}`)}</label>
               <input
                 id={`${id}-es-${r.chiave}`}
@@ -173,13 +188,23 @@ export default function EditorSchedaPersonale({ scheda, onSalvata, onChiudi }: {
               </div>
               <div>
                 <label htmlFor={`${id}-rec-${r.chiave}`} className="label">{tr('Recupero', 'Rest')}</label>
-                <select id={`${id}-rec-${r.chiave}`} className="input px-2" value={r.recupero} onChange={(e) => cambia(r.chiave, { recupero: Number(e.target.value) })}>
-                  {[...new Set([...RECUPERI, r.recupero])].sort((a, b) => a - b).map((s) => (
-                    <option key={s} value={s}>{testoRecupero(s)}</option>
-                  ))}
-                </select>
+                {superset ? (
+                  <RecuperoAssente />
+                ) : (
+                  <select id={`${id}-rec-${r.chiave}`} className="input px-2" value={r.recupero} onChange={(e) => cambia(r.chiave, { recupero: Number(e.target.value) })}>
+                    {[...new Set([...RECUPERI, r.recupero])].sort((a, b) => a - b).map((s) => (
+                      <option key={s} value={s}>{testoRecupero(s)}</option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
+            {g && (
+              <div className="flex flex-wrap items-center gap-2">
+                <ChipGruppo g={g} />
+                <p className="text-xs leading-relaxed text-accent-strong">{spiegaRecupero(r.collegamento, g)}</p>
+              </div>
+            )}
             <div>
               <label htmlFor={`${id}-nota-${r.chiave}`} className="label">{tr('Nota (facoltativa)', 'Note (optional)')}</label>
               <input id={`${id}-nota-${r.chiave}`} className="input" maxLength={1000} placeholder={tr('Es. scendi lento, 3 secondi', 'E.g. lower slowly, 3 seconds')} value={r.nota} onChange={(e) => cambia(r.chiave, { nota: e.target.value })} />
@@ -236,7 +261,14 @@ export default function EditorSchedaPersonale({ scheda, onSalvata, onChiudi }: {
               )}
             </div>
           </li>
-        ))}
+          {!ultimo && (
+            <li className="list-none">
+              <Collegamento tipo={r.collegamento} onCambia={(tipo) => collega(r, tipo)} numeroSuccessivo={i + 2} />
+            </li>
+          )}
+          </Fragment>
+          );
+        })}
       </ol>
       {righe.length < 30 && (
         <button type="button" className="btn-secondary w-full" onClick={() => setRighe((r) => [...r, nuovaRiga()])}>{tr('+ Aggiungi esercizio', '+ Add exercise')}</button>
