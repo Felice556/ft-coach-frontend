@@ -3,6 +3,7 @@ import SezioneInviti from './Inviti';
 import PanoramicaTrainer from './PanoramicaTrainer';
 import TrainerInAttesa from './TrainerInAttesa';
 import StoricoCliente from './StoricoCliente';
+import StoricoPesi from './StoricoPesi';
 import MisureCorporee from './MisureCorporee';
 import CardioPassi from './CardioPassi';
 import DiarioAlimentare from './DiarioAlimentare';
@@ -627,6 +628,8 @@ export default function TrainerDashboard() {
   const [clienti, setClienti] = useState<Cliente[]>([]);
   // Pannello "Progressi" di una scheda: aperto dalla scheda o da un allenamento completato.
   const [progressiScheda, setProgressiScheda] = useState<{ schedaId: number; giorno?: string } | null>(null);
+  // Storico pesi generale del cliente aperto (tutte le schede preparate dal trainer).
+  const [storicoPesiDi, setStoricoPesiDi] = useState<number | null>(null);
   // Sezione "I tuoi clienti": cliente di cui è aperta la gestione dell'accesso.
   const [clientiCaricati, setClientiCaricati] = useState(false);
   async function caricaClienti() {
@@ -1815,6 +1818,9 @@ export default function TrainerDashboard() {
               {paginaCliente === 'schede' && (
                 <div className="space-y-6">
                   <FeedbackCliente clienteId={clienteVisto} nomeCliente={nomeCliente(clienteVisto)} />
+                  <button type="button" className="btn-secondary w-full sm:w-auto" onClick={() => setStoricoPesiDi(clienteVisto)}>
+                    {tr('📈 Storico pesi (tutte le schede)', '📈 Weight history (all programmes)')}
+                  </button>
                   {!schede.some((sc) => sc.clienteId === clienteVisto) && (
                     <p className="rounded-2xl border border-dashed border-line p-6 text-center text-sm text-muted">
                       {tr(`${nomeCliente(clienteVisto)} non ha ancora schede.`, `${nomeCliente(clienteVisto)} has no programmes yet.`)}
@@ -1961,6 +1967,9 @@ export default function TrainerDashboard() {
           giornoIniziale={progressiScheda.giorno}
           onChiudi={() => setProgressiScheda(null)}
         />
+      )}
+      {storicoPesiDi !== null && (
+        <StoricoPesi clienteId={storicoPesiDi} nomeCliente={nomeCliente(storicoPesiDi)} onChiudi={() => setStoricoPesiDi(null)} />
       )}
     </div>
   );

@@ -21,6 +21,7 @@ import {
   RegistroAllenamento,
 } from './api';
 import ProgressoChart, { StrisciaProgressi } from './ProgressoChart';
+import StoricoPesi from './StoricoPesi';
 import { seriePerGiorno, ultimaVoltaMigliore } from './calcoloProgressi';
 import MisureCorporee from './MisureCorporee';
 import CardioPassi from './CardioPassi';
@@ -444,6 +445,8 @@ export default function ClienteDashboard() {
 
   // Editor delle schede personali: 'nuova', la scheda da modificare, oppure chiuso.
   const [editor, setEditor] = useState<'nuova' | Scheda | null>(null);
+  // Storico pesi generale (tutte le schede), aperto dal bottone sotto "Il tuo programma".
+  const [storicoPesi, setStoricoPesi] = useState(false);
   const [archiviate, setArchiviate] = useState<Scheda[] | null>(null); // null = archivio chiuso
   const [daArchiviare, setDaArchiviare] = useState<number | null>(null);
   useEffect(() => {
@@ -1075,9 +1078,14 @@ export default function ClienteDashboard() {
                 : tr('Le schede preparate dal tuo trainer.', 'The programmes your trainer prepared.')}
             </p>
           </div>
-          {puoCreare && (
-            <button type="button" className="btn-primary w-full sm:w-auto" onClick={() => setEditor('nuova')}>{tr('+ Nuova scheda', '+ New programme')}</button>
-          )}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {puoCreare && (
+              <button type="button" className="btn-primary w-full sm:w-auto" onClick={() => setEditor('nuova')}>{tr('+ Nuova scheda', '+ New programme')}</button>
+            )}
+            {/* Tutti gli esercizi con le serie di tutte le schede, anche quelle vecchie */}
+            <button type="button" className="btn-secondary w-full sm:w-auto" onClick={() => setStoricoPesi(true)}>{tr('📈 Storico pesi', '📈 Weight history')}</button>
+          </div>
+          {storicoPesi && <StoricoPesi onChiudi={() => setStoricoPesi(false)} />}
           {oltreGratis && cartaPro}
           <div className="grid gap-4 md:grid-cols-2">
           {schede.map((scheda) => {

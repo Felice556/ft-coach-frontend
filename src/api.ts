@@ -635,6 +635,17 @@ export function getStorico(esercizioId: number) {
   return apiFetch<RegistroAllenamento[]>(`/registro/${esercizioId}`);
 }
 
+// Storico pesi generale: tutte le serie del cliente su tutte le schede (anche vecchie o archiviate),
+// con il nome dell'esercizio e della scheda. L'app le raggruppa per nome dell'esercizio.
+export interface SerieStorico extends RegistroAllenamento {
+  nomeEsercizio: string;
+  schedaId: number;
+  nomeScheda: string;
+}
+export function getStoricoPesi(clienteId?: number) {
+  return apiFetch<SerieStorico[]>(`/storico-pesi${clienteId ? `?clienteId=${clienteId}` : ''}`);
+}
+
 // ---------- Misure del corpo: peso (lo scrive il cliente) e % massa grassa (la scrive il trainer) ----------
 
 export type TipoMisura = 'PESO' | 'MASSA_GRASSA';
