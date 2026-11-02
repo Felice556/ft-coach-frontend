@@ -3,6 +3,8 @@ import { getStoricoScheda, RegistroAllenamento, StoricoScheda } from './api';
 import ProgressoChart from './ProgressoChart';
 import { riassuntoSerie } from './serie';
 import { locale, tr } from './lingua';
+import { IntestazioneGiorno, RigaSerie, TabellaSerie } from './VisteSerie';
+import { recordPerGiorno, serieRecord, volume } from './calcoloProgressi';
 
 // Pannello del trainer: tutti i dati che il cliente ha registrato su una scheda.
 // Due viste: "Per esercizio" (grafico + storico, come lo vede il cliente) e
@@ -24,24 +26,14 @@ const dataCorta = (iso: string) =>
   new Date(iso).toLocaleDateString(locale, { weekday: 'short', day: '2-digit', month: '2-digit' });
 const kg = (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 2 });
 
-// Serie di un giorno come "60 kg × 8 · 62,5 kg × 6"
-function Serie({ serie }: { serie: RegistroAllenamento[] }) {
+// Serie di un giorno in tabella: Serie · Peso · Ripetizioni (con la nota del cliente sotto la serie)
+function Serie({ serie, record }: { serie: RegistroAllenamento[]; record?: Set<number> }) {
   return (
-    <div className="space-y-1">
-      <div className="flex flex-wrap gap-1.5">
-        {serie.map((s, i) => (
-          <span key={s.id} className="rounded-md bg-surface-2 px-2 py-1 text-sm tabular-nums">
-            <span className="text-muted">{i + 1}.</span> <span className="font-bold">{kg(s.pesoUsato)} kg</span>
-            <span className="text-muted"> × {s.repsFatte}</span>
-          </span>
-        ))}
-      </div>
-      {serie
-        .filter((s) => s.nota)
-        .map((s) => (
-          <p key={s.id} className="text-sm text-soft italic">“{s.nota}”</p>
-        ))}
-    </div>
+    <TabellaSerie>
+      {serie.map((s, i) => (
+        <RigaSerie key={s.id} prima={String(i + 1)} kg={kg(s.pesoUsato)} reps={s.repsFatte} nota={s.nota} record={record?.has(s.id)} />
+      ))}
+    </TabellaSerie>
   );
 }
 
@@ -160,6 +152,8 @@ export default function StoricoCliente({ schedaId, vistaIniziale = 'esercizi', g
             }
             const elenco = [...perGiorno.values()].reverse();
             const mostrati = tuttiIGiorni[es.id] ? elenco : elenco.slice(0, 6);
+            const recordSerie = serieRecord(es.registri);
+            const recordGiorni = recordPerGiorno(es.registri);
             const migliore = es.registri.reduce<RegistroAllenamento | null>((m, r) => (!m || r.pesoUsato > m.pesoUsato ? r : m), null);
             return (
               <article key={es.id} className="card space-y-4">
@@ -186,8 +180,13 @@ export default function StoricoCliente({ schedaId, vistaIniziale = 'esercizi', g
                     <ul className="divide-y divide-line">
                       {mostrati.map((serie) => (
                         <li key={serie[0].id} className="space-y-2 py-3">
-                          <p className="text-xs font-bold tracking-wide text-muted uppercase">{dataCorta(serie[0].data)}</p>
-                          <Serie serie={serie} />
+                          <IntestazioneGiorno
+                            titolo={dataCorta(serie[0].data)}
+                            serie={serie.length}
+                            volumeKg={volume(serie)}
+                            record={recordGiorni.get(chiaveGiorno(serie[0].data)) ?? 0}
+                          />
+                          <Serie serie={serie} record={recordSerie} />
                         </li>
                       ))}
                     </ul>

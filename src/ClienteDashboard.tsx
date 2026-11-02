@@ -22,7 +22,8 @@ import {
 } from './api';
 import ProgressoChart, { StrisciaProgressi } from './ProgressoChart';
 import StoricoPesi from './StoricoPesi';
-import { seriePerGiorno, ultimaVoltaMigliore } from './calcoloProgressi';
+import { recordPerGiorno, seriePerGiorno, serieRecord, ultimaVoltaMigliore, volume as volumeSerie } from './calcoloProgressi';
+import { CelleSerie, colonneSerie, IntestazioneGiorno, TabellaSerie, TessereEsercizio } from './VisteSerie';
 import MisureCorporee from './MisureCorporee';
 import CardioPassi from './CardioPassi';
 import DiarioAlimentare from './DiarioAlimentare';
@@ -160,12 +161,14 @@ function Stepper({
 
 interface SerieRigaProps {
   serie: RegistroAllenamento;
-  etichetta: string; // "Serie 2" per oggi, oppure la data nei progressi
+  etichetta: string; // "Serie 2" per oggi, oppure la data nei progressi (per lettori di schermo e modifica)
+  prima: string; // cosa scrivere nella prima colonna della tabella: "2" oppure "26/10"
+  record?: boolean; // serie che ha battuto il proprio meglio: numero dorato e stella
   onModificata: (nuova: RegistroAllenamento) => void;
   onEliminata: (id: number) => void;
 }
 
-function SerieRiga({ serie, etichetta, onModificata, onEliminata }: SerieRigaProps) {
+function SerieRiga({ serie, etichetta, prima, record = false, onModificata, onEliminata }: SerieRigaProps) {
   // 'vista' → riga normale; 'modifica' → campi aperti; 'conferma' → chiede conferma prima di eliminare.
   const [modalita, setModalita] = useState<'vista' | 'modifica' | 'conferma'>('vista');
   const [kg, setKg] = useState(scriviNumero(serie.pesoUsato));
@@ -253,43 +256,42 @@ function SerieRiga({ serie, etichetta, onModificata, onEliminata }: SerieRigaPro
   }
 
   return (
-    <li className="px-3 py-2.5">
-      <div className="flex items-center gap-2">
-        <span className="w-16 shrink-0 text-sm text-muted">{etichetta}</span>
-        <span className="min-w-0 flex-1 text-sm whitespace-nowrap">
-          <span className="font-bold">{scriviNumero(serie.pesoUsato)} kg</span>
-          <span className="text-muted"> × {serie.repsFatte}</span>
-        </span>
+    <li className={record ? 'bg-accent-soft/40' : ''}>
+      {/* Riga della tabella: numero · peso · ripetizioni · correggi/elimina */}
+      <div className={`grid ${colonneSerie(true)} items-center`} aria-label={`${etichetta}: ${scriviNumero(serie.pesoUsato)} kg × ${serie.repsFatte}`}>
+        <CelleSerie prima={prima} kg={scriviNumero(serie.pesoUsato)} reps={serie.repsFatte} record={record} />
+        <span className="flex items-center justify-center gap-0.5 self-stretch border-l border-line px-0.5">
         {modalita === 'conferma' ? (
           <>
-            <button className="btn-ghost min-h-9 px-3 text-xs" onClick={() => setModalita('vista')} disabled={inInvio}>
+            <button className="btn-ghost min-h-9 px-1.5 text-xs" onClick={() => setModalita('vista')} disabled={inInvio}>
               {tr('No', 'No')}
             </button>
-            <button className="btn-danger min-h-9 px-3 text-xs" onClick={elimina} disabled={inInvio}>
-              {inInvio ? '…' : tr('Elimina?', 'Delete?')}
+            <button className="btn-danger min-h-9 px-1.5 text-xs" onClick={elimina} disabled={inInvio} aria-label={tr(`Elimina ${etichetta}`, `Delete ${etichetta}`)}>
+              {inInvio ? '…' : tr('Sì', 'Yes')}
             </button>
           </>
         ) : (
           <>
             <button
               aria-label={tr(`Correggi ${etichetta}`, `Edit ${etichetta}`)}
-              className="btn-ghost min-h-9 w-9 px-0 text-sm"
+              className="min-h-9 w-9 rounded-lg px-0 text-sm text-soft hover:bg-surface-2"
               onClick={apriModifica}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-4 w-4" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1L20 7a2.8 2.8 0 0 0-4-4L4 15l-1 5Z" /></svg>
             </button>
             <button
               aria-label={tr(`Elimina ${etichetta}`, `Delete ${etichetta}`)}
-              className="btn-ghost min-h-9 w-9 px-0 text-sm text-muted hover:text-danger"
+              className="min-h-9 w-9 rounded-lg px-0 text-sm text-muted hover:bg-danger-soft hover:text-danger"
               onClick={() => setModalita('conferma')}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" className="h-4 w-4" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 10v7M14 10v7" /></svg>
             </button>
           </>
         )}
+        </span>
       </div>
-      {serie.nota && <p className="mt-1 pl-18 text-xs text-muted italic">“{serie.nota}”</p>}
-      {errore && <p className="alert-error mt-2">{errore}</p>}
+      {serie.nota && <p className="border-t border-line px-3 py-2 text-xs text-muted italic">“{serie.nota}”</p>}
+      {errore && <p className="alert-error m-2">{errore}</p>}
     </li>
   );
 }
@@ -1235,6 +1237,9 @@ export default function ClienteDashboard() {
               const recuperoInCorso = timer !== null && timer.nome === es.nome;
               // La serie migliore dell'ultimo allenamento (non l'ultima serie, che può essere una extra più leggera).
               const ultimaVolta = ultimaVoltaMigliore(storico);
+              // Quanti record (serie migliori di sempre) in ogni giorno, per la medaglia accanto alla data.
+              const record = recordPerGiorno(storico);
+              const recordSerie = serieRecord(storico);
               // Tutte le note scritte su questo esercizio, dalla più recente.
               const leMieNote = [...storico].reverse().filter((x) => x.nota && x.nota.trim());
               const ultimaNotaPassata = leMieNote.find((x) => !eOggi(x.data));
@@ -1291,12 +1296,24 @@ export default function ClienteDashboard() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-lg leading-snug font-extrabold tracking-tight sm:text-xl">{es.nome}</h3>
-                      <p className="mt-1 text-sm leading-relaxed text-soft">
-                        <span className="font-semibold text-ink">{riassuntoSerie(es)}</span>
-                        <span className="text-muted"> · {testoDopo}</span>
-                      </p>
+                      {/* Nei superset/jumpset si dice cosa viene dopo; con serie aggiunte, il programma completo */}
+                      {(g || (es.serieExtra?.length ?? 0) > 0) && (
+                        <p className="mt-1 text-sm leading-relaxed text-soft">
+                          {(es.serieExtra?.length ?? 0) > 0 && <span className="font-semibold text-ink">{riassuntoSerie(es)}</span>}
+                          {(es.serieExtra?.length ?? 0) > 0 && g && <span className="text-muted"> · </span>}
+                          {g && <span className="text-muted">{testoDopo}</span>}
+                        </p>
+                      )}
                     </div>
                   </header>
+
+                  {/* Serie · Ripetizioni · Recupero, grandi e in colonna */}
+                  <TessereEsercizio
+                    serie={piano.length}
+                    ripetizioni={testoReps(es.repsTarget, es.repsMax, es.piuMax, es.rpSecondi)}
+                    recuperoSecondi={es.recuperoSecondi}
+                    senzaRecupero={superset}
+                  />
 
                   {/* Serie di oggi come pallini: si capisce a colpo d'occhio a che punto sei */}
                   {/* Le serie aggiunte ancora da fare hanno il bordo tratteggiato: si vede che sono diverse */}
@@ -1329,7 +1346,7 @@ export default function ClienteDashboard() {
                     <div>
                       <p className="label">{tr('Serie di oggi', 'Today’s sets')}</p>
                       <p className="-mt-1 mb-2 text-xs text-muted">{tr('Tocca la matita per correggere peso, ripetizioni o nota.', 'Tap the pencil to correct weight, reps or note.')}</p>
-                      <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line">
+                      <TabellaSerie conAzioni>
                         {storico
                           .filter((x) => eOggi(x.data))
                           .map((s, i) => (
@@ -1337,11 +1354,13 @@ export default function ClienteDashboard() {
                               key={s.id}
                               serie={s}
                               etichetta={tr(`Serie ${i + 1}`, `Set ${i + 1}`)}
+                              prima={String(i + 1)}
+                              record={recordSerie.has(s.id)}
                               onModificata={(nuova) => sostituisciSerie(es.id, nuova)}
                               onEliminata={(id) => rimuoviSerie(es.id, id)}
                             />
                           ))}
-                      </ul>
+                      </TabellaSerie>
                     </div>
                   )}
 
@@ -1519,17 +1538,18 @@ export default function ClienteDashboard() {
                   {noteAperte === es.id && leMieNote.length > 0 && (
                     <div className="space-y-2 border-t border-line pt-4">
                       <p className="label">{tr(`Le tue note su ${es.nome}`, `Your notes on ${es.nome}`)}</p>
-                      <ul className="divide-y divide-line rounded-xl bg-surface-2 text-sm">
+                      <TabellaSerie conAzioni primaColonna={tr('Data', 'Date')}>
                         {leMieNote.map((r) => (
                           <SerieRiga
                             key={r.id}
                             serie={r}
                             etichetta={new Date(r.data).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })}
+                            prima={new Date(r.data).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })}
                             onModificata={(nuova) => sostituisciSerie(es.id, nuova)}
                             onEliminata={(id) => rimuoviSerie(es.id, id)}
                           />
                         ))}
-                      </ul>
+                      </TabellaSerie>
                     </div>
                   )}
 
@@ -1543,23 +1563,26 @@ export default function ClienteDashboard() {
                           {seriePerGiorno(storico)
                             .slice(0, 5)
                             .map((giorno) => (
-                              <div key={giorno.chiave}>
-                                <p className="mb-1 px-1 text-xs font-bold text-soft">
-                                  {eOggi(giorno.data)
-                                    ? tr('Oggi', 'Today')
-                                    : new Date(giorno.data).toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}
-                                </p>
-                                <ul className="divide-y divide-line rounded-xl bg-surface-2 text-sm">
+                              <div key={giorno.chiave} className="space-y-2">
+                                <IntestazioneGiorno
+                                  titolo={eOggi(giorno.data) ? tr('Oggi', 'Today') : new Date(giorno.data).toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' })}
+                                  serie={giorno.serie.length}
+                                  volumeKg={volumeSerie(giorno.serie)}
+                                  record={record.get(giorno.chiave) ?? 0}
+                                />
+                                <TabellaSerie conAzioni>
                                   {giorno.serie.map((r, i) => (
                                     <SerieRiga
                                       key={r.id}
                                       serie={r}
                                       etichetta={tr(`Serie ${i + 1}`, `Set ${i + 1}`)}
+                                      prima={String(i + 1)}
+                                      record={recordSerie.has(r.id)}
                                       onModificata={(nuova) => sostituisciSerie(es.id, nuova)}
                                       onEliminata={(id) => rimuoviSerie(es.id, id)}
                                     />
                                   ))}
-                                </ul>
+                                </TabellaSerie>
                               </div>
                             ))}
                         </div>

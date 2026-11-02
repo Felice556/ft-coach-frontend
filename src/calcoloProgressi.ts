@@ -98,3 +98,37 @@ export function ultimaVoltaMigliore(storico: RegistroAllenamento[], oggi = new D
   }
   return migliore;
 }
+
+// Serie "record": quelle che hanno battuto la migliore di sempre fino a quel momento
+// (più peso, a parità di peso più ripetizioni). Il primo giorno non conta: non c'è niente da battere.
+export function serieRecord(storico: RegistroAllenamento[]): Set<number> {
+  const risultato = new Set<number>();
+  let migliore: { peso: number; reps: number } | null = null;
+  let primoGiorno: string | null = null;
+  for (const r of [...storico].sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())) {
+    const giorno = new Date(r.data).toDateString();
+    if (primoGiorno === null) primoGiorno = giorno;
+    const s = { peso: r.pesoUsato, reps: r.repsFatte };
+    if (!migliore || meglio(s, migliore)) {
+      if (migliore && giorno !== primoGiorno) risultato.add(r.id);
+      migliore = s;
+    }
+  }
+  return risultato;
+}
+
+// Record di ogni giorno: quante serie record (vedi sopra) ci sono in ogni giorno.
+// Chiave = giorno (toDateString), valore = numero di record.
+export function recordPerGiorno(storico: RegistroAllenamento[]): Map<string, number> {
+  const record = serieRecord(storico);
+  const risultato = new Map<string, number>();
+  for (const r of storico) {
+    if (!record.has(r.id)) continue;
+    const giorno = new Date(r.data).toDateString();
+    risultato.set(giorno, (risultato.get(giorno) ?? 0) + 1);
+  }
+  return risultato;
+}
+
+// Volume di un gruppo di serie: somma di peso × ripetizioni (es. 62,5 × 8 + 62,5 × 7 = 937,5 kg).
+export const volume = (serie: { pesoUsato: number; repsFatte: number }[]) => serie.reduce((t, s) => t + s.pesoUsato * s.repsFatte, 0);

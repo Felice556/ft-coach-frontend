@@ -5,6 +5,8 @@ import ProgressoChart from './ProgressoChart';
 import { raggruppaPerEsercizio } from './raggruppaStorico';
 import { normalizza } from './libreria';
 import { locale, tr } from './lingua';
+import { IntestazioneGiorno, RigaSerie, TabellaSerie } from './VisteSerie';
+import { recordPerGiorno, serieRecord, volume } from './calcoloProgressi';
 
 // Storico pesi generale: ogni esercizio con tutte le sue serie, su tutte le schede (anche vecchie).
 // Si aggiunge allo storico della singola scheda, che resta com'è.
@@ -88,6 +90,8 @@ export default function StoricoPesi({ clienteId, nomeCliente, onChiudi }: { clie
           for (const s of e.serie) perGiorno.set(chiaveGiorno(s.data), [...(perGiorno.get(chiaveGiorno(s.data)) ?? []), s]);
           const elenco = [...perGiorno.values()].reverse();
           const mostrati = tuttiIGiorni ? elenco : elenco.slice(0, 6);
+          const record = recordPerGiorno(e.serie);
+          const recordSerie = serieRecord(e.serie);
           return (
             <article key={e.chiave} className="card">
               <button
@@ -117,17 +121,18 @@ export default function StoricoPesi({ clienteId, nomeCliente, onChiudi }: { clie
                   <ul className="divide-y divide-line">
                     {mostrati.map((giorno) => (
                       <li key={giorno[0].id} className="space-y-1.5 py-3">
-                        <p className="text-xs font-bold tracking-wide text-muted uppercase">
-                          {dataCorta(giorno[0].data)} · <span className="normal-case">{giorno[0].nomeScheda}</span>
-                        </p>
-                        <div className="flex flex-wrap gap-1.5">
+                        <IntestazioneGiorno
+                          titolo={dataCorta(giorno[0].data)}
+                          sottotitolo={giorno[0].nomeScheda}
+                          serie={giorno.length}
+                          volumeKg={volume(giorno)}
+                          record={record.get(chiaveGiorno(giorno[0].data)) ?? 0}
+                        />
+                        <TabellaSerie>
                           {giorno.map((s, i) => (
-                            <span key={s.id} className="rounded-md bg-surface-2 px-2 py-1 text-sm tabular-nums">
-                              <span className="text-muted">{i + 1}.</span> <span className="font-bold">{kg(s.pesoUsato)} kg</span>
-                              <span className="text-muted"> × {s.repsFatte}</span>
-                            </span>
+                            <RigaSerie key={s.id} prima={String(i + 1)} kg={kg(s.pesoUsato)} reps={s.repsFatte} record={recordSerie.has(s.id)} />
                           ))}
-                        </div>
+                        </TabellaSerie>
                       </li>
                     ))}
                   </ul>
