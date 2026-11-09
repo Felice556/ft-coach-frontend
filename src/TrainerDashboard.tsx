@@ -54,6 +54,7 @@ import { locale, tr } from './lingua';
 import { BarraSezioni, ICONE, ricordaSezione, useIndirizzo } from './Sezioni';
 import CampoReps from './CampoReps';
 import RiordinoEsercizi from './RiordinoEsercizi';
+import ImportaSchede from './ImportaSchede';
 import { ChipGruppo, Collegamento, RecuperoAssente, spiegaRecupero } from './EditorCollegamenti';
 
 // Da quanto tempo esiste una scheda, in parole: "oggi", "3 giorni fa", "2 mesi fa".
@@ -1278,7 +1279,18 @@ export default function TrainerDashboard() {
                   </h2>
                   {clienteAperto && <p className="mt-1 truncate text-sm text-muted">{clienteAperto.email}</p>}
                 </div>
-                {bottoneNuovaScheda}
+                <div className="flex flex-wrap gap-2">
+                  {bottoneNuovaScheda}
+                  {/* schede preparate con Schedario: crea solo schede nuove, non tocca quelle esistenti */}
+                  <ImportaSchede
+                    clienteId={clienteVisto}
+                    nomeCliente={nomeCliente(clienteVisto)}
+                    onFatto={async () => {
+                      await caricaSchede();
+                      if (paginaCliente !== 'schede') apriCliente(clienteVisto, 'schede', true);
+                    }}
+                  />
+                </div>
               </div>
               <nav className="-mx-1 mt-5 flex gap-2 overflow-x-auto px-1 pb-1" aria-label={tr('Pagine del cliente', 'Client pages')}>
                 {PAGINE_CLIENTE.map((pg) => (
