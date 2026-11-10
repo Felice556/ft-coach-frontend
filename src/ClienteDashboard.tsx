@@ -23,7 +23,7 @@ import {
 import ProgressoChart, { StrisciaProgressi } from './ProgressoChart';
 import StoricoPesi from './StoricoPesi';
 import { recordPerGiorno, seriePerGiorno, serieRecord, ultimaVoltaMigliore, volume as volumeSerie } from './calcoloProgressi';
-import { CelleSerie, colonneSerie, IntestazioneGiorno, TabellaSerie, TessereEsercizio } from './VisteSerie';
+import { CelleSerie, colonneSerie, IntestazioneGiorno, ProgrammaSerie, TabellaSerie, TessereEsercizio } from './VisteSerie';
 import MisureCorporee from './MisureCorporee';
 import CardioPassi from './CardioPassi';
 import DiarioAlimentare from './DiarioAlimentare';
@@ -31,7 +31,7 @@ import EditorSchedaPersonale from './EditorSchedaPersonale';
 import ProgrammiInArrivo from './ProgrammiInArrivo';
 import { SceltaFatica } from './FeedbackCliente';
 import { gruppiCollegati, prossimoPasso, sigla } from './collegamenti';
-import { pianoSerie, riassuntoSerie, testoReps, testoRecupero, SerieDaFare, SPIEGAZIONE_PIU_MAX, SPIEGAZIONE_RP } from './serie';
+import { gruppiSerie, pianoSerie, testoReps, testoRecupero, SerieDaFare, SPIEGAZIONE_PIU_MAX, SPIEGAZIONE_RP } from './serie';
 import {
   impostaSuono,
   impostaVolume,
@@ -1229,6 +1229,9 @@ export default function ClienteDashboard() {
               const oggi = storico.filter((x) => eOggi(x.data)).length;
               const piano = pianoSerie(es);
               const completato = oggi >= piano.length;
+              // Serie uguali messe insieme: se sono tutte uguali basta la barra Serie · Reps · Recupero,
+              // altrimenti (top set + back-off, piramidali…) una riga per ogni gruppo.
+              const righeSerie = gruppiSerie(piano);
               const prossima = piano[oggi]; // undefined se l'esercizio è finito
               // Recupero da far partire a mano. Se la serie da fare è un rest-pause, è la sua pausa
               // (si tocca arrivati a cedimento); altrimenti il recupero dell'ultima serie fatta.
@@ -1296,24 +1299,26 @@ export default function ClienteDashboard() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <h3 className="text-lg leading-snug font-extrabold tracking-tight sm:text-xl">{es.nome}</h3>
-                      {/* Nei superset/jumpset si dice cosa viene dopo; con serie aggiunte, il programma completo */}
-                      {(g || (es.serieExtra?.length ?? 0) > 0) && (
+                      {/* Nei superset/jumpset si dice cosa viene dopo (il programma completo è sotto) */}
+                      {g && (
                         <p className="mt-1 text-sm leading-relaxed text-soft">
-                          {(es.serieExtra?.length ?? 0) > 0 && <span className="font-semibold text-ink">{riassuntoSerie(es)}</span>}
-                          {(es.serieExtra?.length ?? 0) > 0 && g && <span className="text-muted"> · </span>}
-                          {g && <span className="text-muted">{testoDopo}</span>}
+                          <span className="text-muted">{testoDopo}</span>
                         </p>
                       )}
                     </div>
                   </header>
 
-                  {/* Serie · Ripetizioni · Recupero, grandi e in colonna */}
-                  <TessereEsercizio
-                    serie={piano.length}
-                    ripetizioni={testoReps(es.repsTarget, es.repsMax, es.piuMax, es.rpSecondi)}
-                    recuperoSecondi={es.recuperoSecondi}
-                    senzaRecupero={superset}
-                  />
+                  {/* Serie · Ripetizioni · Recupero, grandi e in colonna; con serie diverse una riga per gruppo */}
+                  {righeSerie.length > 1 ? (
+                    <ProgrammaSerie gruppi={righeSerie} fatte={oggi} senzaRecupero={superset} />
+                  ) : (
+                    <TessereEsercizio
+                      serie={piano.length}
+                      ripetizioni={testoReps(es.repsTarget, es.repsMax, es.piuMax, es.rpSecondi)}
+                      recuperoSecondi={es.recuperoSecondi}
+                      senzaRecupero={superset}
+                    />
+                  )}
 
                   {/* Serie di oggi come pallini: si capisce a colpo d'occhio a che punto sei */}
                   {/* Le serie aggiunte ancora da fare hanno il bordo tratteggiato: si vede che sono diverse */}

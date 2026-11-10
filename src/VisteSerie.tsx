@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { locale, tr } from './lingua';
+import { testoReps, type GruppoSerie } from './serie';
 
 // Pezzi grafici per leggere le serie a colpo d'occhio, nello stile di Liftio:
 // - la barra del programma (Serie · Ripetizioni · Recupero) in cima a ogni esercizio;
@@ -92,6 +93,58 @@ export function TessereEsercizio({
         ),
         senzaRecupero ? tr('superset', 'superset') : undefined,
       )}
+    </div>
+  );
+}
+
+// Programma con serie diverse (top set + back-off, piramidali, serie aggiunte): una riga per ogni
+// gruppo di serie uguali, con ripetizioni e recupero di quel gruppo. La riga della serie da fare ora
+// è evidenziata, quelle già fatte hanno la spunta.
+export function ProgrammaSerie({ gruppi, fatte, senzaRecupero = false }: { gruppi: GruppoSerie[]; fatte: number; senzaRecupero?: boolean }) {
+  const titolo = 'text-[0.66rem] font-bold tracking-[0.14em] text-accent-strong uppercase';
+  return (
+    <div className="overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-accent-soft to-surface-2 shadow-sm">
+      <div className={`grid grid-cols-[4.5rem_1fr_6rem] border-b border-line ${titolo}`}>
+        <span className="px-3.5 py-2">{tr('Serie', 'Sets')}</span>
+        <span className="px-3.5 py-2">{tr('Reps', 'Reps')}</span>
+        <span className="px-3.5 py-2">{tr('Recupero', 'Rest')}</span>
+      </div>
+      <ul className="divide-y divide-line">
+        {gruppi.map((gr) => {
+          const s = gr.serie;
+          const { base, tecnica } = dividiTecnica(testoReps(s.reps, s.repsMax, s.piuMax, s.rpSecondi));
+          const finito = fatte >= gr.da + gr.quante;
+          const ora = !finito && fatte >= gr.da;
+          const rec = recuperoInGrande(s.recuperoSecondi);
+          return (
+            <li key={gr.da} className={ora ? 'bg-accent-soft shadow-[inset_4px_0_0_var(--color-accent)]' : ''} aria-current={ora ? 'step' : undefined}>
+              <div className={`grid grid-cols-[4.5rem_1fr_6rem] items-baseline ${finito ? 'opacity-55' : ''}`}>
+                <span className="flex items-baseline gap-1 px-3.5 py-2.5 text-xl font-black text-ink tabular-nums">
+                  {gr.quante}
+                  <span className="text-xs font-bold text-muted">×</span>
+                  {finito && <span className="ml-0.5 text-sm text-success">✓</span>}
+                </span>
+                <span className="min-w-0 px-3.5 py-2.5">
+                  <span className="text-xl font-black text-ink tabular-nums">{base}</span>
+                  {tecnica && <span className="ml-1.5 text-xs font-semibold text-soft">{tecnica}</span>}
+                  {ora && <span className="ml-2 rounded-md bg-accent px-1.5 py-0.5 align-middle text-[0.62rem] font-bold tracking-wider text-accent-ink uppercase">{tr('ora', 'now')}</span>}
+                </span>
+                <span className="px-3.5 py-2.5 text-xl font-black text-ink tabular-nums">
+                  {senzaRecupero ? (
+                    <span className="text-base">{tr('subito', 'none')}</span>
+                  ) : (
+                    <>
+                      {rec.valore}
+                      {rec.unita && <span className="ml-0.5 text-xs font-bold text-muted">{rec.unita}</span>}
+                    </>
+                  )}
+                </span>
+              </div>
+              {s.nota && <p className={`px-3.5 pb-2 -mt-1 text-xs text-soft italic ${finito ? 'opacity-55' : ''}`}>{s.nota}</p>}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

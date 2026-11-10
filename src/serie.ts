@@ -102,6 +102,26 @@ export function pianoSerie(es: Esercizio): SerieDaFare[] {
   return [...normali, ...aggiunte];
 }
 
+// Serie uguali una dopo l'altra messe insieme, per mostrare il programma come righe:
+// top set 1 × 6-9 + back-off 2 × 8-12 → [{ quante: 1, 6-9 }, { quante: 2, 8-12 }].
+// Se tutte le serie sono uguali esce un gruppo solo.
+export interface GruppoSerie {
+  da: number; // indice della prima serie del gruppo (da 0)
+  quante: number;
+  serie: SerieDaFare; // la prima del gruppo: le altre sono uguali
+}
+export function gruppiSerie(piano: SerieDaFare[]): GruppoSerie[] {
+  const uguali = (a: SerieDaFare, b: SerieDaFare) =>
+    a.reps === b.reps && a.repsMax === b.repsMax && a.piuMax === b.piuMax && a.rpSecondi === b.rpSecondi && a.recuperoSecondi === b.recuperoSecondi && (a.nota ?? '') === (b.nota ?? '');
+  const gruppi: GruppoSerie[] = [];
+  piano.forEach((s, i) => {
+    const ultimo = gruppi[gruppi.length - 1];
+    if (ultimo && uguali(ultimo.serie, s)) ultimo.quante++;
+    else gruppi.push({ da: i, quante: 1, serie: s });
+  });
+  return gruppi;
+}
+
 // Testo breve: "3 × 10", "2 × 6-9 + 1 × Max", "3 × Max".
 export function riassuntoSerie(es: Esercizio): string {
   const parti = [`${es.serieTarget} × ${testoReps(es.repsTarget, es.repsMax, es.piuMax, es.rpSecondi)}`];

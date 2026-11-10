@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Esercizio } from '../src/api';
-import { leggiReps, pianoSerie, riassuntoSerie, testoRecupero, testoReps } from '../src/serie';
+import { gruppiSerie, leggiReps, pianoSerie, riassuntoSerie, testoRecupero, testoReps } from '../src/serie';
 
 const esercizio = (dati: Partial<Esercizio>) =>
   ({ id: 1, nome: 'Panca', serieTarget: 3, repsTarget: 10, repsMax: null, recuperoSecondi: 90, serieExtra: [], ...dati }) as Esercizio;
@@ -71,5 +71,28 @@ describe('Piano delle serie', () => {
 
   it('esercizio senza serie aggiunte', () => {
     expect(pianoSerie(esercizio({ serieTarget: 4 }))).toHaveLength(4);
+  });
+});
+
+describe('Serie raggruppate per la barra del programma', () => {
+  const extra = (d: object) => ({ id: 1, ordine: 0, reps: 10, repsMax: null, recuperoSecondi: 90, nota: null, piuMax: false, rpSecondi: null, ...d });
+  it('serie tutte uguali: un gruppo solo (basta la barra Serie · Reps · Recupero)', () => {
+    expect(gruppiSerie(pianoSerie(esercizio({})))).toHaveLength(1);
+    // anche con una serie aggiunta identica alle altre
+    const g = gruppiSerie(pianoSerie(esercizio({ serieExtra: [extra({})] as never })));
+    expect(g).toHaveLength(1);
+    expect(g[0].quante).toBe(4);
+  });
+  it('top set + back-off: due righe con reps e recupero di ognuna', () => {
+    const es = esercizio({ serieTarget: 1, repsTarget: 6, repsMax: 9, recuperoSecondi: 150, serieExtra: [extra({ reps: 8, repsMax: 12, recuperoSecondi: 90 }), extra({ reps: 8, repsMax: 12, recuperoSecondi: 90 })] as never });
+    const g = gruppiSerie(pianoSerie(es));
+    expect(g.map((x) => [x.da, x.quante, testoReps(x.serie.reps, x.serie.repsMax), x.serie.recuperoSecondi])).toEqual([
+      [0, 1, '6-9', 150],
+      [1, 2, '8-12', 90],
+    ]);
+  });
+  it('piramidale: una riga per ogni serie diversa', () => {
+    const es = esercizio({ serieTarget: 1, repsTarget: 12, serieExtra: [extra({ reps: 10 }), extra({ reps: 8 }), extra({ reps: 6, piuMax: true })] as never });
+    expect(gruppiSerie(pianoSerie(es)).map((x) => testoReps(x.serie.reps, x.serie.repsMax, x.serie.piuMax))).toEqual(['12', '10', '8', '6 + max']);
   });
 });
