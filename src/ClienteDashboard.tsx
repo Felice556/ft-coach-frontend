@@ -31,7 +31,7 @@ import EditorSchedaPersonale from './EditorSchedaPersonale';
 import ProgrammiInArrivo from './ProgrammiInArrivo';
 import { SceltaFatica } from './FeedbackCliente';
 import { gruppiCollegati, prossimoPasso, sigla } from './collegamenti';
-import { gruppiSerie, pianoSerie, testoReps, testoRecupero, SerieDaFare, SPIEGAZIONE_PIU_MAX, SPIEGAZIONE_RP } from './serie';
+import { gruppiSerie, pianoSerie, repsTotali, testoReps, testoRecupero, SerieDaFare, SPIEGAZIONE_CLUSTER, SPIEGAZIONE_PIU_MAX, SPIEGAZIONE_RP, RP_PREDEFINITO } from './serie';
 import {
   impostaSuono,
   impostaVolume,
@@ -55,7 +55,9 @@ const CHIAVE_DIARIO_VISTO = 'diarioVistoIl'; // ultima volta che il cliente ha a
 
 // Valore di partenza del campo reps per una serie: il numero se è fisso,
 // vuoto se è "Max", un intervallo (6-9) o un drop set (+ max): lì il cliente scrive quante ne ha fatte davvero.
+// Nel cluster le ripetizioni totali (5+5+5+5 → 20).
 function repsDiPartenza(serie: SerieDaFare | undefined): string {
+  if (serie?.cluster && serie.reps != null) return String(serie.reps * serie.cluster);
   if (!serie || serie.reps == null || serie.repsMax != null || serie.piuMax || serie.rpSecondi != null) return '';
   return String(serie.reps);
 }
@@ -761,7 +763,8 @@ export default function ClienteDashboard() {
       };
       // Serie con rest-pause appena registrata: parte subito la sua pausa (non il recupero normale).
       // Finito il rest-pause, dalla barra si fa partire il recupero della serie con un tocco.
-      const rpAppenaFatta = piano[fatteOggi - 1]?.rpSecondi;
+      // (nel cluster no: le pause tra le mini-serie sono già state fatte prima di segnare la serie)
+      const rpAppenaFatta = piano[fatteOggi - 1]?.cluster ? null : piano[fatteOggi - 1]?.rpSecondi;
       if (rpAppenaFatta != null) {
         // Era l'ultima serie dell'esercizio? Allora dopo il rest-pause niente recupero: si passa al prossimo esercizio.
         const altreSerie = fatteOggi < piano.length;
@@ -1314,7 +1317,7 @@ export default function ClienteDashboard() {
                   ) : (
                     <TessereEsercizio
                       serie={piano.length}
-                      ripetizioni={testoReps(es.repsTarget, es.repsMax, es.piuMax, es.rpSecondi)}
+                      ripetizioni={testoReps(es.repsTarget, es.repsMax, es.piuMax, es.rpSecondi, es.cluster)}
                       recuperoSecondi={es.recuperoSecondi}
                       senzaRecupero={superset}
                     />
@@ -1393,10 +1396,12 @@ export default function ClienteDashboard() {
                               {prossima.reps == null && prossima.rpSecondi == null
                                 ? tr('Max ripetizioni', 'Max reps')
                                 : prossima.piuMax || prossima.rpSecondi != null
-                                  ? testoReps(prossima.reps, prossima.repsMax, prossima.piuMax, prossima.rpSecondi)
+                                  ? testoReps(prossima.reps, prossima.repsMax, prossima.piuMax, prossima.rpSecondi, prossima.cluster)
                                   : `${testoReps(prossima.reps, prossima.repsMax)} reps`}
                             </span>
-                            {prossima.rpSecondi != null ? (
+                            {prossima.cluster && prossima.reps != null ? (
+                              <span className="text-soft"> · {SPIEGAZIONE_CLUSTER(prossima.cluster, prossima.reps, prossima.rpSecondi ?? RP_PREDEFINITO)}</span>
+                            ) : prossima.rpSecondi != null ? (
                               <span className="text-soft"> · {SPIEGAZIONE_RP(prossima.rpSecondi)}</span>
                             ) : (
                               prossima.piuMax && <span className="text-soft"> · {SPIEGAZIONE_PIU_MAX()}</span>
@@ -1447,7 +1452,7 @@ export default function ClienteDashboard() {
                           passo={1}
                           minimo={1}
                           decimali={false}
-                          segnaposto={prossima ? testoReps(prossima.reps, prossima.repsMax) : '0'}
+                          segnaposto={prossima ? (prossima.cluster ? String(repsTotali(prossima)) : testoReps(prossima.reps, prossima.repsMax)) : '0'}
                           onChange={(v) => setReps((prev) => ({ ...prev, [es.id]: v }))}
                         />
                       </div>

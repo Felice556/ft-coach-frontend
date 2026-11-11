@@ -22,6 +22,7 @@ function leggiEsercizio(e: any, dove: string): EsercizioDaCreare {
   const extra = Array.isArray(e.serieExtra) ? e.serieExtra : [];
   if (extra.length > 10) throw new Error(tr(`${dove}, "${nome}": troppe serie extra (massimo 10).`, `${dove}, "${nome}": too many extra sets (max 10).`));
   const rp = (v: unknown) => (v == null ? null : intero(v, 5, 120));
+  const cl = (v: unknown) => (v == null ? null : intero(v, 2, 10));
   return {
     nome,
     descrizione: testo(e.descrizione, 1000) || undefined,
@@ -30,12 +31,13 @@ function leggiEsercizio(e: any, dove: string): EsercizioDaCreare {
     repsMax: reps(e.repsMax),
     piuMax: e.piuMax === true,
     rpSecondi: rp(e.rpSecondi),
+    cluster: cl(e.cluster),
     recuperoSecondi: recupero,
     collegamento: null,
     serieExtra: extra.map((x: any) => {
       const r = intero(x?.recuperoSecondi, 0, 3600);
       if (r == null) throw new Error(tr(`${dove}, "${nome}": recupero di una serie extra non valido.`, `${dove}, "${nome}": invalid rest on an extra set.`));
-      return { reps: reps(x.reps), repsMax: reps(x.repsMax), piuMax: x.piuMax === true, rpSecondi: rp(x.rpSecondi), recuperoSecondi: r };
+      return { reps: reps(x.reps), repsMax: reps(x.repsMax), piuMax: x.piuMax === true, rpSecondi: rp(x.rpSecondi), cluster: cl(x.cluster), recuperoSecondi: r };
     }),
   };
 }

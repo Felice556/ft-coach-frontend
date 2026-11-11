@@ -30,7 +30,7 @@ export function recuperoInGrande(secondi: number): { valore: string; unita: stri
   return { valore: s ? `${m}:${String(s).padStart(2, '0')}` : String(m), unita: 'min' };
 }
 
-// "6-9 + rp 15s" → numero "6-9" in grande e la tecnica "+ rp 15s" piccola sotto.
+// "6-9 + rp 15s" → numero "6-9" in grande e la tecnica "+ rp 15s" piccola sotto (cluster: "5+5+5+5" e "+ pausa 10s").
 function dividiTecnica(ripetizioni: string): { base: string; tecnica: string | null } {
   const i = ripetizioni.indexOf(' + ');
   return i < 0 ? { base: ripetizioni, tecnica: null } : { base: ripetizioni.slice(0, i), tecnica: ripetizioni.slice(i + 1) };
@@ -49,13 +49,13 @@ export function TessereEsercizio({
 }) {
   const rec = recuperoInGrande(recuperoSecondi);
   const { base, tecnica } = dividiTecnica(ripetizioni);
-  const parte = (icona: ReactNode, etichetta: string, valore: ReactNode, sotto?: ReactNode) => (
+  const parte = (icona: ReactNode, etichetta: string, valore: ReactNode, sotto?: ReactNode, piccolo = false) => (
     <div className="min-w-0 flex-1 px-3.5 py-3">
       <p className="flex items-center gap-1 text-[0.66rem] font-bold tracking-[0.14em] text-accent-strong uppercase">
         {icona}
         {etichetta}
       </p>
-      <p className="mt-1 text-[1.65rem] leading-none font-black tracking-tight text-ink tabular-nums">{valore}</p>
+      <p className={`mt-1 leading-none font-black tracking-tight text-ink tabular-nums ${piccolo ? 'text-lg' : 'text-[1.65rem]'}`}>{valore}</p>
       {sotto && <p className="mt-1 truncate text-xs font-semibold text-soft">{sotto}</p>}
     </div>
   );
@@ -76,6 +76,7 @@ export function TessereEsercizio({
         tr('Reps', 'Reps'),
         base,
         tecnica,
+        base.length > 7, // cluster lunghi ("5+5+5+5+5"): più piccoli, così stanno nella tessera
       )}
       {parte(
         <Icona>
@@ -112,7 +113,7 @@ export function ProgrammaSerie({ gruppi, fatte, senzaRecupero = false }: { grupp
       <ul className="divide-y divide-line">
         {gruppi.map((gr) => {
           const s = gr.serie;
-          const { base, tecnica } = dividiTecnica(testoReps(s.reps, s.repsMax, s.piuMax, s.rpSecondi));
+          const { base, tecnica } = dividiTecnica(testoReps(s.reps, s.repsMax, s.piuMax, s.rpSecondi, s.cluster));
           const finito = fatte >= gr.da + gr.quante;
           const ora = !finito && fatte >= gr.da;
           const rec = recuperoInGrande(s.recuperoSecondi);

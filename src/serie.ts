@@ -7,21 +7,30 @@ export interface SerieDaFare {
   reps: number | null; // null = "Max" (a cedimento); negli intervalli è il minimo
   repsMax: number | null; // solo per gli intervalli ("6-9" → reps 6, repsMax 9)
   piuMax: boolean; // "+ max" (drop set): fatte le reps, si scala il peso e si continua a cedimento
-  rpSecondi: number | null; // "+ rp" (rest-pause): pausa in secondi, poi si riprende con lo stesso peso
+  rpSecondi: number | null; // "+ rp" (rest-pause): pausa in secondi, poi si riprende con lo stesso peso; nel cluster è la pausa tra le mini-serie
+  cluster: number | null; // cluster: quante mini-serie da "reps" ripetizioni ("5+5+5+5" → 4 da 5)
   recuperoSecondi: number;
   nota: string | null;
   aggiunta: boolean; // true = serie aggiunta dal trainer dopo quelle normali
 }
 
 // Come mostrare le ripetizioni: "10", "6-9", "Max", con il drop set "6-9 + max",
-// con il rest-pause "6-9 + rp 15s" (15 = secondi di pausa).
-export function testoReps(reps: number | null | undefined, repsMax?: number | null, piuMax?: boolean, rpSecondi?: number | null): string {
+// con il rest-pause "6-9 + rp 15s" (15 = secondi di pausa), il cluster "5+5+5+5 + pausa 10s".
+export function testoReps(reps: number | null | undefined, repsMax?: number | null, piuMax?: boolean, rpSecondi?: number | null, cluster?: number | null): string {
+  if (cluster != null && cluster >= 2 && reps != null) return `${Array(cluster).fill(reps).join('+')} + pausa ${rpSecondi ?? RP_PREDEFINITO}s`;
   const base = reps == null ? 'Max' : repsMax != null && repsMax > reps ? `${reps}-${repsMax}` : String(reps);
   if (rpSecondi != null) return `${base} + rp ${rpSecondi}s`;
   return piuMax && reps != null ? `${base} + max` : base;
 }
 
-// Pausa del rest-pause: quella scritta, altrimenti 15 secondi.
+// Ripetizioni totali di un cluster ("5+5+5+5" → 20): è quello che il cliente segna.
+export const repsTotali = (s: { reps: number | null; cluster?: number | null }) => (s.reps != null && s.cluster ? s.reps * s.cluster : s.reps);
+
+// Mini-serie di un cluster: da 2 a 10.
+export const CLUSTER_MIN = 2;
+export const CLUSTER_MAX = 10;
+
+// Pausa del rest-pause (e del cluster): quella scritta, altrimenti 15 secondi.
 export const RP_PREDEFINITO = 15;
 export const RP_MIN = 5;
 export const RP_MAX = 120;
@@ -29,6 +38,11 @@ export const RP_MAX = 120;
 // Spiegazioni brevi delle tecniche, per chi si allena.
 export const SPIEGAZIONE_PIU_MAX = () =>
   tr('drop set: finite le ripetizioni, scala il peso e continua fino a cedimento', 'drop set: after these reps, lower the weight and keep going to failure');
+export const SPIEGAZIONE_CLUSTER = (miniSerie: number, reps: number, secondi: number) =>
+  tr(
+    `cluster: ${reps} ripetizioni, pausa ${secondi} secondi, per ${miniSerie} volte con lo stesso peso. Segna le ripetizioni totali (${reps * miniSerie})`,
+    `cluster: ${reps} reps, rest ${secondi} seconds, ${miniSerie} times with the same weight. Log the total reps (${reps * miniSerie})`,
+  );
 export const SPIEGAZIONE_RP = (secondi: number) =>
   tr(
     `rest-pause: arrivato a cedimento fermati ${secondi} secondi e riprendi con lo stesso peso, di nuovo fino a cedimento`,
@@ -46,9 +60,23 @@ export function testoRecupero(secondi: number): string {
 //   "max"        → { reps: null, repsMax: null }
 //   "6-9 + max", "10+max" → come sopra, con piuMax: true (drop set)
 //   "6-9 + rp 20", "max + rp" → rest-pause con 20 secondi di pausa (senza numero: 15)
+//   "5+5+5+5", "5+5+5+5 + pausa 10" → cluster: 4 mini-serie da 5, 10 secondi di pausa (senza numero: 15)
 //   altro        → undefined (non valido; anche "max + max" o una pausa fuori 5-120 s)
-export type RepsLette = { reps: number | null; repsMax: number | null; piuMax: boolean; rpSecondi: number | null };
+export type RepsLette = { reps: number | null; repsMax: number | null; piuMax: boolean; rpSecondi: number | null; cluster: number | null };
 export function leggiReps(testo: string): RepsLette | undefined {
+  // Cluster: mini-serie tutte uguali separate da "+", con la pausa facoltativa ("+ pausa 10", "+ rp 10")
+  const cl = testo.trim().match(/^(\d+(?:\s*\+\s*\d+)+)(?:\s*\+\s*(?:pausa|rp)\s*(\d+)?\s*s?)?$/i);
+  if (cl) {
+    const parti = cl[1].split('+').map((x) => Number(x.trim()));
+    const pausa = cl[2] ? Number(cl[2]) : RP_PREDEFINITO;
+    if (parti.length < CLUSTER_MIN || parti.length > CLUSTER_MAX || parti[0] < 1 || parti.some((x) => x !== parti[0])) return undefined;
+    if (pausa < RP_MIN || pausa > RP_MAX) return undefined;
+    return { reps: parti[0], repsMax: null, piuMax: false, rpSecondi: pausa, cluster: parti.length };
+  }
+  const r = leggiRepsSemplici(testo);
+  return r && { ...r, cluster: null };
+}
+function leggiRepsSemplici(testo: string): Omit<RepsLette, 'cluster'> | undefined {
   let pulito = testo.trim();
   const dropSet = /\s*\+\s*max$/i.test(pulito);
   if (dropSet) pulito = pulito.replace(/\s*\+\s*max$/i, '').trim();
@@ -85,6 +113,7 @@ export function pianoSerie(es: Esercizio): SerieDaFare[] {
     repsMax: es.repsMax ?? null,
     piuMax: !!es.piuMax,
     rpSecondi: es.rpSecondi ?? null,
+    cluster: es.cluster ?? null,
     recuperoSecondi: es.recuperoSecondi,
     nota: null,
     aggiunta: false,
@@ -95,6 +124,7 @@ export function pianoSerie(es: Esercizio): SerieDaFare[] {
     repsMax: s.repsMax ?? null,
     piuMax: !!s.piuMax,
     rpSecondi: s.rpSecondi ?? null,
+    cluster: s.cluster ?? null,
     recuperoSecondi: s.recuperoSecondi,
     nota: s.nota || null,
     aggiunta: true,
@@ -112,7 +142,7 @@ export interface GruppoSerie {
 }
 export function gruppiSerie(piano: SerieDaFare[]): GruppoSerie[] {
   const uguali = (a: SerieDaFare, b: SerieDaFare) =>
-    a.reps === b.reps && a.repsMax === b.repsMax && a.piuMax === b.piuMax && a.rpSecondi === b.rpSecondi && a.recuperoSecondi === b.recuperoSecondi && (a.nota ?? '') === (b.nota ?? '');
+    a.reps === b.reps && a.repsMax === b.repsMax && a.piuMax === b.piuMax && a.rpSecondi === b.rpSecondi && a.cluster === b.cluster && a.recuperoSecondi === b.recuperoSecondi && (a.nota ?? '') === (b.nota ?? '');
   const gruppi: GruppoSerie[] = [];
   piano.forEach((s, i) => {
     const ultimo = gruppi[gruppi.length - 1];
@@ -124,7 +154,7 @@ export function gruppiSerie(piano: SerieDaFare[]): GruppoSerie[] {
 
 // Testo breve: "3 × 10", "2 × 6-9 + 1 × Max", "3 × Max".
 export function riassuntoSerie(es: Esercizio): string {
-  const parti = [`${es.serieTarget} × ${testoReps(es.repsTarget, es.repsMax, es.piuMax, es.rpSecondi)}`];
-  for (const s of es.serieExtra || []) parti.push(`1 × ${testoReps(s.reps, s.repsMax, s.piuMax, s.rpSecondi)}`);
+  const parti = [`${es.serieTarget} × ${testoReps(es.repsTarget, es.repsMax, es.piuMax, es.rpSecondi, es.cluster)}`];
+  for (const s of es.serieExtra || []) parti.push(`1 × ${testoReps(s.reps, s.repsMax, s.piuMax, s.rpSecondi, s.cluster)}`);
   return parti.join(' + ');
 }

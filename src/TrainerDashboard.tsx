@@ -541,10 +541,10 @@ export default function TrainerDashboard() {
       videoUrl: es.videoUrl || '',
       descrizione: es.descrizione || '',
       serieTarget: String(es.serieTarget),
-      repsTarget: testoReps(es.repsTarget, es.repsMax, es.piuMax, es.rpSecondi),
+      repsTarget: testoReps(es.repsTarget, es.repsMax, es.piuMax, es.rpSecondi, es.cluster),
       recuperoSecondi: String(es.recuperoSecondi),
       serieExtra: (es.serieExtra || []).map((x) => ({
-        reps: testoReps(x.reps, x.repsMax, x.piuMax, x.rpSecondi),
+        reps: testoReps(x.reps, x.repsMax, x.piuMax, x.rpSecondi, x.cluster),
         recuperoSecondi: String(x.recuperoSecondi),
         nota: x.nota || '',
       })),
@@ -906,7 +906,7 @@ export default function TrainerDashboard() {
         const valore = leggiReps(testo);
         if (valore === undefined) {
           throw new Error(
-            tr(`${dove}: reps non valide. Scrivi un numero (10), un intervallo (6-9), Max, oppure 6-9 + max o 6-9 + rp 15 (pausa tra 5 e 120 secondi)`, `${dove}: invalid reps. Enter a number (10), a range (6-9), Max, or 6-9 + max or 6-9 + rp 15 (break between 5 and 120 seconds)`),
+            tr(`${dove}: reps non valide. Scrivi un numero (10), un intervallo (6-9), Max, 6-9 + max, 6-9 + rp 15 oppure un cluster 5+5+5+5 (da 2 a 10 mini-serie uguali; pausa tra 5 e 120 secondi)`, `${dove}: invalid reps. Enter a number (10), a range (6-9), Max, 6-9 + max, 6-9 + rp 15 or a cluster 5+5+5+5 (2 to 10 equal mini-sets; break between 5 and 120 seconds)`),
           );
         }
         return valore;
@@ -951,7 +951,7 @@ export default function TrainerDashboard() {
         serieTarget: intero(es.serieTarget, es.nome || tr(`Esercizio ${indice + 1}`, `Exercise ${indice + 1}`), tr('numero di serie', 'number of sets'), 1),
         ...(() => {
           const r = reps(es.repsTarget, es.nome || tr('Esercizio', 'Exercise'));
-          return { repsTarget: r.reps, repsMax: r.repsMax, piuMax: r.piuMax, rpSecondi: r.rpSecondi };
+          return { repsTarget: r.reps, repsMax: r.repsMax, piuMax: r.piuMax, rpSecondi: r.rpSecondi, cluster: r.cluster };
         })(),
         recuperoSecondi: superset
           ? recuperoNascosto(es.recuperoSecondi)
@@ -1895,7 +1895,7 @@ export default function TrainerDashboard() {
                               </div>
                               {(es.serieExtra || []).map((x, j) => (
                                 <p key={j} className="mt-1 text-xs text-accent-strong">
-                                  + {tr('Serie', 'Set')} {es.serieTarget + j + 1}: {testoReps(x.reps, x.repsMax, x.piuMax, x.rpSecondi)} reps{superset ? '' : ` · ${testoRecupero(x.recuperoSecondi)}`}
+                                  + {tr('Serie', 'Set')} {es.serieTarget + j + 1}: {testoReps(x.reps, x.repsMax, x.piuMax, x.rpSecondi, x.cluster)} reps{superset ? '' : ` · ${testoRecupero(x.recuperoSecondi)}`}
                                   {x.nota ? ` · ${x.nota}` : ''}
                                 </p>
                               ))}

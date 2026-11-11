@@ -47,10 +47,10 @@ const daEsercizio = (e: Esercizio): Riga => ({
   nome: e.nome,
   collegamento: e.collegamento ?? '',
   serie: String(e.serieTarget),
-  reps: testoReps(e.repsTarget, e.repsMax, e.piuMax, e.rpSecondi),
+  reps: testoReps(e.repsTarget, e.repsMax, e.piuMax, e.rpSecondi, e.cluster),
   recupero: e.recuperoSecondi,
   nota: e.descrizione ?? '',
-  extra: (e.serieExtra ?? []).map((x) => ({ chiave: ++contatore, reps: testoReps(x.reps, x.repsMax, x.piuMax, x.rpSecondi), recupero: x.recuperoSecondi, nota: x.nota ?? '' })),
+  extra: (e.serieExtra ?? []).map((x) => ({ chiave: ++contatore, reps: testoReps(x.reps, x.repsMax, x.piuMax, x.rpSecondi, x.cluster), recupero: x.recuperoSecondi, nota: x.nota ?? '' })),
 });
 
 // Corto, per stare nel menu anche sul telefono: 0 → "No", 45 → "45 s", 90 → "1:30", 120 → "2 min".
@@ -97,16 +97,16 @@ export default function EditorSchedaPersonale({ scheda, onSalvata, onChiudi }: {
       const reps = leggiReps(r.reps);
       const etichetta = r.nome.trim() || tr(`Esercizio ${i + 1}`, `Exercise ${i + 1}`);
       if (!Number.isInteger(serie) || serie < 1 || serie > 20) return setErrore(tr(`${etichetta}: le serie vanno da 1 a 20`, `${etichetta}: sets go from 1 to 20`));
-      if (!reps) return setErrore(tr(`${etichetta}: ripetizioni non valide (scrivi 10, 8-12, Max, 8-12 + max o 8-12 + rp 15; pausa rp tra 5 e 120 s)`, `${etichetta}: invalid reps (enter 10, 8-12, Max, 8-12 + max or 8-12 + rp 15; rp break between 5 and 120 s)`));
+      if (!reps) return setErrore(tr(`${etichetta}: ripetizioni non valide (scrivi 10, 8-12, Max, 8-12 + max, 8-12 + rp 15 o un cluster 5+5+5+5; pausa tra 5 e 120 s)`, `${etichetta}: invalid reps (enter 10, 8-12, Max, 8-12 + max, 8-12 + rp 15 or a cluster 5+5+5+5; break between 5 and 120 s)`));
       const serieExtra = [];
       for (const [j, x] of r.extra.entries()) {
         const rx = leggiReps(x.reps);
         if (!rx) {
           return setErrore(
-            tr(`${etichetta}, serie ${serie + j + 1}: ripetizioni non valide (scrivi 10, 8-12, Max, 8-12 + max o 8-12 + rp 15; pausa rp tra 5 e 120 s)`, `${etichetta}, set ${serie + j + 1}: invalid reps (enter 10, 8-12, Max, 8-12 + max or 8-12 + rp 15; rp break between 5 and 120 s)`),
+            tr(`${etichetta}, serie ${serie + j + 1}: ripetizioni non valide (scrivi 10, 8-12, Max, 8-12 + max, 8-12 + rp 15 o un cluster 5+5+5+5; pausa tra 5 e 120 s)`, `${etichetta}, set ${serie + j + 1}: invalid reps (enter 10, 8-12, Max, 8-12 + max, 8-12 + rp 15 or a cluster 5+5+5+5; break between 5 and 120 s)`),
           );
         }
-        serieExtra.push({ reps: rx.reps, repsMax: rx.repsMax, piuMax: rx.piuMax, rpSecondi: rx.rpSecondi, recuperoSecondi: x.recupero, nota: x.nota.trim() || undefined });
+        serieExtra.push({ reps: rx.reps, repsMax: rx.repsMax, piuMax: rx.piuMax, rpSecondi: rx.rpSecondi, cluster: rx.cluster, recuperoSecondi: x.recupero, nota: x.nota.trim() || undefined });
       }
       const o = r.originale;
       esercizi.push({
@@ -117,6 +117,7 @@ export default function EditorSchedaPersonale({ scheda, onSalvata, onChiudi }: {
         repsMax: reps.repsMax,
         piuMax: reps.piuMax,
         rpSecondi: reps.rpSecondi,
+        cluster: reps.cluster,
         recuperoSecondi: r.recupero,
         descrizione: r.nota.trim() || undefined,
         serieExtra,

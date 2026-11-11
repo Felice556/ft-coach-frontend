@@ -28,7 +28,8 @@ export interface SerieExtra {
   reps: number | null;
   repsMax?: number | null; // per gli intervalli: "6-9" → reps 6, repsMax 9
   piuMax?: boolean; // "+ max" (drop set): "6-9 + max"
-  rpSecondi?: number | null; // "+ rp" (rest-pause) con la pausa in secondi: "6-9 + rp 15"
+  rpSecondi?: number | null; // "+ rp" (rest-pause) con la pausa in secondi: "6-9 + rp 15"; nel cluster la pausa tra le mini-serie
+  cluster?: number | null; // cluster: mini-serie da "reps" ripetizioni ("5+5+5+5" → reps 5, cluster 4)
   recuperoSecondi: number;
   nota?: string | null;
 }
@@ -46,7 +47,8 @@ export interface Esercizio {
   repsTarget: number | null; // null = "Max"; negli intervalli è il minimo
   repsMax?: number | null; // per gli intervalli: "6-9" → repsTarget 6, repsMax 9
   piuMax?: boolean; // "+ max" (drop set): fatte le reps, si scala il peso e si va a cedimento
-  rpSecondi?: number | null; // "+ rp" (rest-pause): pausa in secondi, poi si riprende con lo stesso peso
+  rpSecondi?: number | null; // "+ rp" (rest-pause): pausa in secondi, poi si riprende con lo stesso peso; nel cluster la pausa tra le mini-serie
+  cluster?: number | null; // cluster: mini-serie da "repsTarget" ripetizioni ("5+5+5+5" → 4)
   recuperoSecondi: number;
   schedaId: number;
   serieExtra: SerieExtra[];
