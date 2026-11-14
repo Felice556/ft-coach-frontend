@@ -24,7 +24,13 @@ interface InfoTipo {
 const TIPI: Record<TipoMisura, InfoTipo> = {
   PESO: { titolo: tr('Peso corporeo', 'Body weight'), unita: 'kg', chiScrive: 'CLIENTE', min: 20, max: 350, esempio: tr('es. 72,5', 'e.g. 72.5') },
   MASSA_GRASSA: { titolo: tr('Massa grassa', 'Body fat'), unita: '%', chiScrive: 'TRAINER', min: 2, max: 70, esempio: tr('es. 18,5', 'e.g. 18.5') },
+  // Circonferenze in cm: le scrive il trainer (o chi si allena da solo), come la massa grassa
+  TORACE: { titolo: tr('Torace', 'Chest'), unita: 'cm', chiScrive: 'TRAINER', min: 50, max: 200, esempio: tr('es. 102,5', 'e.g. 102.5') },
+  FIANCHI: { titolo: tr('Fianchi', 'Hips'), unita: 'cm', chiScrive: 'TRAINER', min: 50, max: 200, esempio: tr('es. 96', 'e.g. 96') },
+  BICIPITE: { titolo: tr('Bicipite', 'Biceps'), unita: 'cm', chiScrive: 'TRAINER', min: 15, max: 70, esempio: tr('es. 38', 'e.g. 38') },
+  COSCIA: { titolo: tr('Coscia', 'Thigh'), unita: 'cm', chiScrive: 'TRAINER', min: 25, max: 120, esempio: tr('es. 58', 'e.g. 58') },
 };
+const CIRCONFERENZE: TipoMisura[] = ['TORACE', 'FIANCHI', 'BICIPITE', 'COSCIA'];
 
 function Grafico({ misure, info }: { misure: MisuraCorporea[]; info: InfoTipo }) {
   const COLORI = useColoriTema();
@@ -157,7 +163,7 @@ function SchedaMisura({
   onCambiate: (nuove: MisuraCorporea[]) => void;
 }) {
   const info = TIPI[tipo];
-  const modificabile = ruolo === info.chiScrive || (!!autonomo && tipo === 'MASSA_GRASSA');
+  const modificabile = ruolo === info.chiScrive || (!!autonomo && tipo !== 'PESO');
   const [valore, setValore] = useState('');
   const [giorno, setGiorno] = useState(oggi);
   const [errore, setErrore] = useState('');
@@ -256,7 +262,7 @@ function SchedaMisura({
           <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] gap-3">
             <div>
               <label htmlFor={idCampo} className="label">
-                {tipo === 'PESO' ? tr('Peso (kg)', 'Weight (kg)') : tr('Grasso (%)', 'Fat (%)')}
+                {tipo === 'PESO' ? tr('Peso (kg)', 'Weight (kg)') : tipo === 'MASSA_GRASSA' ? tr('Grasso (%)', 'Fat (%)') : `${info.titolo} (cm)`}
               </label>
               <input
                 id={idCampo}
@@ -369,7 +375,7 @@ export default function MisureCorporee({ ruolo, clienteId, nomeCliente, autonomo
       <div>
         <p className="eyebrow mb-1">{ruolo === 'TRAINER' ? `${tr('Corpo', 'Body')} · ${nomeCliente ?? ''}` : tr('Composizione corporea', 'Body composition')}</p>
         <h2 id="corpo-titolo" className={ruolo === 'TRAINER' ? 'section-title' : 'text-2xl font-black uppercase tracking-tight sm:text-3xl'}>
-          {ruolo === 'TRAINER' ? tr('Peso e massa grassa', 'Weight and body fat') : tr('Il tuo corpo', 'Your body')}
+          {ruolo === 'TRAINER' ? tr('Peso, massa grassa e circonferenze', 'Weight, body fat and circumferences') : tr('Il tuo corpo', 'Your body')}
         </h2>
       </div>
       {errore && <p className="alert-error">{errore}</p>}
@@ -389,6 +395,25 @@ export default function MisureCorporee({ ruolo, clienteId, nomeCliente, autonomo
               onCambiate={aggiorna(tipo)}
             />
           ))}
+        </div>
+      )}
+      {misure && (
+        <div className="space-y-3 pt-2">
+          <h3 className="text-lg font-black uppercase tracking-tight">{tr('Circonferenze', 'Circumferences')}</h3>
+          <div className="grid gap-4 md:grid-cols-2">
+            {CIRCONFERENZE.map((tipo) => (
+              <SchedaMisura
+                key={tipo}
+                tipo={tipo}
+                misure={perTipo(tipo)}
+                ruolo={ruolo}
+                clienteId={clienteId}
+                nomeCliente={nomeCliente}
+                autonomo={autonomo}
+                onCambiate={aggiorna(tipo)}
+              />
+            ))}
+          </div>
         </div>
       )}
     </section>

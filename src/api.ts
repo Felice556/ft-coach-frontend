@@ -650,7 +650,7 @@ export function getStoricoPesi(clienteId?: number) {
 
 // ---------- Misure del corpo: peso (lo scrive il cliente) e % massa grassa (la scrive il trainer) ----------
 
-export type TipoMisura = 'PESO' | 'MASSA_GRASSA';
+export type TipoMisura = 'PESO' | 'MASSA_GRASSA' | 'TORACE' | 'FIANCHI' | 'BICIPITE' | 'COSCIA';
 
 export interface MisuraCorporea {
   id: number;
