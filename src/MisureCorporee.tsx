@@ -8,7 +8,7 @@ import { tr } from './lingua';
 
 // Sezione "Il tuo corpo": peso corporeo e % di massa grassa, con grafico.
 // - Il CLIENTE scrive il proprio peso e vede la massa grassa (la misura il trainer).
-// - Il TRAINER scrive la massa grassa del cliente e vede il suo peso.
+// - Il TRAINER scrive la massa grassa del cliente e può scrivere anche il suo peso.
 
 type Ruolo = 'CLIENTE' | 'TRAINER';
 
@@ -163,7 +163,8 @@ function SchedaMisura({
   onCambiate: (nuove: MisuraCorporea[]) => void;
 }) {
   const info = TIPI[tipo];
-  const modificabile = ruolo === info.chiScrive || (!!autonomo && tipo !== 'PESO');
+  // il peso lo scrive il cliente, ma anche il trainer (es. pesato in palestra)
+  const modificabile = ruolo === info.chiScrive || (!!autonomo && tipo !== 'PESO') || (tipo === 'PESO' && ruolo === 'TRAINER');
   const [valore, setValore] = useState('');
   const [giorno, setGiorno] = useState(oggi);
   const [errore, setErrore] = useState('');
