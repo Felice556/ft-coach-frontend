@@ -55,7 +55,7 @@ export function TessereEsercizio({
         {icona}
         {etichetta}
       </p>
-      <p className={`mt-1 leading-none font-black tracking-tight text-ink tabular-nums ${piccolo ? 'text-lg' : 'text-[1.65rem]'}`}>{valore}</p>
+      <p className={`mt-1 leading-none font-black tracking-tight text-ink tabular-nums [overflow-wrap:anywhere] ${piccolo ? 'text-lg' : 'text-[1.65rem]'}`}>{valore}</p>
       {sotto && <p className="mt-1 truncate text-xs font-semibold text-soft">{sotto}</p>}
     </div>
   );
@@ -76,7 +76,7 @@ export function TessereEsercizio({
         tr('Reps', 'Reps'),
         base,
         tecnica,
-        base.length > 7, // cluster lunghi ("5+5+5+5+5"): più piccoli, così stanno nella tessera
+        base.length > 5, // cluster ("5+5+5+5"): più piccoli, così stanno nella tessera e non toccano il recupero
       )}
       {parte(
         <Icona>

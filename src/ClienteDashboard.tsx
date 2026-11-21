@@ -303,7 +303,8 @@ function SerieRiga({ serie, etichetta, prima, record = false, onModificata, onEl
 // `poi`: in superset/jumpset, l'esercizio da fare dopo il recupero (es. "A2 · Rematore").
 // rp = true: è la pausa del rest-pause (non il recupero tra le serie);
 // recuperoDopo = recupero normale da far partire finito il rest-pause (bottone nella barra).
-type Timer = { nome: string; fine: number; totale: number; poi?: string; rp?: boolean; recuperoDopo?: number };
+// cluster = pausa tra le mini-serie: fatte = mini-serie già fatte, totale = quante sono, secondi = pausa.
+type Timer = { nome: string; fine: number; totale: number; poi?: string; rp?: boolean; recuperoDopo?: number; cluster?: { fatte: number; totale: number; secondi: number } };
 
 // Icona altoparlante: con le onde se il suono è attivo, con la X se è silenziato.
 function IconaVolume({ muto }: { muto: boolean }) {
@@ -610,6 +611,20 @@ export default function ClienteDashboard() {
   // Pausa del rest-pause: dopo si riprende con lo stesso peso; finito, dalla barra parte il recupero normale.
   const avviaPausaRp = (nome: string, secondi: number, recuperoDopo?: number) =>
     avviaRecupero(nome, secondi, tr('stesso peso, di nuovo fino a cedimento', 'same weight, again to failure'), true, recuperoDopo);
+  // Cluster (5+5+5+5): una pausa breve dopo ogni mini-serie, contata a parte dal recupero della serie.
+  // Dopo l'ultima mini-serie niente pausa: si registra la serie e parte il recupero normale.
+  function avviaPausaCluster(nome: string, secondi: number, fatte: number, totale: number) {
+    if (secondi <= 0 || fatte >= totale) return;
+    const adesso = Date.now();
+    setOra(adesso);
+    setAvviso(null);
+    const prossimaMini = fatte + 1;
+    const poi =
+      prossimaMini < totale
+        ? tr(`mini-serie ${prossimaMini} di ${totale}, stesso peso`, `mini-set ${prossimaMini} of ${totale}, same weight`)
+        : tr(`ultima mini-serie (${totale} di ${totale}), poi registra la serie`, `last mini-set (${totale} of ${totale}), then log the set`);
+    setTimer({ nome, fine: adesso + secondi * 1000, totale: secondi * 1000, poi, cluster: { fatte, totale, secondi } });
+  }
 
   // Superset: dopo una serie si passa subito al prossimo esercizio, senza timer.
   // Al posto della barra del recupero compare un avviso "Ora: A2 · Rematore".
@@ -1198,7 +1213,7 @@ export default function ClienteDashboard() {
   // ---------- ALLENAMENTO sulla scheda aperta ----------
   return (
     // Spazio in fondo quando c'è la barra del timer, così non copre l'ultimo esercizio.
-    <div className={`mx-auto max-w-3xl space-y-6 ${timer ? (timer.rp ? 'pb-80' : 'pb-64') : avviso ? 'pb-32' : ''}`}>
+    <div className={`mx-auto max-w-3xl space-y-6 ${timer ? (timer.rp || timer.cluster ? 'pb-80' : 'pb-64') : avviso ? 'pb-32' : ''}`}>
       {errore && <p className="alert-error">{errore}</p>}
 
       <button className="btn-ghost -mt-2" onClick={tornaAllaHome}>
@@ -1486,7 +1501,11 @@ export default function ClienteDashboard() {
                           className="btn-secondary min-h-12 w-full gap-2"
                           disabled={recuperoInCorso}
                           onClick={() =>
-                            pausaRp !== null ? avviaPausaRp(es.nome, recuperoManuale, prossima?.recuperoSecondi) : avviaRecupero(es.nome, recuperoManuale)
+                            prossima?.cluster
+                              ? avviaPausaCluster(es.nome, recuperoManuale, 1, prossima.cluster)
+                              : pausaRp !== null
+                                ? avviaPausaRp(es.nome, recuperoManuale, prossima?.recuperoSecondi)
+                                : avviaRecupero(es.nome, recuperoManuale)
                           }
                         >
                           <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1495,7 +1514,9 @@ export default function ClienteDashboard() {
                           </svg>
                           {recuperoInCorso
                             ? tr('Recupero in corso…', 'Rest in progress…')
-                            : pausaRp !== null
+                            : prossima?.cluster
+                              ? tr(`Fatta mini-serie 1 di ${prossima.cluster} · pausa ${recuperoManuale}s`, `Mini-set 1 of ${prossima.cluster} done · ${recuperoManuale}s break`)
+                              : pausaRp !== null
                               ? tr(`Avvia pausa rp · ${formattaTempo(recuperoManuale)}`, `Start RP break · ${formattaTempo(recuperoManuale)}`)
                               : tr(`Avvia recupero · ${formattaTempo(recuperoManuale)}`, `Start rest · ${formattaTempo(recuperoManuale)}`)}
                         </button>
@@ -1652,7 +1673,11 @@ export default function ClienteDashboard() {
           {/* Riga del suono: altoparlante per silenziare e slider del volume */}
           <div className="mx-auto flex max-w-3xl items-center gap-2">
             <p className="min-w-0 flex-1 truncate text-xs text-muted">
-              {timer.rp
+              {timer.cluster
+                ? recuperoFinito
+                  ? tr('Pausa finita', 'Break over')
+                  : tr(`Pausa cluster · ${timer.cluster.fatte} di ${timer.cluster.totale} fatte`, `Cluster break · ${timer.cluster.fatte} of ${timer.cluster.totale} done`)
+                : timer.rp
                 ? recuperoFinito
                   ? tr('Pausa rp finita', 'RP break over')
                   : tr('Pausa rp', 'RP break')
@@ -1703,6 +1728,20 @@ export default function ClienteDashboard() {
             </button>
           </div>
           {/* Rest-pause: fatto il mini-set (anche prima che finisca la pausa), parte il recupero vero */}
+          {/* Cluster: fatta la mini-serie, parte la pausa per quella dopo */}
+          {timer.cluster && timer.cluster.fatte + 1 < timer.cluster.totale ? (
+            <div className="mx-auto mt-2 max-w-3xl">
+              <button
+                className={`${recuperoFinito ? 'btn-primary' : 'btn-secondary'} min-h-11 w-full`}
+                onClick={() => avviaPausaCluster(timer.nome, timer.cluster!.secondi, timer.cluster!.fatte + 1, timer.cluster!.totale)}
+              >
+                {tr(
+                  `Fatta mini-serie ${timer.cluster.fatte + 1} di ${timer.cluster.totale} · pausa ${timer.cluster.secondi}s`,
+                  `Mini-set ${timer.cluster.fatte + 1} of ${timer.cluster.totale} done · ${timer.cluster.secondi}s break`,
+                )}
+              </button>
+            </div>
+          ) : null}
           {timer.rp && timer.recuperoDopo ? (
             <div className="mx-auto mt-2 max-w-3xl">
               <button className={`${recuperoFinito ? 'btn-primary' : 'btn-secondary'} min-h-11 w-full`} onClick={() => avviaRecupero(timer.nome, timer.recuperoDopo!)}>
