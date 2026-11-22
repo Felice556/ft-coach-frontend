@@ -40,3 +40,12 @@ describe('Importa schede da Schedario', () => {
     expect(r.schede[0].esercizi[0].descrizione).toHaveLength(1000);
   });
 });
+
+describe('EMOM nel file', () => {
+  it('si importa con i giri (fino a 60) e senza serie extra; tempo fuori da 10-300 rifiutato', () => {
+    const r = leggiFileSchede(file([{ nome: 'Giorno A', esercizi: [esercizio({ nome: 'Push up', serieTarget: 16, repsTarget: 8, repsMax: null, emomSecondi: 30 })] }]));
+    expect(r.schede[0].esercizi[0]).toMatchObject({ serieTarget: 16, emomSecondi: 30, serieExtra: [] });
+    expect(() => leggiFileSchede(file([{ nome: 'A', esercizi: [esercizio({ serieTarget: 25 })] }]))).toThrow(); // 25 serie solo con l'EMOM
+    expect(() => leggiFileSchede(file([{ nome: 'A', esercizi: [esercizio({ emomSecondi: 5 })] }]))).toThrow();
+  });
+});

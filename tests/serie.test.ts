@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Esercizio } from '../src/api';
-import { gruppiSerie, leggiReps, pianoSerie, riassuntoSerie, testoRecupero, testoReps } from '../src/serie';
+import { durataEmom, gruppiSerie, leggiReps, pianoSerie, riassuntoSerie, testoRecupero, testoReps } from '../src/serie';
 
 const esercizio = (dati: Partial<Esercizio>) =>
   ({ id: 1, nome: 'Panca', serieTarget: 3, repsTarget: 10, repsMax: null, recuperoSecondi: 90, serieExtra: [], ...dati }) as Esercizio;
@@ -126,5 +126,15 @@ describe('Cluster nel programma', () => {
     expect(repsTotali(piano[0])).toBe(20);
     expect(riassuntoSerie(es)).toBe('3 × 5+5+5+5 + pausa 10s');
     expect(gruppiSerie(piano)).toHaveLength(1);
+  });
+});
+
+describe('EMOM', () => {
+  it('durata e riassunto', () => {
+    expect(durataEmom(10, 60)).toBe('10 min');
+    expect(durataEmom(15, 30)).toBe('7:30 min');
+    const es = { id: 1, nome: 'Push up', serieTarget: 16, repsTarget: 8, emomSecondi: 30, recuperoSecondi: 120, schedaId: 1, serieExtra: [] };
+    expect(riassuntoSerie(es)).toBe('EMOM 8 min: 16 × 8 (30 s)');
+    expect(riassuntoSerie({ ...es, repsTarget: null })).toBe('EMOM 8 min: 16 × Max (30 s)');
   });
 });

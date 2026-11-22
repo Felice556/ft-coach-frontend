@@ -96,7 +96,9 @@ export default function EditorSchedaPersonale({ scheda, onSalvata, onChiudi }: {
       const serie = Number(r.serie);
       const reps = leggiReps(r.reps);
       const etichetta = r.nome.trim() || tr(`Esercizio ${i + 1}`, `Exercise ${i + 1}`);
-      if (!Number.isInteger(serie) || serie < 1 || serie > 20) return setErrore(tr(`${etichetta}: le serie vanno da 1 a 20`, `${etichetta}: sets go from 1 to 20`));
+      const emom = r.originale?.emomSecondi ?? null; // l'EMOM qui non si cambia: resta com'era (fino a 60 giri)
+      if (!Number.isInteger(serie) || serie < 1 || serie > (emom ? 60 : 20))
+        return setErrore(emom ? tr(`${etichetta}: i giri vanno da 1 a 60`, `${etichetta}: rounds go from 1 to 60`) : tr(`${etichetta}: le serie vanno da 1 a 20`, `${etichetta}: sets go from 1 to 20`));
       if (!reps) return setErrore(tr(`${etichetta}: ripetizioni non valide (scrivi 10, 8-12, Max, 8-12 + max, 8-12 + rp 15 o un cluster 5+5+5+5; pausa tra 5 e 120 s)`, `${etichetta}: invalid reps (enter 10, 8-12, Max, 8-12 + max, 8-12 + rp 15 or a cluster 5+5+5+5; break between 5 and 120 s)`));
       const serieExtra = [];
       for (const [j, x] of r.extra.entries()) {
@@ -123,6 +125,7 @@ export default function EditorSchedaPersonale({ scheda, onSalvata, onChiudi }: {
         serieExtra,
         // Quello che questo editor non mostra resta com'era
         videoUrl: o?.videoUrl || undefined,
+        emomSecondi: emom,
         collegamento: r.collegamento || null,
       });
     }

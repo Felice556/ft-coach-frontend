@@ -15,7 +15,10 @@ const testo = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().sli
 function leggiEsercizio(e: any, dove: string): EsercizioDaCreare {
   const nome = testo(e?.nome, 100);
   if (!nome) throw new Error(tr(`${dove}: un esercizio non ha il nome.`, `${dove}: an exercise has no name.`));
-  const serieTarget = intero(e.serieTarget, 1, 20);
+  // EMOM: un giro ogni 10-300 secondi; i giri (serieTarget) possono arrivare a 60.
+  const emomSecondi = e.emomSecondi == null ? null : intero(e.emomSecondi, 10, 300);
+  if (e.emomSecondi != null && emomSecondi == null) throw new Error(tr(`${dove}, "${nome}": EMOM non valido (un giro ogni 10-300 secondi).`, `${dove}, "${nome}": invalid EMOM (one round every 10-300 seconds).`));
+  const serieTarget = intero(e.serieTarget, 1, emomSecondi != null ? 60 : 20);
   const recupero = intero(e.recuperoSecondi, 0, 3600);
   if (serieTarget == null || recupero == null) throw new Error(tr(`${dove}, "${nome}": serie o recupero non validi.`, `${dove}, "${nome}": invalid sets or rest.`));
   const repsTarget = reps(e.repsTarget);
@@ -32,9 +35,10 @@ function leggiEsercizio(e: any, dove: string): EsercizioDaCreare {
     piuMax: e.piuMax === true,
     rpSecondi: rp(e.rpSecondi),
     cluster: cl(e.cluster),
+    emomSecondi,
     recuperoSecondi: recupero,
     collegamento: null,
-    serieExtra: extra.map((x: any) => {
+    serieExtra: (emomSecondi != null ? [] : extra).map((x: any) => {
       const r = intero(x?.recuperoSecondi, 0, 3600);
       if (r == null) throw new Error(tr(`${dove}, "${nome}": recupero di una serie extra non valido.`, `${dove}, "${nome}": invalid rest on an extra set.`));
       return { reps: reps(x.reps), repsMax: reps(x.repsMax), piuMax: x.piuMax === true, rpSecondi: rp(x.rpSecondi), cluster: cl(x.cluster), recuperoSecondi: r };

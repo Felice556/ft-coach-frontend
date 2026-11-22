@@ -49,7 +49,7 @@ import {
   getTrainerInAttesa,
   getConteggiProgrammi,
 } from './api';
-import { riassuntoSerie, testoReps, testoRecupero, leggiReps } from './serie';
+import { durataEmom, riassuntoSerie, testoReps, testoRecupero, leggiReps } from './serie';
 import { locale, tr } from './lingua';
 import { BarraSezioni, ICONE, ricordaSezione, useIndirizzo } from './Sezioni';
 import CampoReps from './CampoReps';
@@ -399,6 +399,7 @@ type EsercizioBozza = {
   serieTarget: string;
   repsTarget: string;
   recuperoSecondi: string;
+  emomSecondi: string; // EMOM: un giro ogni N secondi ('' = esercizio normale)
   serieExtra: SerieExtraBozza[];
   // Collegato all'esercizio successivo ('' = singolo)
   collegamento: TipoCollegamento | '';
@@ -418,6 +419,7 @@ const esercizioVuoto = (): EsercizioBozza => ({
   serieTarget: '3',
   repsTarget: '10',
   recuperoSecondi: '60',
+  emomSecondi: '',
   serieExtra: [],
   collegamento: '',
 });
@@ -543,6 +545,7 @@ export default function TrainerDashboard() {
       serieTarget: String(es.serieTarget),
       repsTarget: testoReps(es.repsTarget, es.repsMax, es.piuMax, es.rpSecondi, es.cluster),
       recuperoSecondi: String(es.recuperoSecondi),
+      emomSecondi: es.emomSecondi ? String(es.emomSecondi) : '',
       serieExtra: (es.serieExtra || []).map((x) => ({
         reps: testoReps(x.reps, x.repsMax, x.piuMax, x.rpSecondi, x.cluster),
         recuperoSecondi: String(x.recuperoSecondi),
@@ -944,6 +947,7 @@ export default function TrainerDashboard() {
 
       const eserciziValidati = esercizi.map((es, indice) => {
         const superset = es.collegamento === 'SUPERSET' && indice < esercizi.length - 1;
+        const emom = es.emomSecondi.trim() !== '';
         return {
         nome: es.nome,
         videoUrl: link(es.videoUrl),
@@ -956,7 +960,9 @@ export default function TrainerDashboard() {
         recuperoSecondi: superset
           ? recuperoNascosto(es.recuperoSecondi)
           : intero(es.recuperoSecondi, es.nome || tr(`Esercizio ${indice + 1}`, `Exercise ${indice + 1}`), tr('recupero', 'rest'), 0),
-        serieExtra: es.serieExtra.map((x, j) => ({
+        // EMOM: un giro ogni N secondi (da 10 a 300); le serie sono i giri e non ci sono serie extra.
+        emomSecondi: emom ? intero(es.emomSecondi, es.nome || tr(`Esercizio ${indice + 1}`, `Exercise ${indice + 1}`), tr('tempo dell’EMOM', 'EMOM interval'), 10) : null,
+        serieExtra: (emom ? [] : es.serieExtra).map((x, j) => ({
           ...reps(x.reps, `${es.nome || tr('Esercizio', 'Exercise')}, ${tr('serie', 'set')} ${Number(es.serieTarget) + j + 1}`),
           recuperoSecondi: superset
             ? recuperoNascosto(x.recuperoSecondi)
@@ -1466,11 +1472,11 @@ export default function TrainerDashboard() {
                           />
                         </div>
                         <div className="sm:col-span-2">
-                          <label className="label">{tr('Serie', 'Sets')}</label>
+                          <label className="label">{es.emomSecondi ? tr('Giri', 'Rounds') : tr('Serie', 'Sets')}</label>
                           <input
                             className="input"
                             type="number"
-                            placeholder={tr('Serie', 'Sets')}
+                            placeholder={es.emomSecondi ? tr('Giri', 'Rounds') : tr('Serie', 'Sets')}
                             value={es.serieTarget}
                             onChange={(e) => aggiornaEsercizio(i, 'serieTarget', e.target.value)}
                           />
@@ -1495,8 +1501,45 @@ export default function TrainerDashboard() {
                         </div>
                       </div>
                       {g && <p className="mt-2 text-xs leading-relaxed text-accent-strong">{spiegaRecupero(es.collegamento, g)}</p>}
+                      {/* EMOM: ogni N secondi parte un giro; le serie diventano i giri */}
+                      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-semibold text-ink">
+                          <input
+                            type="checkbox"
+                            className="h-5 w-5 accent-[var(--color-accent)]"
+                            checked={es.emomSecondi !== ''}
+                            onChange={(e) => aggiornaEsercizio(i, 'emomSecondi', e.target.checked ? '60' : '')}
+                          />
+                          EMOM
+                        </label>
+                        {es.emomSecondi !== '' && (
+                          <>
+                            <span className="text-sm text-muted">{tr('un giro ogni', 'one round every')}</span>
+                            <input
+                              className="input w-20"
+                              type="number"
+                              inputMode="numeric"
+                              aria-label={tr('Secondi tra un giro e l’altro', 'Seconds per round')}
+                              value={es.emomSecondi}
+                              onChange={(e) => aggiornaEsercizio(i, 'emomSecondi', e.target.value)}
+                            />
+                            <span className="text-sm text-muted">sec</span>
+                            {Number(es.serieTarget) > 0 && Number(es.emomSecondi) > 0 && (
+                              <span className="text-sm font-semibold text-accent-strong">· {tr('durata', 'total')} {durataEmom(Number(es.serieTarget), Number(es.emomSecondi))}</span>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      {es.emomSecondi !== '' && (
+                        <p className="mt-1 text-xs leading-relaxed text-accent-strong">
+                          {tr(
+                            'Ogni giro: le reps appena parte il tempo, poi pausa fino al giro dopo. Nelle reps metti un numero o Max; "Rec." è la pausa dopo l’EMOM.',
+                            'Each round: do the reps when the clock starts, then rest until the next round. Reps: a number or Max; "Rest" is the rest after the EMOM.',
+                          )}
+                        </p>
+                      )}
                       {/* Serie aggiunte dopo quelle normali, con valori propri: es. 2 × 10 + una da 15 in drop set */}
-                      {es.serieExtra.length > 0 && (
+                      {es.emomSecondi === '' && es.serieExtra.length > 0 && (
                         <div className="mt-3 space-y-2">
                           {es.serieExtra.map((x, j) => (
                             <div key={j} className="rounded-xl border border-accent-strong/40 bg-accent-soft p-3">
@@ -1544,7 +1587,7 @@ export default function TrainerDashboard() {
                           ))}
                         </div>
                       )}
-                      {es.serieExtra.length < 10 && (
+                      {es.emomSecondi === '' && es.serieExtra.length < 10 && (
                         <button
                           type="button"
                           className="btn-ghost mt-3 w-full border border-dashed border-accent-strong/50 text-accent-strong"

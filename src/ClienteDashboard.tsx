@@ -304,7 +304,8 @@ function SerieRiga({ serie, etichetta, prima, record = false, onModificata, onEl
 // rp = true: è la pausa del rest-pause (non il recupero tra le serie);
 // recuperoDopo = recupero normale da far partire finito il rest-pause (bottone nella barra).
 // cluster = pausa tra le mini-serie: fatte = mini-serie già fatte, totale = quante sono, secondi = pausa.
-type Timer = { nome: string; fine: number; totale: number; poi?: string; rp?: boolean; recuperoDopo?: number; cluster?: { fatte: number; totale: number; secondi: number } };
+// emom = giro in corso (da 1), giri totali e secondi per giro: a ogni scadenza parte il giro dopo da solo.
+type Timer = { nome: string; fine: number; totale: number; poi?: string; rp?: boolean; recuperoDopo?: number; cluster?: { fatte: number; totale: number; secondi: number }; emom?: { giro: number; giri: number; secondi: number } };
 
 // Icona altoparlante: con le onde se il suono è attivo, con la X se è silenziato.
 function IconaVolume({ muto }: { muto: boolean }) {
@@ -566,8 +567,15 @@ export default function ClienteDashboard() {
     if (!recuperoFinito) return;
     navigator.vibrate?.([200, 100, 200]);
     suonoFine();
-    const id = setTimeout(() => setTimer(null), 4000);
+    // EMOM: finito un giro parte subito il successivo (dalla scadenza, non da adesso: così non si accumula ritardo)
+    if (timer?.emom && timer.emom.giro < timer.emom.giri) {
+      const { emom } = timer;
+      setTimer({ ...timer, fine: timer.fine + emom.secondi * 1000, emom: { ...emom, giro: emom.giro + 1 } });
+      return;
+    }
+    const id = setTimeout(() => setTimer(null), timer?.emom ? 8000 : 4000);
     return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recuperoFinito]);
 
   // Ultimi 3 secondi: un bip per secondo (3, 2, 1).
@@ -624,6 +632,18 @@ export default function ClienteDashboard() {
         ? tr(`mini-serie ${prossimaMini} di ${totale}, stesso peso`, `mini-set ${prossimaMini} of ${totale}, same weight`)
         : tr(`ultima mini-serie (${totale} di ${totale}), poi registra la serie`, `last mini-set (${totale} of ${totale}), then log the set`);
     setTimer({ nome, fine: adesso + secondi * 1000, totale: secondi * 1000, poi, cluster: { fatte, totale, secondi } });
+  }
+  // EMOM: parte il primo giro; a ogni scadenza il timer passa da solo al giro dopo (vedi l'effetto di fine recupero).
+  const poiEmom = (es: Esercizio) =>
+    es.repsTarget == null ? tr('max reps e pausa fino al giro dopo', 'max reps, then rest until the next round') : tr(`${es.repsTarget} reps e pausa fino al giro dopo`, `${es.repsTarget} reps, then rest until the next round`);
+  function avviaEmom(es: Esercizio) {
+    const secondi = es.emomSecondi;
+    if (!secondi) return;
+    sbloccaAudio(); // dentro il tocco: così il telefono può suonare a ogni giro
+    const adesso = Date.now();
+    setOra(adesso);
+    setAvviso(null);
+    setTimer({ nome: es.nome, fine: adesso + secondi * 1000, totale: secondi * 1000, poi: poiEmom(es), emom: { giro: 1, giri: es.serieTarget, secondi } });
   }
 
   // Superset: dopo una serie si passa subito al prossimo esercizio, senza timer.
@@ -731,6 +751,38 @@ export default function ClienteDashboard() {
     if (eraDiOggi) aggiornaSessioneDiOggi(esercizioId);
   }
 
+  // EMOM: segna in un colpo i giri che mancano, tutti con lo stesso peso e le stesse reps.
+  async function registraTuttiGiri(es: Esercizio, quanti: number) {
+    if (inInvio.has(es.id) || quanti < 1) return;
+    sbloccaAudio();
+    setErroreEsercizio(null);
+    if (!valoriValidi(peso[es.id] || '', reps[es.id] || '')) {
+      setErroreEsercizio({ id: es.id, testo: tr('Inserisci peso (anche 0 per il corpo libero) e ripetizioni', 'Enter weight (even 0 for bodyweight) and reps') });
+      return;
+    }
+    const kg = leggiNumero(peso[es.id] || '');
+    const r = leggiNumero(reps[es.id] || '');
+    setInInvio((prev) => new Set(prev).add(es.id));
+    try {
+      for (let i = 0; i < quanti; i++) {
+        // uno alla volta: se uno fallisce, quelli già salvati restano nello storico
+        const nuovo = await registraAllenamento(es.id, kg, r, i === 0 ? nota[es.id] : undefined);
+        setStorici((prev) => ({ ...prev, [es.id]: [...(prev[es.id] || []), nuovo] }));
+      }
+      setNota((prev) => ({ ...prev, [es.id]: '' }));
+      // Giri finiti: se l'EMOM non corre più, parte il recupero prima del prossimo esercizio
+      if (!timer?.emom && es.recuperoSecondi > 0) avviaRecupero(es.nome, es.recuperoSecondi);
+    } catch (err) {
+      setErroreEsercizio({ id: es.id, testo: err instanceof Error ? err.message : tr('Errore nel salvataggio', 'Error saving') });
+    } finally {
+      setInInvio((prev) => {
+        const s = new Set(prev);
+        s.delete(es.id);
+        return s;
+      });
+    }
+  }
+
   async function handleRegistra(es: Esercizio) {
     if (inInvio.has(es.id)) return; // doppio tocco: la prima richiesta è ancora in corso
     sbloccaAudio(); // dentro il tocco: così a fine recupero il telefono può suonare
@@ -766,6 +818,10 @@ export default function ClienteDashboard() {
       // Le reps passano a quelle della prossima serie
       // (utile quando la prossima ha reps diverse, o è "Max" → campo vuoto).
       if (prossima) setReps((prev) => ({ ...prev, [es.id]: repsDiPartenza(prossima) }));
+
+      // EMOM: tra un giro e l'altro decide il timer dell'EMOM, non il recupero.
+      // Dopo l'ultimo giro parte il recupero solo se l'EMOM non sta ancora correndo.
+      if (es.emomSecondi && (fatteOggi < piano.length || timer?.emom)) return;
 
       // Cosa si fa adesso: per un esercizio singolo, il suo recupero. In superset/jumpset
       // si passa all'esercizio successivo del gruppo (con o senza recupero).
@@ -1213,7 +1269,7 @@ export default function ClienteDashboard() {
   // ---------- ALLENAMENTO sulla scheda aperta ----------
   return (
     // Spazio in fondo quando c'è la barra del timer, così non copre l'ultimo esercizio.
-    <div className={`mx-auto max-w-3xl space-y-6 ${timer ? (timer.rp || timer.cluster ? 'pb-80' : 'pb-64') : avviso ? 'pb-32' : ''}`}>
+    <div className={`mx-auto max-w-3xl space-y-6 ${timer ? (timer.rp || timer.cluster || timer.emom ? 'pb-80' : 'pb-64') : avviso ? 'pb-32' : ''}`}>
       {errore && <p className="alert-error">{errore}</p>}
 
       <button className="btn-ghost -mt-2" onClick={tornaAllaHome}>
@@ -1335,6 +1391,7 @@ export default function ClienteDashboard() {
                       ripetizioni={testoReps(es.repsTarget, es.repsMax, es.piuMax, es.rpSecondi, es.cluster)}
                       recuperoSecondi={es.recuperoSecondi}
                       senzaRecupero={superset}
+                      emomSecondi={es.emomSecondi}
                     />
                   )}
 
@@ -1491,11 +1548,34 @@ export default function ClienteDashboard() {
                         disabled={inInvio.has(es.id)}
                         onClick={() => handleRegistra(es)}
                       >
-                        {inInvio.has(es.id) ? tr('Salvo…', 'Saving…') : tr(`Registra serie ${oggi + 1} di ${piano.length}`, `Log set ${oggi + 1} of ${piano.length}`)}
+                        {inInvio.has(es.id)
+                          ? tr('Salvo…', 'Saving…')
+                          : es.emomSecondi
+                            ? tr(`Registra giro ${oggi + 1} di ${piano.length}`, `Log round ${oggi + 1} of ${piano.length}`)
+                            : tr(`Registra serie ${oggi + 1} di ${piano.length}`, `Log set ${oggi + 1} of ${piano.length}`)}
                       </button>
+                      {/* EMOM: il timer fa partire un giro ogni N secondi; alla fine si segnano tutti i giri in un tocco */}
+                      {es.emomSecondi ? (
+                        <>
+                          <button type="button" className="btn-secondary min-h-12 w-full gap-2" disabled={recuperoInCorso} onClick={() => avviaEmom(es)}>
+                            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="13" r="8" />
+                              <path d="M12 9v4l2.5 2.5M9.5 2.5h5" />
+                            </svg>
+                            {recuperoInCorso
+                              ? tr('EMOM in corso…', 'EMOM running…')
+                              : tr(`Avvia EMOM · ${piano.length} giri ogni ${es.emomSecondi}s`, `Start EMOM · ${piano.length} rounds every ${es.emomSecondi}s`)}
+                          </button>
+                          {piano.length - oggi > 1 && (
+                            <button type="button" className="btn-ghost min-h-11 w-full border border-dashed border-accent-strong/50 text-accent-strong" disabled={inInvio.has(es.id)} onClick={() => registraTuttiGiri(es, piano.length - oggi)}>
+                              {tr(`Segna tutti i ${piano.length - oggi} giri con questo peso e queste reps`, `Log all ${piano.length - oggi} rounds with this weight and reps`)}
+                            </button>
+                          )}
+                        </>
+                      ) : null}
                       {/* Recupero anche a mano: ben visibile, per ricordare di rispettarlo tra una serie e l'altra.
                           (Dopo "Registra serie" parte comunque da solo.) */}
-                      {recuperoManuale > 0 && (!superset || pausaRp !== null) && (
+                      {!es.emomSecondi && recuperoManuale > 0 && (!superset || pausaRp !== null) && (
                         <button
                           type="button"
                           className="btn-secondary min-h-12 w-full gap-2"
@@ -1673,7 +1753,11 @@ export default function ClienteDashboard() {
           {/* Riga del suono: altoparlante per silenziare e slider del volume */}
           <div className="mx-auto flex max-w-3xl items-center gap-2">
             <p className="min-w-0 flex-1 truncate text-xs text-muted">
-              {timer.cluster
+              {timer.emom
+                ? recuperoFinito && timer.emom.giro >= timer.emom.giri
+                  ? tr('EMOM finito', 'EMOM done')
+                  : tr(`EMOM · giro ${timer.emom.giro} di ${timer.emom.giri}`, `EMOM · round ${timer.emom.giro} of ${timer.emom.giri}`)
+                : timer.cluster
                 ? recuperoFinito
                   ? tr('Pausa finita', 'Break over')
                   : tr(`Pausa cluster · ${timer.cluster.fatte} di ${timer.cluster.totale} fatte`, `Cluster break · ${timer.cluster.fatte} of ${timer.cluster.totale} done`)
@@ -1715,9 +1799,11 @@ export default function ClienteDashboard() {
           <div className="mx-auto flex max-w-3xl items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className={`text-4xl font-black tabular-nums ${recuperoFinito ? 'text-success' : 'text-accent-strong'}`}>
-                {recuperoFinito ? tr('Via!', 'Go!') : formattaTempo(secondiRimasti)}
+                {timer.emom && recuperoFinito && timer.emom.giro >= timer.emom.giri ? tr('Fatto!', 'Done!') : recuperoFinito ? tr('Via!', 'Go!') : formattaTempo(secondiRimasti)}
               </p>
-              {timer.poi && (
+              {timer.emom && recuperoFinito && timer.emom.giro >= timer.emom.giri ? (
+                <p className="truncate text-sm text-soft">{tr('Ora segna i giri fatti', 'Now log your rounds')}</p>
+              ) : timer.poi && (
                 <p className="truncate text-sm text-soft">
                   {tr('Poi', 'Next')}: <span className="font-bold text-ink">{timer.poi}</span>
                 </p>

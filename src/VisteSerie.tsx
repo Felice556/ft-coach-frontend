@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { locale, tr } from './lingua';
-import { testoReps, type GruppoSerie } from './serie';
+import { durataEmom, testoReps, type GruppoSerie } from './serie';
 
 // Pezzi grafici per leggere le serie a colpo d'occhio, nello stile di Liftio:
 // - la barra del programma (Serie · Ripetizioni · Recupero) in cima a ogni esercizio;
@@ -41,11 +41,13 @@ export function TessereEsercizio({
   ripetizioni,
   recuperoSecondi,
   senzaRecupero = false,
+  emomSecondi = null,
 }: {
   serie: number;
   ripetizioni: string;
   recuperoSecondi: number;
   senzaRecupero?: boolean; // superset: si passa subito al prossimo esercizio
+  emomSecondi?: number | null; // EMOM: "Giri" al posto di "Serie" e "Ogni 60 s" al posto del recupero
 }) {
   const rec = recuperoInGrande(recuperoSecondi);
   const { base, tecnica } = dividiTecnica(ripetizioni);
@@ -66,8 +68,9 @@ export function TessereEsercizio({
           <path d="M4 7h11M4 12h11M4 17h11" />
           <path d="m18 15 2 2 3-4" />
         </Icona>,
-        tr('Serie', 'Sets'),
+        emomSecondi ? tr('Giri', 'Rounds') : tr('Serie', 'Sets'),
         serie,
+        emomSecondi ? 'EMOM' : undefined,
       )}
       {parte(
         <Icona>
@@ -83,8 +86,13 @@ export function TessereEsercizio({
           <circle cx="12" cy="13" r="8" />
           <path d="M12 9v4l2.5 2.5M9.5 2.5h5" />
         </Icona>,
-        tr('Recupero', 'Rest'),
-        senzaRecupero ? (
+        emomSecondi ? tr('Ogni', 'Every') : tr('Recupero', 'Rest'),
+        emomSecondi ? (
+          <>
+            {emomSecondi}
+            <span className="ml-0.5 text-sm font-bold text-muted">s</span>
+          </>
+        ) : senzaRecupero ? (
           <span className="text-lg">{tr('subito', 'none')}</span>
         ) : (
           <>
@@ -92,7 +100,7 @@ export function TessereEsercizio({
             {rec.unita && <span className="ml-0.5 text-sm font-bold text-muted">{rec.unita}</span>}
           </>
         ),
-        senzaRecupero ? tr('superset', 'superset') : undefined,
+        emomSecondi ? tr(`totale ${durataEmom(serie, emomSecondi)}`, `total ${durataEmom(serie, emomSecondi)}`) : senzaRecupero ? tr('superset', 'superset') : undefined,
       )}
     </div>
   );

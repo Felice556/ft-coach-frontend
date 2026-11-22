@@ -154,7 +154,28 @@ export function gruppiSerie(piano: SerieDaFare[]): GruppoSerie[] {
 
 // Testo breve: "3 × 10", "2 × 6-9 + 1 × Max", "3 × Max".
 export function riassuntoSerie(es: Esercizio): string {
+  // EMOM: "EMOM 10 min: 10 × 8 (60 s)"
+  if (es.emomSecondi) return `EMOM ${durataEmom(es.serieTarget, es.emomSecondi)}: ${es.serieTarget} × ${es.repsTarget ?? 'Max'} (${es.emomSecondi} s)`;
   const parti = [`${es.serieTarget} × ${testoReps(es.repsTarget, es.repsMax, es.piuMax, es.rpSecondi, es.cluster)}`];
   for (const s of es.serieExtra || []) parti.push(`1 × ${testoReps(s.reps, s.repsMax, s.piuMax, s.rpSecondi, s.cluster)}`);
   return parti.join(' + ');
 }
+
+// EMOM: durata totale ("10 giri ogni 60 s" → "10 min", "15 giri ogni 30 s" → "7:30 min").
+export function durataEmom(giri: number, secondi: number): string {
+  const tot = giri * secondi;
+  const m = Math.floor(tot / 60);
+  const s = tot % 60;
+  return s ? `${m}:${String(s).padStart(2, '0')} min` : `${m} min`;
+}
+
+// "EMOM 10 min · 8 reps ogni 60 s" (Max: "max reps").
+export function testoEmom(es: { serieTarget: number; repsTarget: number | null; emomSecondi?: number | null }, lingua: (it: string, en: string) => string): string {
+  const secondi = es.emomSecondi ?? 60;
+  const reps = es.repsTarget == null ? 'max' : String(es.repsTarget);
+  return lingua(
+    `EMOM ${durataEmom(es.serieTarget, secondi)} · ${reps} reps ogni ${secondi} s`,
+    `EMOM ${durataEmom(es.serieTarget, secondi)} · ${reps} reps every ${secondi} s`,
+  );
+}
+
