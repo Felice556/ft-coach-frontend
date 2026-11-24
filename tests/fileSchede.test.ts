@@ -49,3 +49,12 @@ describe('EMOM nel file', () => {
     expect(() => leggiFileSchede(file([{ nome: 'A', esercizi: [esercizio({ emomSecondi: 5 })] }]))).toThrow();
   });
 });
+
+describe('Cluster a totale nel file', () => {
+  it('si importa senza serie extra; totale fuori da 10-100 o RM non più basse rifiutati', () => {
+    const r = leggiFileSchede(file([{ nome: 'A', esercizi: [esercizio({ nome: 'Curl', serieTarget: 2, repsTarget: 12, repsMax: null, clusterTotale: 30 })] }]));
+    expect(r.schede[0].esercizi[0]).toMatchObject({ serieTarget: 2, repsTarget: 12, clusterTotale: 30, serieExtra: [] });
+    expect(() => leggiFileSchede(file([{ nome: 'A', esercizi: [esercizio({ repsTarget: 12, clusterTotale: 5 })] }]))).toThrow();
+    expect(() => leggiFileSchede(file([{ nome: 'A', esercizi: [esercizio({ repsTarget: 30, clusterTotale: 30 })] }]))).toThrow();
+  });
+});

@@ -12,6 +12,7 @@ export interface SerieDaFare {
   recuperoSecondi: number;
   nota: string | null;
   aggiunta: boolean; // true = serie aggiunta dal trainer dopo quelle normali
+  totale?: number | null; // cluster a totale: reps da raggiungere (reps = il peso di riferimento in RM)
 }
 
 // Come mostrare le ripetizioni: "10", "6-9", "Max", con il drop set "6-9 + max",
@@ -25,6 +26,11 @@ export function testoReps(reps: number | null | undefined, repsMax?: number | nu
 
 // Ripetizioni totali di un cluster ("5+5+5+5" → 20): è quello che il cliente segna.
 export const repsTotali = (s: { reps: number | null; cluster?: number | null }) => (s.reps != null && s.cluster ? s.reps * s.cluster : s.reps);
+
+// Cluster a totale: pausa di base tra le mini-serie (secondi) e somma delle mini-serie ('12+5+4' → [12,5,4]).
+export const PAUSA_CLUSTER_TOTALE = 15;
+export const leggiMiniSerie = (nota: string | null | undefined): number[] | null =>
+  nota && /^\s*\d+(\s*\+\s*\d+)+/.test(nota) ? nota.match(/^\s*\d+(\s*\+\s*\d+)+/)![0].split('+').map((x) => Number(x.trim())) : null;
 
 // Mini-serie di un cluster: da 2 a 10.
 export const CLUSTER_MIN = 2;
@@ -117,6 +123,7 @@ export function pianoSerie(es: Esercizio): SerieDaFare[] {
     recuperoSecondi: es.recuperoSecondi,
     nota: null,
     aggiunta: false,
+    totale: es.clusterTotale ?? null,
   }));
   const aggiunte: SerieDaFare[] = (es.serieExtra || []).map((s, i) => ({
     numero: es.serieTarget + i + 1,
@@ -156,6 +163,8 @@ export function gruppiSerie(piano: SerieDaFare[]): GruppoSerie[] {
 export function riassuntoSerie(es: Esercizio): string {
   // EMOM: "EMOM 10 min: 10 × 8 (60 s)"
   if (es.emomSecondi) return `EMOM ${durataEmom(es.serieTarget, es.emomSecondi)}: ${es.serieTarget} × ${es.repsTarget ?? 'Max'} (${es.emomSecondi} s)`;
+  // Cluster a totale: "2 × cluster 30 tot (12 RM, pausa 15 s)"
+  if (es.clusterTotale) return `${es.serieTarget} × cluster ${es.clusterTotale} tot (${es.repsTarget} RM, ${tr('pausa', 'rest')} ${es.rpSecondi ?? PAUSA_CLUSTER_TOTALE} s)`;
   const parti = [`${es.serieTarget} × ${testoReps(es.repsTarget, es.repsMax, es.piuMax, es.rpSecondi, es.cluster)}`];
   for (const s of es.serieExtra || []) parti.push(`1 × ${testoReps(s.reps, s.repsMax, s.piuMax, s.rpSecondi, s.cluster)}`);
   return parti.join(' + ');

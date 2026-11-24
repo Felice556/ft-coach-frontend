@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Esercizio } from '../src/api';
-import { durataEmom, gruppiSerie, leggiReps, pianoSerie, riassuntoSerie, testoRecupero, testoReps } from '../src/serie';
+import { durataEmom, gruppiSerie, leggiMiniSerie, leggiReps, pianoSerie, riassuntoSerie, testoRecupero, testoReps } from '../src/serie';
 
 const esercizio = (dati: Partial<Esercizio>) =>
   ({ id: 1, nome: 'Panca', serieTarget: 3, repsTarget: 10, repsMax: null, recuperoSecondi: 90, serieExtra: [], ...dati }) as Esercizio;
@@ -136,5 +136,21 @@ describe('EMOM', () => {
     const es = { id: 1, nome: 'Push up', serieTarget: 16, repsTarget: 8, emomSecondi: 30, recuperoSecondi: 120, schedaId: 1, serieExtra: [] };
     expect(riassuntoSerie(es)).toBe('EMOM 8 min: 16 × 8 (30 s)');
     expect(riassuntoSerie({ ...es, repsTarget: null })).toBe('EMOM 8 min: 16 × Max (30 s)');
+  });
+});
+
+describe('Cluster a totale', () => {
+  it('ogni serie porta il totale; il riassunto dice RM e pausa', () => {
+    const es = esercizio({ serieTarget: 2, repsTarget: 12, rpSecondi: 15, clusterTotale: 30 });
+    const piano = pianoSerie(es);
+    expect(piano).toHaveLength(2);
+    expect(piano[0]).toMatchObject({ reps: 12, totale: 30 });
+    expect(riassuntoSerie(es)).toContain('cluster 30 tot (12 RM');
+  });
+  it('legge le mini-serie dalla nota', () => {
+    expect(leggiMiniSerie('12+5+4+3+3+3')).toEqual([12, 5, 4, 3, 3, 3]);
+    expect(leggiMiniSerie('12 + 6 · spalla ok')).toEqual([12, 6]);
+    expect(leggiMiniSerie('fastidio alla spalla')).toBeNull();
+    expect(leggiMiniSerie('12')).toBeNull();
   });
 });

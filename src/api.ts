@@ -50,6 +50,8 @@ export interface Esercizio {
   rpSecondi?: number | null; // "+ rp" (rest-pause): pausa in secondi, poi si riprende con lo stesso peso; nel cluster la pausa tra le mini-serie
   cluster?: number | null; // cluster: mini-serie da "repsTarget" ripetizioni ("5+5+5+5" → 4)
   emomSecondi?: number | null; // EMOM: un giro ogni N secondi; serieTarget = giri (null = esercizio normale)
+  // Cluster a totale: peso da repsTarget RM, a cedimento e poi pause da rpSecondi finché si arriva a clusterTotale reps
+  clusterTotale?: number | null;
   recuperoSecondi: number;
   schedaId: number;
   serieExtra: SerieExtra[];

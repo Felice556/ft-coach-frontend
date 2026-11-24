@@ -31,7 +31,8 @@ import EditorSchedaPersonale from './EditorSchedaPersonale';
 import ProgrammiInArrivo from './ProgrammiInArrivo';
 import { SceltaFatica } from './FeedbackCliente';
 import { gruppiCollegati, prossimoPasso, sigla } from './collegamenti';
-import { pianoSerie, repsTotali, testoReps, testoRecupero, SerieDaFare } from './serie';
+import { leggiMiniSerie, pianoSerie, repsTotali, testoReps, testoRecupero, SerieDaFare } from './serie';
+import { PannelloClusterTotale } from './ClusterTotale';
 import {
   impostaSuono,
   impostaVolume,
@@ -86,6 +87,40 @@ function valoriValidi(testoKg: string, testoReps: string): boolean {
 
 function eOggi(dataIso: string): boolean {
   return new Date(dataIso).toDateString() === new Date().toDateString();
+}
+
+// Cluster a totale: le mini-serie dell'ultimo allenamento (per la serie che sta per fare) e,
+// se oggi ha appena chiuso una serie, come è andata rispetto alla volta scorsa.
+function volteScorsaCluster(storico: RegistroAllenamento[], fatteOggi: number) {
+  const giorni = new Map<string, RegistroAllenamento[]>();
+  for (const x of storico) {
+    if (eOggi(x.data) || !leggiMiniSerie(x.nota)) continue;
+    const giorno = new Date(x.data).toDateString();
+    giorni.set(giorno, [...(giorni.get(giorno) || []), x]);
+  }
+  const ultimoGiorno = [...giorni.values()].sort((a, b) => +new Date(b[0].data) - +new Date(a[0].data))[0] || [];
+  ultimoGiorno.sort((a, b) => +new Date(a.data) - +new Date(b.data));
+  const serieDi = (i: number) => {
+    const x = ultimoGiorno[Math.min(i, ultimoGiorno.length - 1)];
+    return x ? { mini: leggiMiniSerie(x.nota)!, peso: x.pesoUsato } : null;
+  };
+  const scorsa = serieDi(fatteOggi);
+  let esito: string | null = null;
+  const diOggi = storico.filter((x) => eOggi(x.data));
+  const appena = fatteOggi > 0 ? leggiMiniSerie(diOggi[fatteOggi - 1]?.nota) : null;
+  if (appena) {
+    const prima = serieDi(fatteOggi - 1);
+    const n = appena.length;
+    const diff = prima ? prima.mini.length - n : 0;
+    const confronto = !prima || diff === 0
+      ? ''
+      : diff > 0
+        ? tr(diff === 1 ? ', una in meno della volta scorsa' : `, ${diff} in meno della volta scorsa`, diff === 1 ? ', one fewer than last time' : `, ${diff} fewer than last time`)
+        : tr(-diff === 1 ? ', una in più della volta scorsa' : `, ${-diff} in più della volta scorsa`, -diff === 1 ? ', one more than last time' : `, ${-diff} more than last time`);
+    esito = tr(`Fatto in ${n} mini-serie${confronto}.`, `Done in ${n} mini-sets${confronto}.`);
+    if (n <= 3) esito += ' ' + tr('Con 3 o meno, la prossima volta prova ad alzare il peso.', 'With 3 or fewer, try a heavier weight next time.');
+  }
+  return { scorsa, esito };
 }
 
 function formattaTempo(secondi: number): string {
@@ -305,7 +340,7 @@ function SerieRiga({ serie, etichetta, prima, record = false, onModificata, onEl
 // recuperoDopo = recupero normale da far partire finito il rest-pause (bottone nella barra).
 // cluster = pausa tra le mini-serie: fatte = mini-serie già fatte, totale = quante sono, secondi = pausa.
 // emom = giro in corso (da 1), giri totali e secondi per giro: a ogni scadenza parte il giro dopo da solo.
-type Timer = { nome: string; fine: number; totale: number; poi?: string; rp?: boolean; recuperoDopo?: number; cluster?: { fatte: number; totale: number; secondi: number }; emom?: { giro: number; giri: number; secondi: number } };
+type Timer = { nome: string; fine: number; totale: number; poi?: string; rp?: boolean; recuperoDopo?: number; cluster?: { fatte: number; totale: number; secondi: number }; emom?: { giro: number; giri: number; secondi: number }; clusterTot?: { fatte: number; totale: number } };
 
 // Icona altoparlante: con le onde se il suono è attivo, con la X se è silenziato.
 function IconaVolume({ muto }: { muto: boolean }) {
@@ -393,6 +428,8 @@ export default function ClienteDashboard() {
   // Timer di recupero. Salviamo l'ORARIO di fine, non i secondi rimasti:
   // se il telefono blocca lo schermo e il browser rallenta, il conto resta giusto.
   const [timer, setTimer] = useState<Timer | null>(null);
+  // Cluster a totale: mini-serie fatte nella serie in corso, per esercizio (si salvano solo a totale raggiunto)
+  const [miniCluster, setMiniCluster] = useState<Record<number, number[]>>({});
   const [ora, setOra] = useState(Date.now());
   // Suono del timer: silenziato sì/no e volume (0-100), salvati su questo telefono.
   const [suono, setSuono] = useState(suonoAttivo);
@@ -646,6 +683,53 @@ export default function ClienteDashboard() {
     setTimer({ nome: es.nome, fine: adesso + secondi * 1000, totale: secondi * 1000, poi: poiEmom(es), emom: { giro: 1, giri: es.serieTarget, secondi } });
   }
 
+  // Cluster a totale: toccato il numero della mini-serie. Se il totale non c'è ancora parte la pausa,
+  // altrimenti si registra la serie (somma + mini-serie nella nota) e parte il recupero normale.
+  async function miniFatta(es: Esercizio, n: number) {
+    const totale = es.clusterTotale;
+    if (!totale) return;
+    setErroreEsercizio(null);
+    if (!valoriValidi(peso[es.id] || '', '1')) {
+      setErroreEsercizio({ id: es.id, testo: tr('Prima metti il peso (anche 0 per il corpo libero)', 'First enter the weight (even 0 for bodyweight)') });
+      return;
+    }
+    sbloccaAudio(); // dentro il tocco: così a fine pausa il telefono può suonare
+    const mini = [...(miniCluster[es.id] || []), n];
+    const fatte = mini.reduce((a, b) => a + b, 0);
+    setMiniCluster((prev) => ({ ...prev, [es.id]: mini }));
+    if (fatte < totale) {
+      const secondi = es.rpSecondi ?? 15;
+      const adesso = Date.now();
+      setOra(adesso);
+      setAvviso(null);
+      setTimer({
+        nome: es.nome,
+        fine: adesso + secondi * 1000,
+        totale: secondi * 1000,
+        poi: tr(`ancora a cedimento, stesso peso · ne mancano ${totale - fatte}`, `again to failure, same weight · ${totale - fatte} to go`),
+        clusterTot: { fatte, totale },
+      });
+      // Dopo il render: i numeri restano visibili sopra la barra della pausa (che copre il fondo dello schermo)
+      setTimeout(() => {
+        const numeri = document.querySelector(`[data-cluster-totale="${es.id}"] [data-numeri]`);
+        const barra = document.querySelector('[data-barra-timer]');
+        if (!numeri || !barra) return;
+        const spazio = window.innerHeight - barra.getBoundingClientRect().height - 12;
+        const giu = numeri.getBoundingClientRect().bottom - spazio;
+        if (giu > 0) window.scrollBy({ top: giu, behavior: 'smooth' });
+      }, 80);
+      return;
+    }
+    setTimer(null);
+    const ok = await handleRegistra(es, { reps: fatte, nota: mini.join('+') });
+    if (ok) setMiniCluster((prev) => ({ ...prev, [es.id]: [] }));
+    else setMiniCluster((prev) => ({ ...prev, [es.id]: mini.slice(0, -1) })); // non salvata: si può ritoccare l'ultima
+  }
+  function annullaMini(es: Esercizio) {
+    setMiniCluster((prev) => ({ ...prev, [es.id]: (prev[es.id] || []).slice(0, -1) }));
+    if (timer?.clusterTot && timer.nome === es.nome) setTimer(null);
+  }
+
   // Superset: dopo una serie si passa subito al prossimo esercizio, senza timer.
   // Al posto della barra del recupero compare un avviso "Ora: A2 · Rematore".
   const [avviso, setAvviso] = useState<string | null>(null);
@@ -783,8 +867,9 @@ export default function ClienteDashboard() {
     }
   }
 
-  async function handleRegistra(es: Esercizio) {
-    if (inInvio.has(es.id)) return; // doppio tocco: la prima richiesta è ancora in corso
+  // forza: cluster a totale, reps = somma delle mini-serie e nota = "12+5+4…" (le reps a schermo non contano)
+  async function handleRegistra(es: Esercizio, forza?: { reps: number; nota: string }): Promise<boolean> {
+    if (inInvio.has(es.id)) return false; // doppio tocco: la prima richiesta è ancora in corso
     sbloccaAudio(); // dentro il tocco: così a fine recupero il telefono può suonare
     setErroreEsercizio(null);
     if (storiciFalliti.has(es.id)) {
@@ -792,18 +877,20 @@ export default function ClienteDashboard() {
         id: es.id,
         testo: tr('Prima tocca "Riprova a caricare": serve lo storico per contare le serie', 'First tap "Try loading again": the history is needed to count your sets'),
       });
-      return;
+      return false;
     }
-    if (!valoriValidi(peso[es.id] || '', reps[es.id] || '')) {
+    if (!valoriValidi(peso[es.id] || '', forza ? String(forza.reps) : reps[es.id] || '')) {
       setErroreEsercizio({ id: es.id, testo: tr('Inserisci peso (anche 0 per il corpo libero) e ripetizioni', 'Enter weight (even 0 for bodyweight) and reps') });
-      return;
+      return false;
     }
     const kg = leggiNumero(peso[es.id] || '');
-    const r = leggiNumero(reps[es.id] || '');
+    const r = forza ? forza.reps : leggiNumero(reps[es.id] || '');
+    // nel cluster a totale la nota del cliente (se c'è) va dopo le mini-serie
+    const notaDaSalvare = forza ? [forza.nota, (nota[es.id] || '').trim()].filter(Boolean).join(' · ').slice(0, 500) : nota[es.id];
 
     setInInvio((prev) => new Set(prev).add(es.id));
     try {
-      const nuovo = await registraAllenamento(es.id, kg, r, nota[es.id]);
+      const nuovo = await registraAllenamento(es.id, kg, r, notaDaSalvare);
       // Aggiungiamo il nuovo record allo storico locale invece di ricaricare tutto.
       // setStorici(prev => …) e non setStorici({...storici}): se nel frattempo è arrivata
       // la risposta di un ALTRO esercizio (superserie), non la sovrascriviamo con dati vecchi.
@@ -821,7 +908,7 @@ export default function ClienteDashboard() {
 
       // EMOM: tra un giro e l'altro decide il timer dell'EMOM, non il recupero.
       // Dopo l'ultimo giro parte il recupero solo se l'EMOM non sta ancora correndo.
-      if (es.emomSecondi && (fatteOggi < piano.length || timer?.emom)) return;
+      if (es.emomSecondi && (fatteOggi < piano.length || timer?.emom)) return true;
 
       // Cosa si fa adesso: per un esercizio singolo, il suo recupero. In superset/jumpset
       // si passa all'esercizio successivo del gruppo (con o senza recupero).
@@ -835,12 +922,13 @@ export default function ClienteDashboard() {
       // Serie con rest-pause appena registrata: parte subito la sua pausa (non il recupero normale).
       // Finito il rest-pause, dalla barra si fa partire il recupero della serie con un tocco.
       // (nel cluster no: le pause tra le mini-serie sono già state fatte prima di segnare la serie)
-      const rpAppenaFatta = piano[fatteOggi - 1]?.cluster ? null : piano[fatteOggi - 1]?.rpSecondi;
+      // (nel cluster a totale neanche: le pause erano tra le mini-serie)
+      const rpAppenaFatta = piano[fatteOggi - 1]?.cluster || piano[fatteOggi - 1]?.totale ? null : piano[fatteOggi - 1]?.rpSecondi;
       if (rpAppenaFatta != null) {
         // Era l'ultima serie dell'esercizio? Allora dopo il rest-pause niente recupero: si passa al prossimo esercizio.
         const altreSerie = fatteOggi < piano.length;
         avviaPausaRp(es.nome, rpAppenaFatta, altreSerie ? (piano[fatteOggi - 1]?.recuperoSecondi ?? es.recuperoSecondi) : undefined);
-        return;
+        return true;
       }
       const recuperoSerie = piano[fatteOggi - 1]?.recuperoSecondi ?? es.recuperoSecondi;
       const passo = prossimoPasso(lista, indice, restano, recuperoSerie);
@@ -857,8 +945,10 @@ export default function ClienteDashboard() {
         }
         vaiAEsercizio(successivo.id);
       }
+      return true;
     } catch (err) {
       setErroreEsercizio({ id: es.id, testo: err instanceof Error ? err.message : tr('Errore nella registrazione', 'Error logging the set') });
+      return false;
     } finally {
       setInInvio((prev) => {
         const nuovo = new Set(prev);
@@ -1315,8 +1405,11 @@ export default function ClienteDashboard() {
               const record = recordPerGiorno(storico);
               const recordSerie = serieRecord(storico);
               // Tutte le note scritte su questo esercizio, dalla più recente.
-              const leMieNote = [...storico].reverse().filter((x) => x.nota && x.nota.trim());
-              const ultimaNotaPassata = leMieNote.find((x) => !eOggi(x.data));
+              // (nel cluster a totale le mini-serie "12+5+4…" non sono note del cliente)
+              const leMieNote = [...storico].reverse().filter((x) => x.nota && x.nota.trim() && !(es.clusterTotale && leggiMiniSerie(x.nota) && /^[\d\s+]+$/.test(x.nota)));
+              // Cluster a totale: le mini-serie stanno nella nota, non la mostriamo come "tua nota"
+              const ultimaNotaPassata = leMieNote.find((x) => !eOggi(x.data) && !(es.clusterTotale && leggiMiniSerie(x.nota)));
+              const clTot = es.clusterTotale ? volteScorsaCluster(storico, oggi) : null;
               // Superset / jumpset: in che gruppo sta l'esercizio e cosa viene dopo
               const gruppi = gruppiCollegati(scheda.esercizi);
               const g = gruppi[indice];
@@ -1448,6 +1541,7 @@ export default function ClienteDashboard() {
                   ) : (
                     <>
                       {/* Cosa fare nella prossima serie (cluster, + max, rp, Max, serie aggiunte) è già scritto nell'elenco qui sopra */}
+                      {es.clusterTotale && clTot?.esito && <p className="rounded-xl bg-success-soft px-4 py-3 text-sm font-semibold text-soft">{clTot.esito}</p>}
 
                       {ultimaVolta && (
                         <p className="rounded-xl bg-surface-2 px-4 py-3 text-sm text-muted">
@@ -1474,7 +1568,7 @@ export default function ClienteDashboard() {
                         </p>
                       )}
 
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className={`grid gap-3 ${es.clusterTotale ? 'grid-cols-1' : 'grid-cols-2'}`}>
                         <Stepper
                           etichetta={tr('Peso (kg)', 'Weight (kg)')}
                           valore={peso[es.id] || ''}
@@ -1483,7 +1577,7 @@ export default function ClienteDashboard() {
                           decimali
                           onChange={(v) => setPeso((prev) => ({ ...prev, [es.id]: v }))}
                         />
-                        <Stepper
+                        {!es.clusterTotale && <Stepper
                           etichetta={tr('Ripetizioni', 'Reps')}
                           valore={reps[es.id] || ''}
                           passo={1}
@@ -1491,7 +1585,7 @@ export default function ClienteDashboard() {
                           decimali={false}
                           segnaposto={prossima ? (prossima.cluster ? String(repsTotali(prossima)) : testoReps(prossima.reps, prossima.repsMax)) : '0'}
                           onChange={(v) => setReps((prev) => ({ ...prev, [es.id]: v }))}
-                        />
+                        />}
                       </div>
 
                       {notaAperta === es.id && (
@@ -1508,7 +1602,19 @@ export default function ClienteDashboard() {
 
                       {erroreEsercizio?.id === es.id && <p className="alert-error">{erroreEsercizio.testo}</p>}
 
-                      <button
+                      {es.clusterTotale ? (
+                        <PannelloClusterTotale
+                          rm={es.repsTarget ?? 12}
+                          totale={es.clusterTotale}
+                          esId={es.id}
+                          pausa={es.rpSecondi ?? 15}
+                          mini={miniCluster[es.id] || []}
+                          volteScorsa={clTot?.scorsa ?? null}
+                          occupato={inInvio.has(es.id)}
+                          onMini={(n) => void miniFatta(es, n)}
+                          onAnnulla={() => annullaMini(es)}
+                        />
+                      ) : <button
                         className="btn-primary min-h-14 w-full text-base"
                         disabled={inInvio.has(es.id)}
                         onClick={() => handleRegistra(es)}
@@ -1518,7 +1624,7 @@ export default function ClienteDashboard() {
                           : es.emomSecondi
                             ? tr(`Registra giro ${oggi + 1} di ${piano.length}`, `Log round ${oggi + 1} of ${piano.length}`)
                             : tr(`Registra serie ${oggi + 1} di ${piano.length}`, `Log set ${oggi + 1} of ${piano.length}`)}
-                      </button>
+                      </button>}
                       {/* EMOM: il timer fa partire un giro ogni N secondi; alla fine si segnano tutti i giri in un tocco */}
                       {es.emomSecondi ? (
                         <>
@@ -1540,7 +1646,7 @@ export default function ClienteDashboard() {
                       ) : null}
                       {/* Recupero anche a mano: ben visibile, per ricordare di rispettarlo tra una serie e l'altra.
                           (Dopo "Registra serie" parte comunque da solo.) */}
-                      {!es.emomSecondi && recuperoManuale > 0 && (!superset || pausaRp !== null) && (
+                      {!es.emomSecondi && !es.clusterTotale && recuperoManuale > 0 && (!superset || pausaRp !== null) && (
                         <button
                           type="button"
                           className="btn-secondary min-h-12 w-full gap-2"
@@ -1714,7 +1820,7 @@ export default function ClienteDashboard() {
 
       {/* Barra del recupero, fissa in basso dove arriva il pollice */}
       {timer && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.3)] backdrop-blur">
+        <div data-barra-timer className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface/95 px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(0,0,0,0.3)] backdrop-blur">
           {/* Riga del suono: altoparlante per silenziare e slider del volume */}
           <div className="mx-auto flex max-w-3xl items-center gap-2">
             <p className="min-w-0 flex-1 truncate text-xs text-muted">
@@ -1722,6 +1828,10 @@ export default function ClienteDashboard() {
                 ? recuperoFinito && timer.emom.giro >= timer.emom.giri
                   ? tr('EMOM finito', 'EMOM done')
                   : tr(`EMOM · giro ${timer.emom.giro} di ${timer.emom.giri}`, `EMOM · round ${timer.emom.giro} of ${timer.emom.giri}`)
+                : timer.clusterTot
+                ? recuperoFinito
+                  ? tr(`Via! · fatte ${timer.clusterTot.fatte} di ${timer.clusterTot.totale}`, `Go! · ${timer.clusterTot.fatte} of ${timer.clusterTot.totale} done`)
+                  : tr(`Pausa cluster · fatte ${timer.clusterTot.fatte} di ${timer.clusterTot.totale}`, `Cluster break · ${timer.clusterTot.fatte} of ${timer.clusterTot.totale} done`)
                 : timer.cluster
                 ? recuperoFinito
                   ? tr('Pausa finita', 'Break over')
@@ -1800,7 +1910,7 @@ export default function ClienteDashboard() {
               </button>
             </div>
           ) : null}
-          {!recuperoFinito && (
+          {!recuperoFinito && !timer.clusterTot && (
             <div className="mx-auto mt-3 grid max-w-3xl grid-cols-4 gap-2">
               {[-15, -10, 10, 15].map((s) => (
                 <button

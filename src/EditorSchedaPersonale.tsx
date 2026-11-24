@@ -126,6 +126,7 @@ export default function EditorSchedaPersonale({ scheda, onSalvata, onChiudi }: {
         // Quello che questo editor non mostra resta com'era
         videoUrl: o?.videoUrl || undefined,
         emomSecondi: emom,
+        clusterTotale: o?.clusterTotale ?? null,
         collegamento: r.collegamento || null,
       });
     }

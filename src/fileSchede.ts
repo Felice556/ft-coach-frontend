@@ -19,6 +19,10 @@ function leggiEsercizio(e: any, dove: string): EsercizioDaCreare {
   const emomSecondi = e.emomSecondi == null ? null : intero(e.emomSecondi, 10, 300);
   if (e.emomSecondi != null && emomSecondi == null) throw new Error(tr(`${dove}, "${nome}": EMOM non valido (un giro ogni 10-300 secondi).`, `${dove}, "${nome}": invalid EMOM (one round every 10-300 seconds).`));
   const serieTarget = intero(e.serieTarget, 1, emomSecondi != null ? 60 : 20);
+  // Cluster a totale: da 10 a 100 reps, con le reps di riferimento (RM) più basse del totale
+  const clusterTotale = e.clusterTotale == null ? null : intero(e.clusterTotale, 10, 100);
+  if (e.clusterTotale != null && (clusterTotale == null || typeof e.repsTarget !== 'number' || e.repsTarget >= clusterTotale))
+    throw new Error(tr(`${dove}, "${nome}": cluster a totale non valido (totale 10-100, reps di riferimento più basse).`, `${dove}, "${nome}": invalid total-reps cluster (total 10-100, lower reference reps).`));
   const recupero = intero(e.recuperoSecondi, 0, 3600);
   if (serieTarget == null || recupero == null) throw new Error(tr(`${dove}, "${nome}": serie o recupero non validi.`, `${dove}, "${nome}": invalid sets or rest.`));
   const repsTarget = reps(e.repsTarget);
@@ -36,9 +40,10 @@ function leggiEsercizio(e: any, dove: string): EsercizioDaCreare {
     rpSecondi: rp(e.rpSecondi),
     cluster: cl(e.cluster),
     emomSecondi,
+    clusterTotale,
     recuperoSecondi: recupero,
     collegamento: null,
-    serieExtra: (emomSecondi != null ? [] : extra).map((x: any) => {
+    serieExtra: (emomSecondi != null || clusterTotale != null ? [] : extra).map((x: any) => {
       const r = intero(x?.recuperoSecondi, 0, 3600);
       if (r == null) throw new Error(tr(`${dove}, "${nome}": recupero di una serie extra non valido.`, `${dove}, "${nome}": invalid rest on an extra set.`));
       return { reps: reps(x.reps), repsMax: reps(x.repsMax), piuMax: x.piuMax === true, rpSecondi: rp(x.rpSecondi), cluster: cl(x.cluster), recuperoSecondi: r };

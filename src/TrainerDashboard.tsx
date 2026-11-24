@@ -400,6 +400,8 @@ type EsercizioBozza = {
   repsTarget: string;
   recuperoSecondi: string;
   emomSecondi: string; // EMOM: un giro ogni N secondi ('' = esercizio normale)
+  clusterTotale: string; // Cluster a totale: reps totali ('' = esercizio normale); repsTarget = peso da N RM
+  pausaCluster: string; // pausa tra le mini-serie del cluster a totale (sec)
   serieExtra: SerieExtraBozza[];
   // Collegato all'esercizio successivo ('' = singolo)
   collegamento: TipoCollegamento | '';
@@ -420,6 +422,8 @@ const esercizioVuoto = (): EsercizioBozza => ({
   repsTarget: '10',
   recuperoSecondi: '60',
   emomSecondi: '',
+  clusterTotale: '',
+  pausaCluster: '15',
   serieExtra: [],
   collegamento: '',
 });
@@ -543,9 +547,12 @@ export default function TrainerDashboard() {
       videoUrl: es.videoUrl || '',
       descrizione: es.descrizione || '',
       serieTarget: String(es.serieTarget),
-      repsTarget: testoReps(es.repsTarget, es.repsMax, es.piuMax, es.rpSecondi, es.cluster),
+      // Cluster a totale: nelle reps solo il numero di RM (la pausa ha il suo campo)
+      repsTarget: es.clusterTotale ? String(es.repsTarget ?? 12) : testoReps(es.repsTarget, es.repsMax, es.piuMax, es.rpSecondi, es.cluster),
       recuperoSecondi: String(es.recuperoSecondi),
       emomSecondi: es.emomSecondi ? String(es.emomSecondi) : '',
+      clusterTotale: es.clusterTotale ? String(es.clusterTotale) : '',
+      pausaCluster: es.clusterTotale ? String(es.rpSecondi ?? 15) : '15',
       serieExtra: (es.serieExtra || []).map((x) => ({
         reps: testoReps(x.reps, x.repsMax, x.piuMax, x.rpSecondi, x.cluster),
         recuperoSecondi: String(x.recuperoSecondi),
@@ -829,7 +836,8 @@ export default function TrainerDashboard() {
   }
 
   function aggiornaEsercizio(indice: number, campo: CampoTesto, valore: string) {
-    setEsercizi(esercizi.map((es, i) => (i === indice ? { ...es, [campo]: valore } : es)));
+    // aggiornamento funzionale: più chiamate di fila (es. spunta cluster → svuota EMOM) non si cancellano a vicenda
+    setEsercizi((prima) => prima.map((es, i) => (i === indice ? { ...es, [campo]: valore } : es)));
   }
 
   // ---- Serie "diverse" di un esercizio ----
@@ -948,21 +956,35 @@ export default function TrainerDashboard() {
       const eserciziValidati = esercizi.map((es, indice) => {
         const superset = es.collegamento === 'SUPERSET' && indice < esercizi.length - 1;
         const emom = es.emomSecondi.trim() !== '';
+        const clTot = !emom && es.clusterTotale.trim() !== '';
+        const dove = es.nome || tr(`Esercizio ${indice + 1}`, `Exercise ${indice + 1}`);
+        // Cluster a totale: peso da N RM, totale da 10 a 100 (più alto delle RM), pausa da 5 a 60 secondi
+        const cl = clTot
+          ? (() => {
+              const rm = intero(es.repsTarget, dove, tr('RM di riferimento', 'reference RM'), 1);
+              const tot = intero(es.clusterTotale, dove, tr('totale del cluster', 'cluster total'), 10);
+              const pausa = intero(es.pausaCluster, dove, tr('pausa del cluster', 'cluster rest'), 5);
+              if (tot > 100) throw new Error(tr(`${dove}: il totale del cluster va da 10 a 100`, `${dove}: cluster total must be 10 to 100`));
+              if (rm >= tot) throw new Error(tr(`${dove}: le RM devono essere meno del totale (es. 12 RM per 30 totali)`, `${dove}: RM must be lower than the total (e.g. 12 RM for 30 total)`));
+              if (pausa > 60) throw new Error(tr(`${dove}: la pausa del cluster va da 5 a 60 secondi`, `${dove}: cluster rest must be 5 to 60 seconds`));
+              return { repsTarget: rm, repsMax: null, piuMax: false, rpSecondi: pausa, cluster: null, clusterTotale: tot };
+            })()
+          : null;
         return {
         nome: es.nome,
         videoUrl: link(es.videoUrl),
         descrizione: es.descrizione || undefined,
         serieTarget: intero(es.serieTarget, es.nome || tr(`Esercizio ${indice + 1}`, `Exercise ${indice + 1}`), tr('numero di serie', 'number of sets'), 1),
-        ...(() => {
+        ...(cl ?? (() => {
           const r = reps(es.repsTarget, es.nome || tr('Esercizio', 'Exercise'));
-          return { repsTarget: r.reps, repsMax: r.repsMax, piuMax: r.piuMax, rpSecondi: r.rpSecondi, cluster: r.cluster };
-        })(),
+          return { repsTarget: r.reps, repsMax: r.repsMax, piuMax: r.piuMax, rpSecondi: r.rpSecondi, cluster: r.cluster, clusterTotale: null };
+        })()),
         recuperoSecondi: superset
           ? recuperoNascosto(es.recuperoSecondi)
           : intero(es.recuperoSecondi, es.nome || tr(`Esercizio ${indice + 1}`, `Exercise ${indice + 1}`), tr('recupero', 'rest'), 0),
         // EMOM: un giro ogni N secondi (da 10 a 300); le serie sono i giri e non ci sono serie extra.
         emomSecondi: emom ? intero(es.emomSecondi, es.nome || tr(`Esercizio ${indice + 1}`, `Exercise ${indice + 1}`), tr('tempo dell’EMOM', 'EMOM interval'), 10) : null,
-        serieExtra: (emom ? [] : es.serieExtra).map((x, j) => ({
+        serieExtra: (emom || clTot ? [] : es.serieExtra).map((x, j) => ({
           ...reps(x.reps, `${es.nome || tr('Esercizio', 'Exercise')}, ${tr('serie', 'set')} ${Number(es.serieTarget) + j + 1}`),
           recuperoSecondi: superset
             ? recuperoNascosto(x.recuperoSecondi)
@@ -1482,8 +1504,19 @@ export default function TrainerDashboard() {
                           />
                         </div>
                         <div className="sm:col-span-2">
-                          <label className="label">Reps</label>
-                          <CampoReps valore={es.repsTarget} onChange={(v) => aggiornaEsercizio(i, 'repsTarget', v)} />
+                          <label className="label">{es.clusterTotale !== '' ? tr('Peso da (RM)', 'Load (RM)') : 'Reps'}</label>
+                          {es.clusterTotale !== '' ? (
+                            <input
+                              className="input"
+                              type="number"
+                              inputMode="numeric"
+                              aria-label={tr('Peso da quante ripetizioni massime', 'Load for how many max reps')}
+                              value={es.repsTarget}
+                              onChange={(e) => aggiornaEsercizio(i, 'repsTarget', e.target.value)}
+                            />
+                          ) : (
+                            <CampoReps valore={es.repsTarget} onChange={(v) => aggiornaEsercizio(i, 'repsTarget', v)} />
+                          )}
                         </div>
                         <div className="sm:col-span-2">
                           <label className="label">{tr('Rec. (sec)', 'Rest (sec)')}</label>
@@ -1508,9 +1541,31 @@ export default function TrainerDashboard() {
                             type="checkbox"
                             className="h-5 w-5 accent-[var(--color-accent)]"
                             checked={es.emomSecondi !== ''}
-                            onChange={(e) => aggiornaEsercizio(i, 'emomSecondi', e.target.checked ? '60' : '')}
+                            onChange={(e) => {
+                              aggiornaEsercizio(i, 'emomSecondi', e.target.checked ? '60' : '');
+                              if (e.target.checked) aggiornaEsercizio(i, 'clusterTotale', '');
+                            }}
                           />
                           EMOM
+                        </label>
+                        {/* Cluster a totale: peso da N RM, a cedimento, poi pause brevi finché si chiude il totale */}
+                        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-semibold text-ink">
+                          <input
+                            type="checkbox"
+                            className="h-5 w-5 accent-[var(--color-accent)]"
+                            checked={es.clusterTotale !== ''}
+                            onChange={(e) => {
+                              const on = e.target.checked;
+                              aggiornaEsercizio(i, 'clusterTotale', on ? '30' : '');
+                              if (on) {
+                                aggiornaEsercizio(i, 'emomSecondi', '');
+                                aggiornaEsercizio(i, 'pausaCluster', es.pausaCluster || '15');
+                                // nelle reps resta solo un numero: le RM del peso (12 se c'era altro)
+                                if (!/^\d+$/.test(es.repsTarget.trim()) || Number(es.repsTarget) >= 30) aggiornaEsercizio(i, 'repsTarget', '12');
+                              }
+                            }}
+                          />
+                          {tr('Cluster a totale', 'Total-reps cluster')}
                         </label>
                         {es.emomSecondi !== '' && (
                           <>
@@ -1530,6 +1585,37 @@ export default function TrainerDashboard() {
                           </>
                         )}
                       </div>
+                      {es.clusterTotale !== '' && (
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
+                          <span className="text-sm text-muted">{tr('totale', 'total')}</span>
+                          <input
+                            className="input w-16"
+                            type="number"
+                            inputMode="numeric"
+                            aria-label={tr('Ripetizioni totali del cluster', 'Cluster total reps')}
+                            value={es.clusterTotale}
+                            onChange={(e) => aggiornaEsercizio(i, 'clusterTotale', e.target.value)}
+                          />
+                          <span className="text-sm text-muted">reps · {tr('pausa', 'rest')}</span>
+                          <input
+                            className="input w-16"
+                            type="number"
+                            inputMode="numeric"
+                            aria-label={tr('Secondi di pausa tra le mini-serie', 'Seconds of rest between mini-sets')}
+                            value={es.pausaCluster}
+                            onChange={(e) => aggiornaEsercizio(i, 'pausaCluster', e.target.value)}
+                          />
+                          <span className="text-sm text-muted">sec</span>
+                        </div>
+                      )}
+                      {es.clusterTotale !== '' && (
+                        <p className="mt-1 text-xs leading-relaxed text-accent-strong">
+                          {tr(
+                            `Peso da ${es.repsTarget || '?'} RM: a cedimento, poi ${es.pausaCluster || '?'} s di pausa e ancora a cedimento, finché la somma arriva a ${es.clusterTotale || '?'}. "Serie" = quante volte si ripete tutto, "Rec." = recupero dopo.`,
+                            `Load for ${es.repsTarget || '?'} RM: to failure, then ${es.pausaCluster || '?'} s rest and again to failure, until the sum reaches ${es.clusterTotale || '?'}. "Sets" = how many times, "Rest" = rest after.`,
+                          )}
+                        </p>
+                      )}
                       {es.emomSecondi !== '' && (
                         <p className="mt-1 text-xs leading-relaxed text-accent-strong">
                           {tr(
@@ -1539,7 +1625,7 @@ export default function TrainerDashboard() {
                         </p>
                       )}
                       {/* Serie aggiunte dopo quelle normali, con valori propri: es. 2 × 10 + una da 15 in drop set */}
-                      {es.emomSecondi === '' && es.serieExtra.length > 0 && (
+                      {es.emomSecondi === '' && es.clusterTotale === '' && es.serieExtra.length > 0 && (
                         <div className="mt-3 space-y-2">
                           {es.serieExtra.map((x, j) => (
                             <div key={j} className="rounded-xl border border-accent-strong/40 bg-accent-soft p-3">
@@ -1587,7 +1673,7 @@ export default function TrainerDashboard() {
                           ))}
                         </div>
                       )}
-                      {es.emomSecondi === '' && es.serieExtra.length < 10 && (
+                      {es.emomSecondi === '' && es.clusterTotale === '' && es.serieExtra.length < 10 && (
                         <button
                           type="button"
                           className="btn-ghost mt-3 w-full border border-dashed border-accent-strong/50 text-accent-strong"

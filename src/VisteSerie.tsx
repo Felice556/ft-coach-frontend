@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { locale, tr } from './lingua';
-import { durataEmom, RP_PREDEFINITO, testoReps, type GruppoSerie, type SerieDaFare } from './serie';
+import { durataEmom, leggiMiniSerie, RP_PREDEFINITO, testoReps, type GruppoSerie, type SerieDaFare } from './serie';
 
 // Pezzi grafici per leggere le serie a colpo d'occhio, nello stile di Liftio:
 // - la barra del programma (Serie · Ripetizioni · Recupero) in cima a ogni esercizio;
@@ -267,6 +267,10 @@ export function MedagliaRecord({ quanti }: { quanti: number }) {
 
 // Breve spiegazione sotto la riga per le serie "speciali", così non serve cercare la legenda.
 function sottotitoloSerie(s: SerieDaFare): string | null {
+  if (s.totale) {
+    const pausa = s.rpSecondi ?? 15;
+    return tr(`peso da ${s.reps} RM: a cedimento, poi ${pausa}s di pausa e ancora, finché arrivi a ${s.totale}`, `load for ${s.reps} RM: to failure, rest ${pausa}s and go again until you reach ${s.totale}`);
+  }
   if (s.cluster != null && s.cluster >= 2 && s.reps != null) {
     const pausa = s.rpSecondi ?? RP_PREDEFINITO;
     return tr(`${pausa}s di pausa tra le mini-serie, stesso peso · segna il totale (${s.reps * s.cluster})`, `${pausa}s between mini-sets, same weight · log the total (${s.reps * s.cluster})`);
@@ -294,7 +298,7 @@ export function ElencoSerie({
   dopoSuperset,
 }: {
   piano: SerieDaFare[];
-  fatte: { pesoUsato: number; repsFatte: number }[]; // serie registrate oggi, nell'ordine
+  fatte: { pesoUsato: number; repsFatte: number; nota?: string | null }[]; // serie registrate oggi, nell'ordine
   senzaRecupero?: boolean; // superset: niente recupero tra un esercizio e l'altro
   dopoSuperset?: string; // es. "poi subito B2"
 }) {
@@ -308,7 +312,13 @@ export function ElencoSerie({
         // "6-9 reps", "10 reps + max", "8 reps + rp 15s", "5+5+5+5 reps", "Max ripetizioni"
         const cluster = s.cluster != null && s.cluster >= 2 && s.reps != null;
         const { base, tecnica } = dividiTecnica(testoReps(s.reps, s.repsMax, s.piuMax, s.rpSecondi, s.cluster));
-        const reps = s.reps == null ? tr('Max ripetizioni', 'Max reps') : `${base} ${tr('reps', 'reps')}${tecnica && !cluster ? ` ${tecnica}` : ''}`;
+        const reps = s.totale
+          ? tr(`Cluster · ${s.totale} reps in totale`, `Cluster · ${s.totale} total reps`)
+          : s.reps == null
+            ? tr('Max ripetizioni', 'Max reps')
+            : `${base} ${tr('reps', 'reps')}${tecnica && !cluster ? ` ${tecnica}` : ''}`;
+        // cluster a totale fatto: le mini-serie salvate nella nota ("12+5+4+3+3+3")
+        const mini = s.totale && fatta ? leggiMiniSerie(fatta.nota) : null;
         return (
           <li
             key={i}
@@ -330,6 +340,7 @@ export function ElencoSerie({
                 {ora && <span className="ml-2 rounded-md bg-accent px-1.5 py-0.5 align-middle text-[0.62rem] font-bold tracking-wider text-accent-ink uppercase">{tr('adesso', 'now')}</span>}
               </span>
               {!fatta && (sotto || s.nota) && <span className="mt-0.5 block text-xs leading-snug text-soft">{[s.nota, sotto].filter(Boolean).join(' · ')}</span>}
+              {mini && <span className="mt-0.5 block text-xs leading-snug text-soft tabular-nums">{tr(`${mini.join(' + ')} · ${mini.length} mini-serie`, `${mini.join(' + ')} · ${mini.length} mini-sets`)}</span>}
             </span>
             <span className={`text-right text-sm font-bold tabular-nums ${fatta ? 'text-success' : 'text-muted'}`}>
               {fatta ? `${numero(fatta.pesoUsato)} kg × ${fatta.repsFatte}` : senzaRecupero ? (dopoSuperset ?? tr('poi subito', 'then go')) : poiRecupero(s.recuperoSecondi)}
