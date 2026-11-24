@@ -23,7 +23,7 @@ import {
 import ProgressoChart, { StrisciaProgressi } from './ProgressoChart';
 import StoricoPesi from './StoricoPesi';
 import { recordPerGiorno, seriePerGiorno, serieRecord, ultimaVoltaMigliore, volume as volumeSerie } from './calcoloProgressi';
-import { CelleSerie, colonneSerie, IntestazioneGiorno, ProgrammaSerie, TabellaSerie, TessereEsercizio } from './VisteSerie';
+import { CelleSerie, colonneSerie, ElencoSerie, IntestazioneGiorno, TabellaSerie, TessereEsercizio } from './VisteSerie';
 import MisureCorporee from './MisureCorporee';
 import CardioPassi from './CardioPassi';
 import DiarioAlimentare from './DiarioAlimentare';
@@ -31,7 +31,7 @@ import EditorSchedaPersonale from './EditorSchedaPersonale';
 import ProgrammiInArrivo from './ProgrammiInArrivo';
 import { SceltaFatica } from './FeedbackCliente';
 import { gruppiCollegati, prossimoPasso, sigla } from './collegamenti';
-import { gruppiSerie, pianoSerie, repsTotali, testoReps, testoRecupero, SerieDaFare, SPIEGAZIONE_CLUSTER, SPIEGAZIONE_PIU_MAX, SPIEGAZIONE_RP, RP_PREDEFINITO } from './serie';
+import { pianoSerie, repsTotali, testoReps, testoRecupero, SerieDaFare } from './serie';
 import {
   impostaSuono,
   impostaVolume,
@@ -1303,9 +1303,6 @@ export default function ClienteDashboard() {
               const oggi = storico.filter((x) => eOggi(x.data)).length;
               const piano = pianoSerie(es);
               const completato = oggi >= piano.length;
-              // Serie uguali messe insieme: se sono tutte uguali basta la barra Serie · Reps · Recupero,
-              // altrimenti (top set + back-off, piramidali…) una riga per ogni gruppo.
-              const righeSerie = gruppiSerie(piano);
               const prossima = piano[oggi]; // undefined se l'esercizio è finito
               // Recupero da far partire a mano. Se la serie da fare è un rest-pause, è la sua pausa
               // (si tocca arrivati a cedimento); altrimenti il recupero dell'ultima serie fatta.
@@ -1382,37 +1379,31 @@ export default function ClienteDashboard() {
                     </div>
                   </header>
 
-                  {/* Serie · Ripetizioni · Recupero, grandi e in colonna; con serie diverse una riga per gruppo */}
-                  {righeSerie.length > 1 ? (
-                    <ProgrammaSerie gruppi={righeSerie} fatte={oggi} senzaRecupero={superset} />
+                  {/* Le serie una per riga, nell'ordine: fatte in verde (peso × reps), quella di adesso evidenziata.
+                      L'EMOM (anche 60 giri) resta con le caselle Giri · Reps · Ogni e i pallini. */}
+                  {es.emomSecondi ? (
+                    <>
+                      <TessereEsercizio
+                        serie={piano.length}
+                        ripetizioni={testoReps(es.repsTarget, es.repsMax, es.piuMax, es.rpSecondi, es.cluster)}
+                        recuperoSecondi={es.recuperoSecondi}
+                        senzaRecupero={superset}
+                        emomSecondi={es.emomSecondi}
+                      />
+                      <div className="flex items-center gap-1.5" aria-label={tr(`${oggi} giri su ${piano.length} fatti oggi`, `${oggi} of ${piano.length} rounds done today`)}>
+                        {piano.map((_, i) => (
+                          <span key={i} className={`h-2 flex-1 rounded-full ${i < oggi ? (completato ? 'bg-success' : 'bg-accent') : 'bg-surface-2'}`} />
+                        ))}
+                      </div>
+                    </>
                   ) : (
-                    <TessereEsercizio
-                      serie={piano.length}
-                      ripetizioni={testoReps(es.repsTarget, es.repsMax, es.piuMax, es.rpSecondi, es.cluster)}
-                      recuperoSecondi={es.recuperoSecondi}
+                    <ElencoSerie
+                      piano={piano}
+                      fatte={storico.filter((x) => eOggi(x.data))}
                       senzaRecupero={superset}
-                      emomSecondi={es.emomSecondi}
+                      dopoSuperset={superset ? testoDopo : undefined}
                     />
                   )}
-
-                  {/* Serie di oggi come pallini: si capisce a colpo d'occhio a che punto sei */}
-                  {/* Le serie aggiunte ancora da fare hanno il bordo tratteggiato: si vede che sono diverse */}
-                  <div className="flex items-center gap-1.5" aria-label={tr(`${oggi} serie su ${piano.length} fatte oggi`, `${oggi} of ${piano.length} sets done today`)}>
-                    {piano.map((serie, i) => (
-                      <span
-                        key={i}
-                        className={`h-2 flex-1 rounded-full ${
-                          i < oggi
-                            ? completato
-                              ? 'bg-success'
-                              : 'bg-accent'
-                            : serie.aggiunta
-                              ? 'border border-dashed border-accent-strong/70'
-                              : 'bg-surface-2'
-                        }`}
-                      />
-                    ))}
-                  </div>
 
                   {es.descrizione && (
                     <div className="rounded-xl border-l-4 border-accent-strong bg-accent-soft px-3 py-2.5">
@@ -1456,33 +1447,7 @@ export default function ClienteDashboard() {
                     <p className="alert-success">{tr('Esercizio completato per oggi. Ottimo lavoro!', 'Exercise done for today. Great work!')}</p>
                   ) : (
                     <>
-                      {/* Se la prossima serie ha valori propri (aggiunta dal trainer) o è "Max",
-                          lo diciamo chiaramente prima dei campi */}
-                      {prossima && (prossima.aggiunta || prossima.reps == null || prossima.piuMax || prossima.rpSecondi != null) && (
-                        <div className="rounded-xl border border-dashed border-accent-strong/70 bg-accent-soft px-3 py-2.5">
-                          <p className="text-xs font-semibold tracking-wide text-accent-strong uppercase">
-                            {tr('Serie', 'Set')} {prossima.numero}
-                          </p>
-                          <p className="mt-0.5 text-sm text-ink">
-                            <span className="font-bold">
-                              {prossima.reps == null && prossima.rpSecondi == null
-                                ? tr('Max ripetizioni', 'Max reps')
-                                : prossima.piuMax || prossima.rpSecondi != null
-                                  ? testoReps(prossima.reps, prossima.repsMax, prossima.piuMax, prossima.rpSecondi, prossima.cluster)
-                                  : `${testoReps(prossima.reps, prossima.repsMax)} reps`}
-                            </span>
-                            {prossima.cluster && prossima.reps != null ? (
-                              <span className="text-soft"> · {SPIEGAZIONE_CLUSTER(prossima.cluster, prossima.reps, prossima.rpSecondi ?? RP_PREDEFINITO)}</span>
-                            ) : prossima.rpSecondi != null ? (
-                              <span className="text-soft"> · {SPIEGAZIONE_RP(prossima.rpSecondi)}</span>
-                            ) : (
-                              prossima.piuMax && <span className="text-soft"> · {SPIEGAZIONE_PIU_MAX()}</span>
-                            )}
-                            {!superset && <span className="text-soft"> · {testoRecupero(prossima.recuperoSecondi)}</span>}
-                            {prossima.nota && <span className="text-soft"> · {prossima.nota}</span>}
-                          </p>
-                        </div>
-                      )}
+                      {/* Cosa fare nella prossima serie (cluster, + max, rp, Max, serie aggiunte) è già scritto nell'elenco qui sopra */}
 
                       {ultimaVolta && (
                         <p className="rounded-xl bg-surface-2 px-4 py-3 text-sm text-muted">
