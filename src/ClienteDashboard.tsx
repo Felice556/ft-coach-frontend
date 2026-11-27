@@ -33,6 +33,7 @@ import { SceltaFatica } from './FeedbackCliente';
 import { gruppiCollegati, prossimoPasso, sigla } from './collegamenti';
 import { leggiMiniSerie, pianoSerie, repsTotali, testoReps, testoRecupero, SerieDaFare } from './serie';
 import { PannelloClusterTotale } from './ClusterTotale';
+import { ChiediGuardaNote } from './RichiestaNote';
 import {
   impostaSuono,
   impostaVolume,
@@ -1156,6 +1157,9 @@ export default function ClienteDashboard() {
             <p className="mt-2 text-4xl font-black tabular-nums tracking-tight">{sessioni.length}</p>
           </div>
         </div>
+
+        {/* "Guarda le mie note": il trainer lo vede sul nome del cliente e con un avviso nell'app */}
+        {me?.ruolo === 'CLIENTE' && me.trainer && <ChiediGuardaNote me={me} onAggiornato={setMe} />}
 
         {riepilogo && (
           <div className="card border-success/40 bg-success-soft">

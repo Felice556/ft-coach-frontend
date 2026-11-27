@@ -279,9 +279,21 @@ export interface Me {
   email?: string;
   // false = non ha ancora cliccato il link di conferma (l'app mostra un avviso).
   emailConfermata?: boolean;
+  // "Guarda le mie note" (clienti con un trainer): richiesta aperta, messaggio, quando il trainer le ha viste.
+  richiestaNoteIl?: string | null;
+  richiestaNoteTesto?: string | null;
+  noteVisteIl?: string | null;
 }
 export function getMe() {
   return apiFetch<Me>('/me');
+}
+
+// Il cliente chiede al suo trainer di guardare le note (messaggio facoltativo, max 300 caratteri).
+export function chiediGuardaNote(messaggio?: string) {
+  return apiFetch<Me>('/me/richiesta-note', { method: 'POST', body: JSON.stringify({ messaggio: messaggio?.trim() || null }) });
+}
+export function annullaRichiestaNote() {
+  return apiFetch<Me>('/me/richiesta-note', { method: 'DELETE' });
 }
 
 // Il cliente si collega a un trainer con il suo codice invito (o cambia trainer).
@@ -398,6 +410,13 @@ export interface Cliente {
   email: string;
   sospeso?: boolean; // sospeso dal trainer: non può accedere, i dati restano
   emailConfermata?: boolean; // false = non ha ancora confermato l'email (forse è scritta male)
+  richiestaNoteIl?: string | null; // il cliente chiede di guardare le sue note (null = nessuna richiesta)
+  richiestaNoteTesto?: string | null;
+}
+
+// Il trainer ha guardato le note del cliente: la richiesta si chiude.
+export function segnaNoteViste(clienteId: number) {
+  return apiFetch<{ id: number }>(`/clienti/${clienteId}/note-viste`, { method: 'POST' });
 }
 
 // Il trainer sospende o riattiva l'accesso di un suo cliente (nessun dato viene cancellato).

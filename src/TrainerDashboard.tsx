@@ -37,6 +37,7 @@ import {
   NotaPreset,
   getClienti,
   Cliente,
+  segnaNoteViste,
   cambiaEmailCliente,
   sospendiCliente,
   riattivaCliente,
@@ -49,6 +50,7 @@ import {
   getTrainerInAttesa,
   getConteggiProgrammi,
 } from './api';
+import { AvvisiNote, quandoBreve } from './RichiestaNote';
 import { durataEmom, riassuntoSerie, testoReps, testoRecupero, leggiReps } from './serie';
 import { locale, tr } from './lingua';
 import { BarraSezioni, ICONE, ricordaSezione, useIndirizzo } from './Sezioni';
@@ -653,6 +655,27 @@ export default function TrainerDashboard() {
     }
   }
   const nomeCliente = (id: number) => clienti.find((c) => c.id === id)?.nome ?? tr(`cliente #${id}`, `client #${id}`);
+  // "Guarda le mie note": le richieste arrivano anche con l'app aperta (controllo ogni minuto e quando si torna sull'app)
+  useEffect(() => {
+    const aggiorna = () => {
+      if (document.visibilityState === 'visible') getClienti().then(setClienti).catch(() => {});
+    };
+    const timer = setInterval(aggiorna, 60_000);
+    document.addEventListener('visibilitychange', aggiorna);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', aggiorna);
+    };
+  }, []);
+  const richiesteNote = clienti.filter((c) => c.richiestaNoteIl).length;
+  async function noteViste(id: number) {
+    try {
+      await segnaNoteViste(id);
+      setClienti((prima) => prima.map((c) => (c.id === id ? { ...c, richiestaNoteIl: null, richiestaNoteTesto: null } : c)));
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : tr('Errore, riprova', 'Error, try again'));
+    }
+  }
 
   // true mentre il salvataggio è in corso: blocca il doppio tocco su "Crea scheda".
   const [salvando, setSalvando] = useState(false);
@@ -1138,13 +1161,20 @@ export default function TrainerDashboard() {
         onCambia={(id) => vai(id)}
         voci={[
           { id: 'attivita', nome: tr('Attività', 'Activity'), icona: ICONE.attivita },
-          { id: 'clienti', nome: tr('Clienti', 'Clients'), icona: ICONE.clienti },
+          { id: 'clienti', nome: tr('Clienti', 'Clients'), icona: ICONE.clienti, pallino: richiesteNote > 0 },
           { id: 'inviti', nome: tr('Inviti', 'Invites'), icona: ICONE.inviti },
           ...(admin ? [{ id: 'trainer' as const, nome: tr('Trainer', 'Trainers'), icona: ICONE.trainer, pallino: trainerInAttesa > 0 || nuoviAvvisiProgrammi }] : []),
         ]}
       />
 
       {errore && <p className="alert-error" role="alert">{errore}</p>}
+
+      {/* Clienti che chiedono di guardare le note: in cima in ogni sezione, tranne nella pagina di quel cliente */}
+      <AvvisiNote
+        clienti={clienti.filter((c) => c.id !== clienteVisto)}
+        onApri={(id) => apriCliente(id)}
+        onFatto={noteViste}
+      />
 
       {sezione === 'attivita' && (
         <>
@@ -1304,6 +1334,7 @@ export default function TrainerDashboard() {
                   <h2 className="section-title flex flex-wrap items-center gap-2 break-words">
                     {nomeCliente(clienteVisto)}
                     {clienteAperto?.sospeso && <span className="rounded-md bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning">{tr('Sospeso', 'Suspended')}</span>}
+                    {clienteAperto?.richiestaNoteIl && <span className="rounded-md bg-accent px-2 py-0.5 text-xs font-bold text-accent-ink">{tr('Guarda le note', 'Check notes')}</span>}
                   </h2>
                   {clienteAperto && <p className="mt-1 truncate text-sm text-muted">{clienteAperto.email}</p>}
                 </div>
@@ -1320,6 +1351,21 @@ export default function TrainerDashboard() {
                   />
                 </div>
               </div>
+              {clienteAperto?.richiestaNoteIl && (
+                <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-accent-strong/50 bg-accent-soft p-4 sm:flex-row sm:items-center sm:justify-between" role="status" data-richiesta-cliente>
+                  <div className="min-w-0">
+                    <p className="font-bold">
+                      {tr('Ti chiede di guardare le sue note', 'Asks you to look at their notes')}{' '}
+                      <span className="text-sm font-normal text-muted">· {quandoBreve(clienteAperto.richiestaNoteIl)}</span>
+                    </p>
+                    {clienteAperto.richiestaNoteTesto && <p className="text-sm italic break-words text-soft">“{clienteAperto.richiestaNoteTesto}”</p>}
+                    <p className="mt-1 text-xs text-muted">{tr('Le note sono nei Progressi di ogni scheda e negli allenamenti completati.', 'Notes are in each programme’s Progress and in completed workouts.')}</p>
+                  </div>
+                  <button type="button" className="btn-primary min-h-11 shrink-0 px-4 text-sm" onClick={() => noteViste(clienteAperto.id)}>
+                    {tr('Fatto, le ho viste', 'Done, seen them')}
+                  </button>
+                </div>
+              )}
               <nav className="-mx-1 mt-5 flex gap-2 overflow-x-auto px-1 pb-1" aria-label={tr('Pagine del cliente', 'Client pages')}>
                 {PAGINE_CLIENTE.map((pg) => (
                   <button
@@ -1873,6 +1919,7 @@ export default function TrainerDashboard() {
                             <span className="flex items-center gap-2 font-semibold">
                               <span className="truncate">{c.nome}</span>
                               {c.sospeso && <span className="shrink-0 rounded-md bg-warning-soft px-2 py-0.5 text-xs font-bold text-warning">{tr('Sospeso', 'Suspended')}</span>}
+                              {c.richiestaNoteIl && <span className="shrink-0 rounded-md bg-accent px-2 py-0.5 text-xs font-bold text-accent-ink">{tr('Guarda le note', 'Check notes')}</span>}
                             </span>
                             {/* L'email distingue due clienti con lo stesso nome */}
                             <span className="block truncate text-xs text-muted">
